@@ -451,22 +451,22 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
             # Pas krachten toe
             for i, xi in enumerate(x):
                 if xi >= pos_support:
-                    V[i] = total_force
-                    M[i] = total_moment + total_force * (xi - pos_support)
+                    V[i] = -total_force  # Teken omgedraaid
+                    M[i] = -total_moment - total_force * (xi - pos_support)  # Teken omgedraaid
                 
                 # Belastingen
                 for pos, F, load_type, *rest in loads:
                     if load_type == "Puntlast":
                         if xi >= pos:
-                            V[i] -= F
-                            M[i] -= F * (xi - pos)
+                            V[i] += F  # Teken omgedraaid
+                            M[i] += F * (xi - pos)  # Teken omgedraaid
                     elif load_type == "Gelijkmatig verdeeld":
                         length = float(rest[0])
                         q = F / length
                         if xi > pos:
                             end = min(xi, pos + length)
-                            V[i] -= q * (end - pos)
-                            M[i] -= q * (end - pos) * (xi - (pos + end)/2)
+                            V[i] += q * (end - pos)  # Teken omgedraaid
+                            M[i] += q * (end - pos) * (xi - (pos + end)/2)  # Teken omgedraaid
     
     elif len(supports) == 2:
         # Voor twee steunpunten
@@ -487,8 +487,8 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
         
         # Los reactiekrachten op
         L = pos2 - pos1
-        R2 = moment_1 / L
-        R1 = total_force - R2
+        R2 = -moment_1 / L  # Teken omgedraaid
+        R1 = -total_force - R2  # Teken omgedraaid
         
         # Pas krachten toe
         for i, xi in enumerate(x):
@@ -503,15 +503,15 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
             for pos, F, load_type, *rest in loads:
                 if load_type == "Puntlast":
                     if xi >= pos:
-                        V[i] -= F
-                        M[i] -= F * (xi - pos)
+                        V[i] += F  # Teken omgedraaid
+                        M[i] += F * (xi - pos)  # Teken omgedraaid
                 elif load_type == "Gelijkmatig verdeeld":
                     length = float(rest[0])
                     q = F / length
                     if xi > pos:
                         end = min(xi, pos + length)
-                        V[i] -= q * (end - pos)
-                        M[i] -= q * (end - pos) * (xi - (pos + end)/2)
+                        V[i] += q * (end - pos)  # Teken omgedraaid
+                        M[i] += q * (end - pos) * (xi - (pos + end)/2)  # Teken omgedraaid
     
     elif len(supports) == 3:
         # Voor drie steunpunten
@@ -540,11 +540,11 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
         A = np.array([[1, 1, 1],
                      [L1, 0, -L2],
                      [0, 1, 1]])
-        b = np.array([total_force, moment_1, 0])
+        b = np.array([-total_force, -moment_1, 0])  # Teken omgedraaid
         try:
             R1, R2, R3 = np.linalg.solve(A, b)
         except np.linalg.LinAlgError:
-            R1 = R2 = R3 = total_force / 3
+            R1 = R2 = R3 = -total_force / 3  # Teken omgedraaid
         
         # Pas krachten toe
         for i, xi in enumerate(x):
@@ -562,15 +562,15 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
             for pos, F, load_type, *rest in loads:
                 if load_type == "Puntlast":
                     if xi >= pos:
-                        V[i] -= F
-                        M[i] -= F * (xi - pos)
+                        V[i] += F  # Teken omgedraaid
+                        M[i] += F * (xi - pos)  # Teken omgedraaid
                 elif load_type == "Gelijkmatig verdeeld":
                     length = float(rest[0])
                     q = F / length
                     if xi > pos:
                         end = min(xi, pos + length)
-                        V[i] -= q * (end - pos)
-                        M[i] -= q * (end - pos) * (xi - (pos + end)/2)
+                        V[i] += q * (end - pos)  # Teken omgedraaid
+                        M[i] += q * (end - pos) * (xi - (pos + end)/2)  # Teken omgedraaid
     
     # Bereken rotatie en doorbuiging
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
