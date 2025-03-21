@@ -432,146 +432,64 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     if len(supports) == 0:
         return x, M, rotation, deflection
         
-    if len(supports) == 1:
-        # Voor inklemming
-        pos_support, type_support = supports[0]
-        if type_support == "Inklemming":
-            # Bereken totale kracht en moment
-            total_force = 0
-            total_moment = 0
-            for pos, F, load_type, *rest in loads:
-                if load_type == "Puntlast":
-                    total_force += F
-                    total_moment += F * (pos - pos_support)
-                elif load_type == "Gelijkmatig verdeeld":
-                    length = float(rest[0])
-                    total_force += F
-                    total_moment += F * ((pos + length/2) - pos_support)
-            
-            # Pas krachten toe
-            for i, xi in enumerate(x):
-                if xi >= pos_support:
-                    V[i] = -total_force  # Teken omgedraaid
-                    M[i] = -total_moment - total_force * (xi - pos_support)  # Teken omgedraaid
-                
-                # Belastingen
-                for pos, F, load_type, *rest in loads:
-                    if load_type == "Puntlast":
-                        if xi >= pos:
-                            V[i] += F  # Teken omgedraaid
-                            M[i] += F * (xi - pos)  # Teken omgedraaid
-                    elif load_type == "Gelijkmatig verdeeld":
-                        length = float(rest[0])
-                        q = F / length
-                        if xi > pos:
-                            end = min(xi, pos + length)
-                            V[i] += q * (end - pos)  # Teken omgedraaid
-                            M[i] += q * (end - pos) * (xi - (pos + end)/2)  # Teken omgedraaid
-    
-    elif len(supports) == 2:
+    if len(supports) == 2:  # Focus eerst op 2 steunpunten als meest voorkomend geval
         # Voor twee steunpunten
         pos1, type1 = supports[0]
         pos2, type2 = supports[1]
-        
-        # Bereken reactiekrachten
-        total_force = 0
-        moment_1 = 0
-        for pos, F, load_type, *rest in loads:
-            if load_type == "Puntlast":
-                total_force += F
-                moment_1 += F * (pos - pos1)
-            elif load_type == "Gelijkmatig verdeeld":
-                length = float(rest[0])
-                total_force += F
-                moment_1 += F * ((pos + length/2) - pos1)
-        
-        # Los reactiekrachten op
         L = pos2 - pos1
-        R2 = -moment_1 / L  # Teken omgedraaid
-        R1 = -total_force - R2  # Teken omgedraaid
         
-        # Pas krachten toe
-        for i, xi in enumerate(x):
-            if xi >= pos1:
-                V[i] += R1
-                M[i] += R1 * (xi - pos1)
-            if xi >= pos2:
-                V[i] += R2
-                M[i] += R2 * (xi - pos2)
-            
-            # Belastingen
-            for pos, F, load_type, *rest in loads:
-                if load_type == "Puntlast":
-                    if xi >= pos:
-                        V[i] += F  # Teken omgedraaid
-                        M[i] += F * (xi - pos)  # Teken omgedraaid
-                elif load_type == "Gelijkmatig verdeeld":
-                    length = float(rest[0])
-                    q = F / length
-                    if xi > pos:
-                        end = min(xi, pos + length)
-                        V[i] += q * (end - pos)  # Teken omgedraaid
-                        M[i] += q * (end - pos) * (xi - (pos + end)/2)  # Teken omgedraaid
-    
-    elif len(supports) == 3:
-        # Voor drie steunpunten
-        pos1, type1 = supports[0]
-        pos2, type2 = supports[1]
-        pos3, type3 = supports[2]
-        
-        # Bereken totale kracht en momenten
-        total_force = 0
-        moment_1 = 0
-        moment_2 = 0
+        # Bereken reactiekrachten voor elke belasting
         for pos, F, load_type, *rest in loads:
             if load_type == "Puntlast":
-                total_force += F
-                moment_1 += F * (pos - pos1)
-                moment_2 += F * (pos - pos2)
+                # Bereken reactiekrachten voor puntlast
+                a = pos - pos1  # Afstand vanaf linker steunpunt
+                b = pos2 - pos  # Afstand tot rechter steunpunt
+                R1 = F * b / L  # Reactiekracht linker steunpunt
+                R2 = F * a / L  # Reactiekracht rechter steunpunt
+                
+                # Bereken moment en dwarskracht voor elk punt
+                for i, xi in enumerate(x):
+                    if pos1 <= xi <= pos2:  # Alleen tussen de steunpunten
+                        if xi <= pos:  # Links van de last
+                            V[i] += R1
+                            M[i] += R1 * (xi - pos1)
+                        else:  # Rechts van de last
+                            V[i] -= R2
+                            M[i] += R1 * (xi - pos1) - F * (xi - pos)
+                            
             elif load_type == "Gelijkmatig verdeeld":
                 length = float(rest[0])
-                total_force += F
-                moment_1 += F * ((pos + length/2) - pos1)
-                moment_2 += F * ((pos + length/2) - pos2)
-        
-        # Los reactiekrachten op
-        L1 = pos2 - pos1
-        L2 = pos3 - pos2
-        A = np.array([[1, 1, 1],
-                     [L1, 0, -L2],
-                     [0, 1, 1]])
-        b = np.array([-total_force, -moment_1, 0])  # Teken omgedraaid
-        try:
-            R1, R2, R3 = np.linalg.solve(A, b)
-        except np.linalg.LinAlgError:
-            R1 = R2 = R3 = -total_force / 3  # Teken omgedraaid
-        
-        # Pas krachten toe
-        for i, xi in enumerate(x):
-            if xi >= pos1:
-                V[i] += R1
-                M[i] += R1 * (xi - pos1)
-            if xi >= pos2:
-                V[i] += R2
-                M[i] += R2 * (xi - pos2)
-            if xi >= pos3:
-                V[i] += R3
-                M[i] += R3 * (xi - pos3)
-            
-            # Belastingen
-            for pos, F, load_type, *rest in loads:
-                if load_type == "Puntlast":
-                    if xi >= pos:
-                        V[i] += F  # Teken omgedraaid
-                        M[i] += F * (xi - pos)  # Teken omgedraaid
-                elif load_type == "Gelijkmatig verdeeld":
-                    length = float(rest[0])
-                    q = F / length
-                    if xi > pos:
-                        end = min(xi, pos + length)
-                        V[i] += q * (end - pos)  # Teken omgedraaid
-                        M[i] += q * (end - pos) * (xi - (pos + end)/2)  # Teken omgedraaid
-    
+                q = F / length
+                # Bereken reactiekrachten voor verdeelde belasting
+                start = pos
+                end = pos + length
+                if end > pos2:  # Begrens tot tweede steunpunt
+                    end = pos2
+                if start < pos1:  # Begin vanaf eerste steunpunt
+                    start = pos1
+                    
+                load_length = end - start
+                load_center = start + load_length/2
+                total_load = q * load_length
+                
+                a = load_center - pos1  # Afstand vanaf linker steunpunt tot zwaartepunt
+                R1 = total_load * (L - a) / L  # Reactiekracht linker steunpunt
+                R2 = total_load * a / L  # Reactiekracht rechter steunpunt
+                
+                # Bereken moment en dwarskracht voor elk punt
+                for i, xi in enumerate(x):
+                    if pos1 <= xi <= pos2:  # Alleen tussen de steunpunten
+                        if xi <= start:  # Voor de belasting
+                            V[i] += R1
+                            M[i] += R1 * (xi - pos1)
+                        elif xi >= end:  # Na de belasting
+                            V[i] -= R2
+                            M[i] += R1 * (xi - pos1) - total_load * (xi - load_center)
+                        else:  # Onder de belasting
+                            load_tot_hier = q * (xi - start)
+                            V[i] += R1 - load_tot_hier
+                            M[i] += R1 * (xi - pos1) - q * (xi - start) * (xi - start)/2
+
     # Bereken rotatie en doorbuiging
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     dx = beam_length / (n_points - 1)
@@ -580,24 +498,16 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Voorwaartse integratie voor rotatie
+    # Integreer het moment twee keer voor doorbuiging
     for i in range(1, n_points):
-        rotation[i] = rotation[i-1] + M[i-1] * dx / (E * I)
-    
-    # Voorwaartse integratie voor doorbuiging
-    for i in range(1, n_points):
-        deflection[i] = deflection[i-1] + rotation[i-1] * dx
+        if pos1 <= x[i] <= pos2:  # Alleen tussen de steunpunten
+            rotation[i] = rotation[i-1] + (M[i-1] * dx) / (E * I)
+            deflection[i] = deflection[i-1] + rotation[i-1] * dx
     
     # Pas randvoorwaarden toe
     for pos, support_type in supports:
         idx = np.abs(x - pos).argmin()
-        if support_type == "Inklemming":
-            # Bij inklemming is zowel rotatie als doorbuiging 0
-            rotation[idx:] -= rotation[idx]
-            deflection[idx:] -= deflection[idx]
-        else:  # Scharnier of rol
-            # Bij scharnier/rol is alleen doorbuiging 0
-            deflection[idx:] -= deflection[idx]
+        deflection[idx:] -= deflection[idx]  # Zet doorbuiging op 0 bij steunpunten
     
     return x, M, rotation, deflection
 
