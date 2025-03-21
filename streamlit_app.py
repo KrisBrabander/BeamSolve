@@ -8,6 +8,8 @@ if 'loads' not in st.session_state:
     st.session_state.loads = []
 if 'load_count' not in st.session_state:
     st.session_state.load_count = 0
+if 'supports' not in st.session_state:
+    st.session_state.supports = []
 
 # Page config
 st.set_page_config(
@@ -179,6 +181,7 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     
     # Bereken moment voor elke positie
     for i, xi in enumerate(x):
+        # Bereken momenten van belastingen
         for pos, F, load_type, *rest in loads:
             if load_type == "Puntlast":
                 if xi >= pos:
@@ -190,14 +193,27 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
                 end = min(beam_length, pos + length)
                 if start < end:
                     M[i] += 0.5 * q * (end - start) * (end + start - 2*xi)
+        
+        # Pas randvoorwaarden toe op basis van ondersteuningen
+        for pos, support_type in supports:
+            if support_type == "Inklemming" and xi >= pos:
+                # Inklemming: Moment = 0 op positie, rotatie = 0
+                M[i] = 0
+                rotation[i] = 0
+            elif support_type in ["Scharnier", "Rol"] and abs(xi - pos) < 1e-6:
+                # Scharnier/Rol: Doorbuiging = 0 op positie
+                deflection[i] = 0
     
     # Bereken rotatie en doorbuiging
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     dx = beam_length / (n_points - 1)
     
+    # Voorwaartse integratie voor rotatie en doorbuiging
     for i in range(1, n_points):
-        rotation[i] = rotation[i-1] + M[i-1] * dx / (E * I)
-        deflection[i] = deflection[i-1] + rotation[i-1] * dx
+        if not any(abs(x[i] - pos) < 1e-6 and type == "Inklemming" for pos, type in supports):
+            rotation[i] = rotation[i-1] + M[i-1] * dx / (E * I)
+        if not any(abs(x[i] - pos) < 1e-6 and type in ["Scharnier", "Rol"] for pos, type in supports):
+            deflection[i] = deflection[i-1] + rotation[i-1] * dx
     
     return x, M, rotation, deflection
 
@@ -270,13 +286,68 @@ with sidebar:
         help="Totale lengte van de balk in millimeters"
     )
 
+    # Ondersteuningen interface
+    support_count = st.selectbox(
+        "Aantal steunpunten",
+        [1, 2],
+        help="Selecteer het aantal steunpunten"
+    )
+
+    supports = []
+    if support_count == 1:
+        support_type = st.selectbox(
+            "Type ondersteuning",
+            ["Inklemming"],
+            help="Type ondersteuning"
+        )
+        pos = st.slider(
+            "Positie inklemming",
+            min_value=0,
+            max_value=beam_length,
+            value=0,
+            help="Positie van de inklemming vanaf links"
+        )
+        supports.append((pos, support_type))
+    else:
+        for i in range(support_count):
+            col1, col2 = st.columns(2)
+            with col1:
+                support_type = st.selectbox(
+                    f"Type steunpunt {i+1}",
+                    ["Scharnier", "Rol"],
+                    help=f"Type ondersteuning voor steunpunt {i+1}",
+                    key=f"support_type_{i}"
+                )
+            with col2:
+                if i == 0:
+                    pos = st.number_input(
+                        f"Positie steunpunt {i+1}",
+                        min_value=0,
+                        max_value=beam_length//2,
+                        value=0,
+                        help=f"Positie van steunpunt {i+1} vanaf links",
+                        key=f"support_pos_{i}"
+                    )
+                else:
+                    pos = st.number_input(
+                        f"Positie steunpunt {i+1}",
+                        min_value=beam_length//2,
+                        max_value=beam_length,
+                        value=beam_length,
+                        help=f"Positie van steunpunt {i+1} vanaf links",
+                        key=f"support_pos_{i}"
+                    )
+            supports.append((pos, support_type))
+    
+    st.session_state.supports = supports
+
     st.markdown("""
         <div style='background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 1rem 0; border: 1px solid #e0e0e0;'>
             <h3 style='color: #1f77b4; margin: 0 0 0.5rem 0; font-size: 1.1rem;'>Materiaal</h3>
             <div style='height: 2px; background: linear-gradient(90deg, #1f77b4 0%, #4fa1d8 100%); margin-bottom: 1rem;'></div>
         </div>
     """, unsafe_allow_html=True)
-    
+
     E = st.number_input(
         "E-modulus (N/mm²)",
         min_value=1000,
@@ -355,7 +426,7 @@ with main:
         if len(st.session_state.loads) > 0:
             # Voer analyse uit
             x, M, rotation, deflection = analyze_beam(
-                beam_length, [], st.session_state.loads,
+                beam_length, st.session_state.supports, st.session_state.loads,
                 profile_type, height, width, wall_thickness, flange_thickness, E
             )
             
