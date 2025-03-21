@@ -394,29 +394,42 @@ with main:
         
         # Plot resultaten
         fig = plt.figure(figsize=(15, 10))
+        fig.patch.set_facecolor('#1e1e1e')
         gs = gridspec.GridSpec(3, 3, height_ratios=[2, 1, 1])
         
         # Doorbuigingsplot
         ax_defl = fig.add_subplot(gs[0, :])
+        ax_defl.set_facecolor('#1e1e1e')
         ax_defl.plot(x, deflection, '-', color='#00b4d8', linewidth=2, label='Doorbuiging')
-        ax_defl.grid(True, linestyle='--', alpha=0.2)
-        ax_defl.set_xlabel('Positie (mm)')
-        ax_defl.set_ylabel('Doorbuiging (mm)')
-        ax_defl.set_title('Doorbuiging')
+        ax_defl.grid(True, linestyle='--', alpha=0.2, color='#666666')
+        ax_defl.set_xlabel('Positie (mm)', color='#e0e0e0')
+        ax_defl.set_ylabel('Doorbuiging (mm)', color='#e0e0e0')
+        ax_defl.set_title('Doorbuiging', color='#00b4d8', pad=20)
+        ax_defl.tick_params(colors='#666666')
+        for spine in ax_defl.spines.values():
+            spine.set_color('#666666')
         
         # Momentenplot
         ax_moment = fig.add_subplot(gs[1, :])
+        ax_moment.set_facecolor('#1e1e1e')
         ax_moment.plot(x, M, '-', color='#0077be', linewidth=2, label='Moment')
-        ax_moment.grid(True, linestyle='--', alpha=0.2)
-        ax_moment.set_xlabel('Positie (mm)')
-        ax_moment.set_ylabel('Moment (Nmm)')
+        ax_moment.grid(True, linestyle='--', alpha=0.2, color='#666666')
+        ax_moment.set_xlabel('Positie (mm)', color='#e0e0e0')
+        ax_moment.set_ylabel('Moment (Nmm)', color='#e0e0e0')
+        ax_moment.tick_params(colors='#666666')
+        for spine in ax_moment.spines.values():
+            spine.set_color('#666666')
         
         # Rotatieplot
         ax_rot = fig.add_subplot(gs[2, :])
+        ax_rot.set_facecolor('#1e1e1e')
         ax_rot.plot(x, rotation, '-', color='#00b4d8', linewidth=2, label='Rotatie')
-        ax_rot.grid(True, linestyle='--', alpha=0.2)
-        ax_rot.set_xlabel('Positie (mm)')
-        ax_rot.set_ylabel('Rotatie (rad)')
+        ax_rot.grid(True, linestyle='--', alpha=0.2, color='#666666')
+        ax_rot.set_xlabel('Positie (mm)', color='#e0e0e0')
+        ax_rot.set_ylabel('Rotatie (rad)', color='#e0e0e0')
+        ax_rot.tick_params(colors='#666666')
+        for spine in ax_rot.spines.values():
+            spine.set_color('#666666')
         
         plt.tight_layout()
         st.pyplot(fig)
