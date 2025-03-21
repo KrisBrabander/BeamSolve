@@ -217,6 +217,160 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     
     return x, M, rotation, deflection
 
+def plot_beam_diagram(beam_length, supports, loads):
+    """Plot een schematische weergave van de balk met steunpunten en belastingen"""
+    fig = go.Figure()
+    
+    # Teken de balk
+    fig.add_trace(go.Scatter(
+        x=[0, beam_length],
+        y=[0, 0],
+        mode='lines',
+        name='Balk',
+        line=dict(color='#2c3e50', width=4),
+        hoverinfo='skip'
+    ))
+    
+    # Teken steunpunten
+    for pos, support_type in supports:
+        if support_type == "Inklemming":
+            # Teken rechthoek voor inklemming
+            fig.add_trace(go.Scatter(
+                x=[pos-20, pos-20, pos+20, pos+20],
+                y=[-40, 40, 40, -40],
+                fill="toself",
+                mode='lines',
+                name='Inklemming',
+                line=dict(color='#2ecc71'),
+                hovertemplate=f"Inklemming<br>x = {pos} mm"
+            ))
+        elif support_type == "Scharnier":
+            # Teken driehoek voor scharnier
+            fig.add_trace(go.Scatter(
+                x=[pos-20, pos, pos+20],
+                y=[-40, 0, -40],
+                fill="toself",
+                mode='lines',
+                name='Scharnier',
+                line=dict(color='#3498db'),
+                hovertemplate=f"Scharnier<br>x = {pos} mm"
+            ))
+        else:  # Rol
+            # Teken cirkel met driehoek voor rol
+            fig.add_trace(go.Scatter(
+                x=[pos-20, pos, pos+20],
+                y=[-40, 0, -40],
+                fill="toself",
+                mode='lines',
+                name='Rol',
+                line=dict(color='#e74c3c'),
+                hovertemplate=f"Rol<br>x = {pos} mm"
+            ))
+            # Teken cirkels voor rol
+            theta = np.linspace(0, 2*np.pi, 50)
+            r = 5
+            x = r * np.cos(theta) + pos
+            y = r * np.sin(theta) - 45
+            fig.add_trace(go.Scatter(
+                x=x, y=y,
+                mode='lines',
+                name='Rol',
+                line=dict(color='#e74c3c'),
+                hoverinfo='skip',
+                showlegend=False
+            ))
+    
+    # Teken belastingen
+    for pos, F, load_type, *rest in loads:
+        if load_type == "Puntlast":
+            # Teken pijl voor puntlast
+            arrow_length = 60 if F > 0 else -60
+            fig.add_trace(go.Scatter(
+                x=[pos, pos],
+                y=[0, arrow_length],
+                mode='lines+markers',
+                name=f'Puntlast {F}N',
+                line=dict(color='#e67e22', width=2),
+                marker=dict(symbol='arrow-down' if F > 0 else 'arrow-up', size=15),
+                hovertemplate=f"Puntlast<br>F = {F} N<br>x = {pos} mm"
+            ))
+        elif load_type == "Gelijkmatig verdeeld":
+            # Teken meerdere pijlen voor verdeelde belasting
+            length = float(rest[0])
+            q = F / length
+            n_arrows = min(int(length/50), 10)  # Maximaal 10 pijlen
+            dx = length / n_arrows
+            arrow_length = 40 if F > 0 else -40
+            for i in range(n_arrows + 1):
+                x_pos = pos + i * dx
+                if x_pos <= beam_length:
+                    fig.add_trace(go.Scatter(
+                        x=[x_pos, x_pos],
+                        y=[0, arrow_length],
+                        mode='lines+markers',
+                        name=f'q = {q:.1f} N/mm',
+                        line=dict(color='#9b59b6', width=1),
+                        marker=dict(symbol='arrow-down' if F > 0 else 'arrow-up', size=10),
+                        hovertemplate=f"Verdeelde last<br>q = {q:.1f} N/mm<br>x = {x_pos:.0f} mm",
+                        showlegend=i==0
+                    ))
+            
+            # Teken lijn boven de pijlen
+            fig.add_trace(go.Scatter(
+                x=[pos, pos + length],
+                y=[arrow_length, arrow_length],
+                mode='lines',
+                line=dict(color='#9b59b6', width=2),
+                hoverinfo='skip',
+                showlegend=False
+            ))
+    
+    # Update layout
+    fig.update_layout(
+        showlegend=True,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor='rgba(255,255,255,0.8)'
+        ),
+        margin=dict(l=20, r=20, t=50, b=20),
+        height=300,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        title=dict(
+            text="Balkschema",
+            x=0.5,
+            y=0.95,
+            xanchor='center',
+            yanchor='top',
+            font=dict(size=16, color='#2c3e50')
+        ),
+        xaxis=dict(
+            title="Positie (mm)",
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(0,0,0,0.1)',
+            zeroline=True,
+            zerolinewidth=1,
+            zerolinecolor='#2c3e50',
+            showline=True,
+            linewidth=1,
+            linecolor='#2c3e50',
+            mirror=True
+        ),
+        yaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            showticklabels=False,
+            range=[-100, 100]
+        )
+    )
+    
+    return fig
+
 # Sidebar content
 with sidebar:
     st.markdown("""
@@ -289,7 +443,7 @@ with sidebar:
     # Ondersteuningen interface
     support_count = st.selectbox(
         "Aantal steunpunten",
-        [1, 2],
+        [1, 2, 3],
         help="Selecteer het aantal steunpunten"
     )
 
@@ -319,21 +473,30 @@ with sidebar:
                     key=f"support_type_{i}"
                 )
             with col2:
-                if i == 0:
+                if i == 0:  # Eerste steunpunt
                     pos = st.number_input(
                         f"Positie steunpunt {i+1}",
                         min_value=0,
-                        max_value=beam_length//2,
+                        max_value=beam_length//3,
                         value=0,
                         help=f"Positie van steunpunt {i+1} vanaf links",
                         key=f"support_pos_{i}"
                     )
-                else:
+                elif i == support_count - 1:  # Laatste steunpunt
                     pos = st.number_input(
                         f"Positie steunpunt {i+1}",
-                        min_value=beam_length//2,
+                        min_value=2*beam_length//3,
                         max_value=beam_length,
                         value=beam_length,
+                        help=f"Positie van steunpunt {i+1} vanaf links",
+                        key=f"support_pos_{i}"
+                    )
+                else:  # Middelste steunpunt (alleen bij 3 steunpunten)
+                    pos = st.number_input(
+                        f"Positie steunpunt {i+1}",
+                        min_value=beam_length//3,
+                        max_value=2*beam_length//3,
+                        value=beam_length//2,
                         help=f"Positie van steunpunt {i+1} vanaf links",
                         key=f"support_pos_{i}"
                     )
@@ -417,6 +580,12 @@ with sidebar:
         if st.button("Reset", help="Verwijder alle belastingen"):
             st.session_state.loads = []
             st.session_state.load_count = 0
+
+    # Toon balkschema
+    beam_diagram = plot_beam_diagram(beam_length, supports, st.session_state.loads)
+    st.plotly_chart(beam_diagram, use_container_width=True, config={
+        'displayModeBar': False
+    })
 
 # Main content
 with main:
