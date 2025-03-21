@@ -4,6 +4,31 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.patches import FancyArrowPatch
 
+# Initialiseer session state
+if 'load_count' not in st.session_state:
+    st.session_state.load_count = 0
+if 'loads' not in st.session_state:
+    st.session_state.loads = []
+
+# Pagina configuratie
+st.set_page_config(
+    page_title="Buigingsberekeningen Pro",
+    layout="wide",
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/yourusername/buigingsberekeningen',
+        'Report a bug': 'https://github.com/yourusername/buigingsberekeningen/issues',
+        'About': '''
+        # Buigingsberekeningen Pro
+        
+        Professionele software voor balkdoorbuigingsberekeningen.
+        Versie 1.0.0
+        
+        © 2025 Alle rechten voorbehouden.
+        '''
+    }
+)
+
 # Functies voor berekeningen
 def calculate_I(profile_type, h, b, t, tf=None):
     """Bereken traagheidsmoment (mm⁴)"""
@@ -86,14 +111,7 @@ def calculate_beam_response(x, L, E, I, supports, loads):
     
     return y
 
-# Pagina configuratie
-st.set_page_config(
-    page_title="Buigingsberekeningen Pro",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
-
-# Basis styling
+# Styling
 st.markdown("""
     <style>
     .main {
@@ -107,7 +125,7 @@ st.markdown("""
         color: #1e3d59;
         font-family: 'Segoe UI', sans-serif;
         padding: 1rem 0;
-        border-bottom: 2px solid #e0e0e0;
+        border-bottom: 2px solid #eaecef;
         margin-bottom: 2rem;
     }
     .subtitle {
@@ -115,8 +133,49 @@ st.markdown("""
         font-size: 1.2rem;
         margin-bottom: 2rem;
     }
+    .stButton > button {
+        background-color: #1e88e5;
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-weight: 500;
+        transition: all 0.2s;
+    }
+    .stButton > button:hover {
+        background-color: #1565c0;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .stButton > button:active {
+        transform: translateY(1px);
+    }
+    [data-testid="stMetricValue"] {
+        font-size: 1.5rem !important;
+        color: #1e3d59 !important;
+    }
+    [data-testid="stMetricDelta"] {
+        color: #2196f3 !important;
+    }
     </style>
-    """, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
+
+# Basis styling
+st.markdown("""
+    <style>
+    .sidebar-section {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border: 1px solid #eaecef;
+    }
+    .sidebar-section h4 {
+        color: #1e3d59;
+        font-size: 1rem;
+        margin-bottom: 1rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Header
 col1, col2 = st.columns([3, 1])
@@ -145,18 +204,6 @@ st.markdown("""
         margin-bottom: 1.5rem;
         padding-bottom: 0.5rem;
         border-bottom: 2px solid #eaecef;
-    }
-    .sidebar-section {
-        background-color: #f8f9fa;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1rem;
-        border: 1px solid #eaecef;
-    }
-    .sidebar-section h4 {
-        color: #1e3d59;
-        font-size: 1rem;
-        margin-bottom: 1rem;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -289,7 +336,7 @@ with col1:
     x = np.linspace(0, beam_length, 300)  # Meer punten voor vloeiendere curve
     y = np.zeros_like(x)
     for i, xi in enumerate(x):
-        y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, [])
+        y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, st.session_state.loads)
     
     # Schaal doorbuiging
     scale = 1.0
@@ -331,27 +378,7 @@ with col1:
     
     # Plot belastingen met verbeterde stijl
     arrow_height = beam_length * 0.05
-    loads = []
-    for i in range(st.session_state.load_count):
-        with st.expander(f"📌 Belasting {i+1}", expanded=True):
-            col1, col2 = st.columns(2)
-            with col1:
-                load_type = st.selectbox("Type", ["Puntlast", "Gelijkmatig verdeeld"],
-                                       key=f"load_type_{i}")
-            with col2:
-                force = st.number_input("Waarde (N)", value=1000.0, key=f"force_{i}")
-            
-            pos = st.number_input("Positie (mm)", 0.0, beam_length,
-                                value=beam_length/2, key=f"load_pos_{i}")
-            
-            if load_type == "Gelijkmatig verdeeld":
-                length = st.number_input("Lengte (mm)", 0.0, beam_length-pos,
-                                       value=100.0, key=f"load_length_{i}")
-                loads.append((pos, force, load_type, length))
-            else:
-                loads.append((pos, force, load_type))
-    
-    for load in loads:
+    for load in st.session_state.loads:
         pos = load[0]
         F = load[1]
         load_type = load[2]
@@ -439,16 +466,15 @@ with col2:
             if 'load_count' not in st.session_state:
                 st.session_state.load_count = 0
             st.session_state.load_count += 1
+            st.session_state.loads.append((0, 1000, "Puntlast"))
     with col2:
         if st.button("🗑️ Wis alles", 
                     help="Verwijder alle belastingen",
                     use_container_width=True):
             st.session_state.load_count = 0
+            st.session_state.loads = []
     
     # Toon bestaande belastingen
-    if 'load_count' not in st.session_state:
-        st.session_state.load_count = 0
-    
     if st.session_state.load_count == 0:
         st.markdown("""
             <div style='text-align: center; padding: 2rem; color: #666;'>
@@ -457,7 +483,6 @@ with col2:
             </div>
         """, unsafe_allow_html=True)
     
-    loads = []
     for i in range(st.session_state.load_count):
         with st.expander(f"📌 Belasting {i+1}", expanded=True):
             # Container voor belasting
@@ -477,7 +502,7 @@ with col2:
             with col2:
                 force = st.number_input(
                     "Waarde (N)",
-                    value=1000.0,
+                    value=st.session_state.loads[i][1],
                     step=100.0,
                     key=f"force_{i}",
                     help="Positieve waarde voor neerwaartse kracht, negatieve voor opwaartse kracht"
@@ -486,7 +511,7 @@ with col2:
             # Positie
             pos = st.slider(
                 "Positie (mm)",
-                0.0, beam_length, beam_length/2,
+                0.0, beam_length, st.session_state.loads[i][0],
                 key=f"load_pos_{i}",
                 help="Positie van de belasting vanaf het linkeruiteinde"
             )
@@ -499,16 +524,16 @@ with col2:
                     key=f"load_length_{i}",
                     help="Lengte waarover de belasting verdeeld is"
                 )
-                loads.append((pos, force, load_type, length))
+                st.session_state.loads[i] = (pos, force, load_type, length)
             else:
-                loads.append((pos, force, load_type))
+                st.session_state.loads[i] = (pos, force, load_type)
             
             st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
     
     # Resultaten sectie
-    if len(loads) > 0:
+    if len(st.session_state.loads) > 0:
         st.markdown("""
             <div style='background-color: white; padding: 1.5rem; border-radius: 8px; border: 1px solid #eaecef; margin-top: 1rem;'>
                 <h3 style='color: #1e3d59; margin-bottom: 1rem;'>📊 Resultaten</h3>
@@ -524,7 +549,7 @@ with col2:
         x = np.linspace(0, beam_length, 200)
         y = np.zeros_like(x)
         for i, xi in enumerate(x):
-            y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, loads)
+            y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, st.session_state.loads)
         
         max_defl = np.max(np.abs(y))
         max_pos = x[np.argmax(np.abs(y))]
