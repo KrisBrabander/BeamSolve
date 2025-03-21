@@ -253,9 +253,11 @@ def find_initial_rotation(M, EI, dx, support_indices, init_rot=0.0, delta_rot=0.
     Vind de juiste initiële rotatie door iteratief te zoeken
     """
     def calc_error(rot):
+        # Als er maar 1 steunpunt is (inklemming), gebruik het einde van de balk
+        end_idx = support_indices[1] if len(support_indices) > 1 else len(M)-1
         _, defl = calc_deflection(M, EI, dx, rot, 0.0, 
-                                support_indices[0], support_indices[1])
-        return defl[support_indices[1]]
+                                support_indices[0], end_idx)
+        return defl[end_idx]
     
     # Test initiële richting
     err_0 = calc_error(init_rot)
@@ -335,8 +337,9 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width,
     init_rotation = find_initial_rotation(M, EI, dx, support_indices)
     
     # Bereken doorbuiging voor hoofddeel
+    end_idx = support_indices[1] if len(support_indices) > 1 else len(x)-1
     rotation, deflection = calc_deflection(M, EI, dx, init_rotation, 0.0,
-                                         support_indices[0], len(x)-1)
+                                         support_indices[0], end_idx)
     
     # Bereken doorbuiging voor eventuele linker uitkraging
     if support_indices[0] > 0:
@@ -344,6 +347,13 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width,
                                             support_indices[0], 0, reverse=True)
         rotation[:support_indices[0]] = left_rot[:support_indices[0]]
         deflection[:support_indices[0]] = left_defl[:support_indices[0]]
+    
+    # Bereken doorbuiging voor eventuele rechter uitkraging
+    if len(support_indices) > 1 and support_indices[1] < len(x)-1:
+        right_rot, right_defl = calc_deflection(M, EI, dx, rotation[support_indices[1]], 0.0,
+                                              support_indices[1], len(x)-1)
+        rotation[support_indices[1]:] = right_rot[support_indices[1]:]
+        deflection[support_indices[1]:] = right_defl[support_indices[1]:]
     
     return x, M, rotation, deflection
 
@@ -539,48 +549,52 @@ with tab2:
             <div style='background-color: #2d2d2d; padding: 1rem; border-radius: 8px; border: 1px solid #404040;'>
         """, unsafe_allow_html=True)
         
-        # Bereken doorbuiging
-        x = np.linspace(0, beam_length, 200)
-        y = np.zeros_like(x)
-        for i in range(len(st.session_state.loads)):
-            pos, F, load_type, *rest = st.session_state.loads[i]
-            if load_type == "Puntlast":
-                for j, xi in enumerate(x):
-                    if xi <= pos:
-                        y[j] += 0
-                    else:
-                        y[j] += -F * (xi - pos)**2 * (3*pos - beam_length - 2*xi) / (6 * E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
-            elif load_type == "Gelijkmatig verdeeld":
-                length = float(rest[0])
-                q = F / length
-                for j, xi in enumerate(x):
-                    start = max(pos, xi)
-                    end = min(beam_length, pos + length)
-                    if start < end:
-                        if xi <= start:
-                            y[j] += 0
-                        elif xi <= end:
-                            y[j] += -q * ((xi - start)**4 / 24 - (xi - pos)**2 * (xi - start)**2 / 4) / (E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
-                        else:
-                            y[j] += -q * (end - start) * ((xi - pos)**2 * (3*xi - beam_length - 2*end) / 6) / (E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
+        def calculate_deflection():
+            if st.session_state.loads:
+                # Bereken doorbuiging
+                x = np.linspace(0, beam_length, 200)
+                y = np.zeros_like(x)
+                for load in st.session_state.loads:
+                    pos, F, load_type, *rest = load
+                    if load_type == "Puntlast":
+                        for j, xi in enumerate(x):
+                            if xi <= pos:
+                                y[j] += 0
+                            else:
+                                y[j] += -F * (xi - pos)**2 * (3*pos - beam_length - 2*xi) / (6 * E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
+                    elif load_type == "Gelijkmatig verdeeld":
+                        length = float(rest[0])
+                        q = F / length
+                        for j, xi in enumerate(x):
+                            start = max(pos, xi)
+                            end = min(beam_length, pos + length)
+                            if start < end:
+                                if xi <= start:
+                                    y[j] += 0
+                                elif xi <= end:
+                                    y[j] += -q * ((xi - start)**4 / 24 - (xi - pos)**2 * (xi - start)**2 / 4) / (E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
+                                else:
+                                    y[j] += -q * (end - start) * ((xi - pos)**2 * (3*xi - beam_length - 2*end) / 6) / (E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
+
+                max_defl = np.max(np.abs(y))
+                max_pos = x[np.argmax(np.abs(y))]
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric(
+                        "Maximale doorbuiging",
+                        f"{max_defl:.2f} mm",
+                        f"{max_defl/beam_length*100:.2f}% van lengte",
+                        help="De grootste vervorming van de balk"
+                    )
+                with col2:
+                    st.metric(
+                        "Positie max. doorbuiging",
+                        f"{max_pos:.0f} mm",
+                        f"{max_pos/beam_length*100:.1f}% van lengte",
+                        help="Positie waar de maximale doorbuiging optreedt"
+                    )
         
-        max_defl = np.max(np.abs(y))
-        max_pos = x[np.argmax(np.abs(y))]
-        
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric(
-                "Maximale doorbuiging",
-                f"{max_defl:.2f} mm",
-                f"{max_defl/beam_length*100:.2f}% van lengte",
-                help="De grootste vervorming van de balk"
-            )
-        with col2:
-            st.metric(
-                "Positie max. doorbuiging",
-                f"{max_pos:.0f} mm",
-                f"{max_pos/beam_length*100:.1f}% van lengte",
-                help="Positie waar de maximale doorbuiging optreedt"
-            )
+        calculate_deflection()
         
         st.markdown("</div>", unsafe_allow_html=True)
