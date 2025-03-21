@@ -1,6 +1,8 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.patches import FancyArrowPatch
 
 # Functies voor berekeningen
 def calculate_I(profile_type, h, b, t, tf=None):
@@ -85,46 +87,99 @@ def calculate_beam_response(x, L, E, I, supports, loads):
     return y
 
 # Pagina configuratie
-st.set_page_config(page_title="Buigingsberekeningen", layout="wide")
-st.title("Buigingsberekeningen")
+st.set_page_config(
+    page_title="Buigingsberekeningen Pro",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Sidebar voor invoer
+# Custom CSS voor een professionele look
+st.markdown("""
+    <style>
+    .main {
+        background-color: #f8f9fa;
+    }
+    .stButton>button {
+        background-color: #007bff;
+        color: white;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+    }
+    .stButton>button:hover {
+        background-color: #0056b3;
+    }
+    .stTextInput>div>div>input {
+        background-color: white;
+    }
+    h1 {
+        color: #2c3e50;
+        font-family: 'Segoe UI', sans-serif;
+        font-weight: 600;
+    }
+    .stMarkdown {
+        font-family: 'Segoe UI', sans-serif;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# Header met professionele styling
+col1, col2 = st.columns([2, 1])
+with col1:
+    st.title("Buigingsberekeningen Pro")
+    st.markdown("*Professionele balkdoorbuigingsanalyse*")
+with col2:
+    st.markdown("""
+        <div style='background-color: #e3f2fd; padding: 1rem; border-radius: 4px; margin-top: 2rem;'>
+            <h4 style='color: #1976d2; margin: 0;'>Professional Edition</h4>
+            <p style='margin: 0.5rem 0 0 0; color: #424242;'>v1.0.0</p>
+        </div>
+    """, unsafe_allow_html=True)
+
+# Sidebar met professionele styling
 with st.sidebar:
-    st.header("Profielgegevens")
+    st.markdown("""
+        <div style='background-color: #2c3e50; padding: 1rem; margin: -1rem -1rem 1rem -1rem; color: white;'>
+            <h3 style='margin: 0;'>Configuratie</h3>
+        </div>
+    """, unsafe_allow_html=True)
     
-    # Profieltype
+    # Profielgegevens
+    st.subheader("🔧 Profielgegevens")
     profile_type = st.selectbox(
         "Profieltype",
-        ["Koker", "I-profiel", "U-profiel"]
+        ["Koker", "I-profiel", "U-profiel"],
+        help="Selecteer het type profiel voor de berekening"
     )
     
-    # Basis afmetingen
-    height = st.number_input("Hoogte (mm)", min_value=1.0, value=100.0)
-    width = st.number_input("Breedte (mm)", min_value=1.0, value=50.0)
-    wall_thickness = st.number_input("Wanddikte (mm)", min_value=0.1, value=5.0)
+    with st.expander("📏 Afmetingen", expanded=True):
+        height = st.number_input("Hoogte (mm)", min_value=1.0, value=100.0)
+        width = st.number_input("Breedte (mm)", min_value=1.0, value=50.0)
+        wall_thickness = st.number_input("Wanddikte (mm)", min_value=0.1, value=5.0)
+        
+        if profile_type in ["I-profiel", "U-profiel"]:
+            flange_thickness = st.number_input("Flensdikte (mm)", min_value=0.1, value=5.0)
+        else:
+            flange_thickness = None
     
-    # Flensdikte voor I- en U-profielen
-    flange_thickness = None
-    if profile_type in ["I-profiel", "U-profiel"]:
-        flange_thickness = st.number_input("Flensdikte (mm)", min_value=0.1, value=5.0)
+    with st.expander("🔨 Materiaal", expanded=True):
+        E = st.number_input("E-modulus (N/mm²)", min_value=1.0, value=210000.0,
+                          help="Elasticiteitsmodulus van het materiaal")
     
-    # E-modulus
-    E = st.number_input("E-modulus (N/mm²)", min_value=1.0, value=210000.0)
-    
-    st.header("Overspanning")
+    # Overspanning
+    st.subheader("📏 Overspanning")
     beam_length = st.number_input("Lengte (mm)", min_value=1.0, value=1000.0)
     
-    # Aantal steunpunten
+    # Steunpunten
     support_count = st.selectbox("Aantal steunpunten", [1, 2, 3])
     
-    # Steunpunten configuratie
     supports = []
     if support_count == 1:
-        st.subheader("Steunpunt (inklemming)")
+        st.markdown("##### 🔒 Inklemming")
         pos = st.number_input("Positie inklemming (mm)", 0.0, beam_length, 0.0)
         supports.append((pos, "Inklemming"))
     else:
-        st.subheader("Steunpunten")
+        st.markdown("##### 🔗 Steunpunten")
         for i in range(support_count):
             col1, col2 = st.columns(2)
             with col1:
@@ -135,139 +190,132 @@ with st.sidebar:
                 type = st.selectbox("Type", ["Scharnier", "Rol"], key=f"type_{i}")
             supports.append((pos, type))
 
-    # Belastingen sectie
-    st.header("Belastingen")
-    if st.button("Voeg belasting toe"):
+# Hoofdgedeelte
+col1, col2 = st.columns([7, 3])
+
+with col1:
+    st.markdown("### 📊 Visualisatie")
+    
+    # Maak een mooiere plot
+    fig, ax = plt.subplots(figsize=(12, 6))
+    fig.patch.set_facecolor('#f8f9fa')
+    ax.set_facecolor('#ffffff')
+    
+    # Grid styling
+    ax.grid(True, linestyle='--', alpha=0.7, color='#dcdcdc')
+    
+    # Plot onvervormde balk met mooiere stijl
+    ax.plot([0, beam_length], [0, 0], 'k--', alpha=0.3, linewidth=1.5)
+    
+    # Bereken doorbuiging
+    x = np.linspace(0, beam_length, 200)  # Meer punten voor vloeiendere curve
+    y = np.zeros_like(x)
+    for i, xi in enumerate(x):
+        y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, [])  # Negeer de y voor correcte richting
+    
+    # Schaal doorbuiging
+    scale = 1.0
+    if np.any(y != 0):
+        max_defl = np.max(np.abs(y))
+        if max_defl > 0:
+            desired_height = beam_length / 10
+            scale = desired_height / max_defl
+    
+    # Plot vervormde balk met mooiere stijl
+    ax.plot(x, y * scale, color='#2196f3', linewidth=2.5, label='Vervormde balk')
+    
+    # Teken steunpunten met verbeterde stijl
+    for pos, type in supports:
+        if type == "Scharnier":
+            triangle_height = beam_length * 0.02
+            ax.plot([pos, pos - triangle_height, pos + triangle_height, pos],
+                    [0, -triangle_height, -triangle_height, 0],
+                    color='#424242', linewidth=2)
+        elif type == "Rol":
+            circle = plt.Circle((pos, -beam_length * 0.02), beam_length * 0.01,
+                              fill=False, color='#424242', linewidth=2)
+            ax.add_artist(circle)
+            triangle_height = beam_length * 0.02
+            ax.plot([pos, pos - triangle_height, pos + triangle_height, pos],
+                    [0, -triangle_height, -triangle_height, 0],
+                    color='#424242', linewidth=2)
+        else:  # Inklemming
+            rect_height = beam_length * 0.04
+            rect_width = beam_length * 0.01
+            rect = patches.Rectangle((pos, -rect_height/2), rect_width, rect_height,
+                                  color='#424242', alpha=0.8)
+            ax.add_patch(rect)
+    
+    # Plot instellingen
+    ax.set_xlabel("Lengte (mm)", fontsize=10, color='#424242')
+    ax.set_ylabel("Doorbuiging (mm)", fontsize=10, color='#424242')
+    ax.set_xlim(-beam_length*0.1, beam_length*1.1)
+    ax.set_ylim(-beam_length*0.15, beam_length*0.15)
+    ax.set_aspect('equal', adjustable='box')
+    
+    # Toon plot
+    st.pyplot(fig)
+
+with col2:
+    st.markdown("### 🎯 Belastingen")
+    
+    # Belastingen sectie met verbeterde styling
+    st.markdown("""
+        <div style='background-color: #fff; padding: 1rem; border-radius: 4px; border: 1px solid #e0e0e0;'>
+    """, unsafe_allow_html=True)
+    
+    if st.button("➕ Voeg belasting toe", key="add_load"):
         if 'load_count' not in st.session_state:
             st.session_state.load_count = 0
         st.session_state.load_count += 1
-
+    
     # Toon bestaande belastingen
     if 'load_count' not in st.session_state:
         st.session_state.load_count = 0
-        
+    
     loads = []
     for i in range(st.session_state.load_count):
-        st.subheader(f"Belasting {i+1}")
-        col1, col2 = st.columns(2)
-        with col1:
-            load_type = st.selectbox("Type", ["Puntlast", "Gelijkmatig verdeeld"], key=f"load_type_{i}")
-        with col2:
-            force = st.number_input("Waarde (N)", value=1000.0, key=f"force_{i}")
-        
-        pos = st.number_input("Positie (mm)", 0.0, beam_length, value=beam_length/2, key=f"load_pos_{i}")
-        
-        if load_type == "Gelijkmatig verdeeld":
-            length = st.number_input("Lengte (mm)", 0.0, beam_length-pos, value=100.0, key=f"load_length_{i}")
-            loads.append((pos, force, load_type, length))
-        else:
-            loads.append((pos, force, load_type))
+        with st.expander(f"📌 Belasting {i+1}", expanded=True):
+            col1, col2 = st.columns(2)
+            with col1:
+                load_type = st.selectbox("Type", ["Puntlast", "Gelijkmatig verdeeld"],
+                                       key=f"load_type_{i}")
+            with col2:
+                force = st.number_input("Waarde (N)", value=1000.0, key=f"force_{i}")
             
-    if st.button("Wis alle belastingen"):
+            pos = st.number_input("Positie (mm)", 0.0, beam_length,
+                                value=beam_length/2, key=f"load_pos_{i}")
+            
+            if load_type == "Gelijkmatig verdeeld":
+                length = st.number_input("Lengte (mm)", 0.0, beam_length-pos,
+                                       value=100.0, key=f"load_length_{i}")
+                loads.append((pos, force, load_type, length))
+            else:
+                loads.append((pos, force, load_type))
+    
+    if st.button("🗑️ Wis alle belastingen", key="clear_loads"):
         st.session_state.load_count = 0
-
-# Bereken traagheidsmoment
-I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
-
-# Hoofdgedeelte voor de plot
-fig, ax = plt.subplots(figsize=(10, 6))
-
-# Plot onvervormde balk
-ax.plot([0, beam_length], [0, 0], 'k--', alpha=0.3)
-
-# Bereken en plot vervormde balk
-x = np.linspace(0, beam_length, 100)
-y = np.zeros_like(x)
-for i, xi in enumerate(x):
-    y[i] = calculate_beam_response(xi, beam_length, E, I, supports, loads)
-
-# Schaal doorbuiging voor visualisatie
-scale = 1.0
-if np.any(y != 0):
-    max_defl = np.max(np.abs(y))
-    if max_defl > 0:
-        desired_height = beam_length / 10
-        scale = desired_height / max_defl
-
-# Plot vervormde balk
-ax.plot(x, y * scale, 'b-', linewidth=2)
-
-# Teken steunpunten
-for pos, type in supports:
-    if type == "Scharnier":
-        # Driehoek voor scharnier
-        triangle_height = beam_length * 0.02
-        ax.plot([pos, pos - triangle_height, pos + triangle_height, pos],
-                [0, -triangle_height, -triangle_height, 0], 'k-')
-    elif type == "Rol":
-        # Cirkel met driehoek voor rol
-        circle = plt.Circle((pos, -beam_length * 0.02), beam_length * 0.01, fill=False, color='k')
-        ax.add_artist(circle)
-        triangle_height = beam_length * 0.02
-        ax.plot([pos, pos - triangle_height, pos + triangle_height, pos],
-                [0, -triangle_height, -triangle_height, 0], 'k-')
-    else:  # Inklemming
-        # Rechthoek voor inklemming
-        rect_height = beam_length * 0.04
-        rect_width = beam_length * 0.01
-        ax.add_patch(plt.Rectangle((pos, -rect_height/2), rect_width, rect_height,
-                                 color='k', alpha=0.3))
-
-# Plot belastingen
-arrow_height = beam_length * 0.05
-for load in loads:
-    pos = load[0]
-    F = load[1]
-    load_type = load[2]
     
-    if load_type == "Puntlast":
-        # Pijl voor puntlast
-        if F > 0:  # Naar beneden
-            ax.arrow(pos, arrow_height, 0, -arrow_height/2,
-                    head_width=beam_length/50, head_length=arrow_height/4,
-                    fc='r', ec='r', linewidth=2)
-            ax.text(pos, arrow_height*1.1, f'{F:.0f}N', ha='center', va='bottom')
-        else:  # Naar boven
-            ax.arrow(pos, -arrow_height, 0, arrow_height/2,
-                    head_width=beam_length/50, head_length=arrow_height/4,
-                    fc='r', ec='r', linewidth=2)
-            ax.text(pos, -arrow_height*1.1, f'{F:.0f}N', ha='center', va='top')
+    st.markdown("</div>", unsafe_allow_html=True)
     
-    elif load_type == "Gelijkmatig verdeeld":
-        length = load[3]
-        q = F / length  # N/mm
-        arrow_spacing = length / 10
+    # Resultaten sectie
+    if len(loads) > 0:
+        st.markdown("### 📊 Resultaten")
+        st.markdown("""
+            <div style='background-color: #fff; padding: 1rem; border-radius: 4px; border: 1px solid #e0e0e0;'>
+        """, unsafe_allow_html=True)
         
-        # Teken pijlen voor verdeelde last
-        for x in np.arange(pos, pos + length + arrow_spacing/2, arrow_spacing):
-            if F > 0:  # Naar beneden
-                ax.arrow(x, arrow_height/2, 0, -arrow_height/4,
-                        head_width=beam_length/100, head_length=arrow_height/8,
-                        fc='r', ec='r', linewidth=1)
-            else:  # Naar boven
-                ax.arrow(x, -arrow_height/2, 0, arrow_height/4,
-                        head_width=beam_length/100, head_length=arrow_height/8,
-                        fc='r', ec='r', linewidth=1)
+        x = np.linspace(0, beam_length, 200)  # Meer punten voor vloeiendere curve
+        y = np.zeros_like(x)
+        for i, xi in enumerate(x):
+            y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, loads)  # Negeer de y voor correcte richting
         
-        # Waarde van de verdeelde last
-        mid_pos = pos + length/2
-        if F > 0:
-            ax.text(mid_pos, arrow_height*0.6, f'{q:.1f}N/mm', ha='center', va='bottom')
-        else:
-            ax.text(mid_pos, -arrow_height*0.6, f'{q:.1f}N/mm', ha='center', va='top')
+        max_defl = np.max(np.abs(y))
+        st.metric(
+            label="Maximale doorbuiging",
+            value=f"{max_defl:.2f} mm",
+            delta=f"{max_defl/beam_length*100:.2f}% van de lengte"
+        )
+        
+        st.markdown("</div>", unsafe_allow_html=True)
 
-# Plot instellingen
-ax.grid(True)
-ax.set_xlabel("Lengte (mm)")
-ax.set_ylabel("Doorbuiging (mm)")
-ax.set_xlim(-beam_length*0.1, beam_length*1.1)
-ax.set_ylim(-beam_length*0.15, beam_length*0.15)
-ax.set_aspect('equal', adjustable='box')
-
-# Toon plot
-st.pyplot(fig)
-
-# Toon maximale doorbuiging
-if len(loads) > 0:
-    max_defl = np.max(np.abs(y))
-    st.write(f"Maximale doorbuiging: {max_defl:.2f} mm")
