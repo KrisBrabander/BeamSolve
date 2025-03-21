@@ -2,53 +2,38 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib.patches import FancyArrowPatch, PathPatch
-from matplotlib.path import Path
-import matplotlib.colors as mcolors
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
+from matplotlib.patches import FancyArrowPatch
+
+# Initialiseer session state
+if 'load_count' not in st.session_state:
+    st.session_state.load_count = 0
+if 'loads' not in st.session_state:
+    st.session_state.loads = []
 
 # Pagina configuratie
 st.set_page_config(
-    page_title="BeamFEA Professional",
+    page_title="Engineering Beam Calculator Pro",
     layout="wide",
-    initial_sidebar_state="expanded",
-    menu_items={
-        'Get Help': 'https://github.com/yourusername/BeamFEA',
-        'Report a bug': 'https://github.com/yourusername/BeamFEA/issues',
-        'About': '''
-        # BeamFEA Professional Edition
-        
-        Advanced Finite Element Analysis Software for Structural Engineering
-        Version 2025.1 Enterprise
-        
-        Features:
-        - Advanced 3D Beam Visualization
-        - Real-time FEA Analysis
-        - Professional Engineering Reports
-        - Multi-support Configuration
-        - Stress/Strain Analysis
-        '''
-    }
+    initial_sidebar_state="expanded"
 )
 
-# Styling voor een high-end engineering look
+# Styling
 st.markdown("""
     <style>
-    /* Modern engineering software look */
+    /* Modern engineering look */
     .main {
-        background-color: #1e1e1e;
-        color: #e0e0e0;
+        background-color: #ffffff;
+        color: #333333;
     }
     .stApp {
-        max-width: 1600px;
+        max-width: 1400px;
         margin: 0 auto;
     }
     
     /* Professional header */
     h1 {
-        background: linear-gradient(90deg, #0288d1 0%, #0277bd 100%);
-        color: white;
+        background: linear-gradient(90deg, #1976d2 0%, #1565c0 100%);
+        color: white !important;
         padding: 1rem 2rem;
         border-radius: 8px;
         font-family: 'Segoe UI', sans-serif;
@@ -58,31 +43,30 @@ st.markdown("""
         box-shadow: 0 4px 6px rgba(0,0,0,0.1);
     }
     
-    /* Engineering style containers */
+    /* Engineering containers */
     .section-container {
-        background-color: #2d2d2d;
-        border: 1px solid #404040;
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
         border-radius: 8px;
         padding: 1.5rem;
         margin-bottom: 1.5rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
     
-    /* Modern inputs */
+    /* Input styling */
     .stNumberInput > div > div {
-        background-color: #363636;
-        border: 1px solid #404040;
+        background-color: #f5f5f5;
+        border: 1px solid #e0e0e0;
         border-radius: 4px;
-        color: #e0e0e0;
     }
     .stNumberInput > div > div:focus-within {
-        border-color: #0288d1;
-        box-shadow: 0 0 0 2px rgba(2,136,209,0.2);
+        border-color: #1976d2;
+        box-shadow: 0 0 0 2px rgba(25,118,210,0.1);
     }
     
-    /* Professional buttons */
+    /* Button styling */
     .stButton > button {
-        background: linear-gradient(90deg, #0288d1 0%, #0277bd 100%);
+        background: linear-gradient(90deg, #1976d2 0%, #1565c0 100%);
         color: white;
         border: none;
         padding: 0.6rem 1.2rem;
@@ -93,73 +77,65 @@ st.markdown("""
         transition: all 0.3s ease;
     }
     .stButton > button:hover {
-        background: linear-gradient(90deg, #039be5 0%, #0288d1 100%);
-        box-shadow: 0 4px 8px rgba(2,136,209,0.3);
+        background: linear-gradient(90deg, #1e88e5 0%, #1976d2 100%);
+        box-shadow: 0 4px 8px rgba(25,118,210,0.2);
     }
     
-    /* Engineering metrics */
+    /* Metrics styling */
     [data-testid="stMetricValue"] {
-        color: #0288d1 !important;
+        color: #1976d2 !important;
         font-size: 1.8rem !important;
         font-weight: 600 !important;
-        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     [data-testid="stMetricDelta"] {
-        color: #4fc3f7 !important;
+        color: #2196f3 !important;
         font-size: 1rem !important;
     }
     
-    /* Technical labels */
+    /* Labels */
     label {
-        color: #90caf9;
+        color: #424242;
         font-weight: 500;
-        text-transform: uppercase;
-        font-size: 0.9rem;
-        letter-spacing: 0.5px;
+        font-size: 0.95rem;
     }
     
     /* Help tooltips */
     .stTooltipIcon {
-        color: #0288d1;
+        color: #1976d2;
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: #f5f5f5;
+        border: 1px solid #e0e0e0;
+        border-radius: 4px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Default waardes
-DEFAULT_HEIGHT = 100.0
-DEFAULT_WIDTH = 50.0
-DEFAULT_WALL_THICKNESS = 5.0
-DEFAULT_FLANGE_THICKNESS = 5.0
-DEFAULT_E_MODULUS = 210000.0
-DEFAULT_BEAM_LENGTH = 1000.0
-DEFAULT_FORCE = 1000.0
+# Header
+st.markdown("""
+    <h1>Engineering Beam Calculator Pro</h1>
+    <div style='background-color: #e3f2fd; color: #1565c0; padding: 0.5rem 1rem; border-radius: 4px; display: inline-block; margin-bottom: 1rem;'>
+        Professional Edition v2.0
+    </div>
+    <p style='color: #424242; font-size: 1.1rem; margin-bottom: 2rem;'>
+        Advanced Beam Analysis & Calculation Software
+    </p>
+""", unsafe_allow_html=True)
 
-# Functies voor berekeningen
 def calculate_I(profile_type, h, b, t, tf=None):
-    """Bereken traagheidsmoment (mm⁴)"""
-    h = float(h)
-    b = float(b)
-    t = float(t)
-    if tf is not None:
-        tf = float(tf)
-    
+    """Bereken traagheidsmoment"""
     if profile_type == "Koker":
+        # I = (bh³)/12 - ((b-2t)(h-2t)³)/12
         return (b * h**3 - (b-2*t) * (h-2*t)**3) / 12
-    else:  # I-profiel of U-profiel
+    elif profile_type in ["I-profiel", "H-profiel"]:
+        # Voor I/H-profiel
         hw = h - 2*tf  # Hoogte van het lijf
         return (b * h**3 - (b-t) * hw**3) / 12
 
-def calculate_beam_response_advanced(x, L, E, I, supports, loads):
-    """Geavanceerde balkberekening met meerdere steunpunten"""
-    x = float(x)
-    L = float(L)
-    E = float(E)
-    I = float(I)
-    
-    # Sorteer steunpunten op positie
-    supports = sorted(supports, key=lambda s: s[0])
-    
-    # Matrix methode voor meerdere steunpunten
+def calculate_beam_response(x, L, E, I, supports, loads):
+    """Verbeterde berekening voor meerdere steunpunten"""
     def moment_at_x(x, load, span_start, span_end):
         pos, F, load_type, *rest = load
         if load_type == "Puntlast":
@@ -183,20 +159,59 @@ def calculate_beam_response_advanced(x, L, E, I, supports, loads):
                     return q * (end - start) * (2*x - start - end) / 2
             return 0
     
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda s: s[0])
+    
     # Bereken doorbuiging voor elk segment
     y = 0
-    for i in range(len(supports) - 1):
-        x1, type1 = supports[i]
-        x2, type2 = supports[i+1]
-        
-        if x1 <= x <= x2:
-            # Pas superpositie toe voor alle belastingen
-            for load in loads:
-                M = moment_at_x(x, load, x1, x2)
-                y += M * (x2 - x) * (x - x1) / (6 * E * I * (x2 - x1))
+    if len(supports) == 1:  # Enkelvoudige inklemming
+        x0 = supports[0][0]
+        for load in loads:
+            pos, F, load_type, *rest = load
+            if load_type == "Puntlast":
+                if x <= x0:
+                    y = 0
+                elif x <= pos:
+                    y += -F * (x - x0)**2 * (3*pos - x0 - 2*x) / (6 * E * I)
+                else:
+                    y += -F * (pos - x0)**2 * (3*x - x0 - 2*pos) / (6 * E * I)
+            elif load_type == "Gelijkmatig verdeeld":
+                length = float(rest[0])
+                q = F / length
+                if x <= x0:
+                    y = 0
+                else:
+                    start = max(x0, pos)
+                    end = min(L, pos + length)
+                    if start < end:
+                        if x <= start:
+                            y += 0
+                        elif x <= end:
+                            y += -q * ((x - start)**4 / 24 - (x - x0)**2 * (x - start)**2 / 4) / (E * I)
+                        else:
+                            y += -q * (end - start) * ((x - x0)**2 * (3*x - x0 - 2*end) / 6) / (E * I)
+    else:  # Meerdere steunpunten
+        for i in range(len(supports) - 1):
+            x1, type1 = supports[i]
+            x2, type2 = supports[i+1]
+            
+            if x1 <= x <= x2:
+                for load in loads:
+                    M = moment_at_x(x, load, x1, x2)
+                    y += M * (x2 - x) * (x - x1) / (6 * E * I * (x2 - x1))
     
     return float(y)
 
+# Default waardes
+DEFAULT_HEIGHT = 100.0
+DEFAULT_WIDTH = 50.0
+DEFAULT_WALL_THICKNESS = 5.0
+DEFAULT_FLANGE_THICKNESS = 5.0
+DEFAULT_E_MODULUS = 210000.0
+DEFAULT_BEAM_LENGTH = 1000.0
+DEFAULT_FORCE = 1000.0
+
+# Functies voor berekeningen
 def create_3d_beam_visualization(fig, profile_type, height, width, wall_thickness, flange_thickness=None):
     """Creëer 3D visualisatie van het balkprofiel"""
     ax = fig.add_subplot(122, projection='3d')
@@ -236,9 +251,9 @@ def create_3d_beam_visualization(fig, profile_type, height, width, wall_thicknes
 
 # Header sectie
 st.markdown("""
-    <h1>BeamFEA Professional</h1>
-    <div class="version-badge">Version 2025.1 Enterprise</div>
-    <p class="subtitle">Advanced Finite Element Analysis Software for Structural Engineering</p>
+    <h1>Engineering Beam Calculator Pro</h1>
+    <div class="version-badge">Version 2.0 Professional</div>
+    <p class="subtitle">Advanced Beam Analysis & Calculation Software</p>
 """, unsafe_allow_html=True)
 
 # Hoofdcontainer voor de app
@@ -254,7 +269,7 @@ st.markdown("""
 # Profielgegevens
 profile_type = st.selectbox(
     "Profieltype",
-    ["Koker", "I-profiel", "U-profiel"],
+    ["Koker", "I-profiel", "H-profiel"],
     help="Selecteer het type profiel voor de berekening"
 )
 
@@ -287,7 +302,7 @@ wall_thickness = st.number_input(
     help="Dikte van de wanden"
 )
 
-if profile_type in ["I-profiel", "U-profiel"]:
+if profile_type in ["I-profiel", "H-profiel"]:
     flange_thickness = st.number_input(
         "Flensdikte (mm)",
         min_value=0.1,
@@ -386,11 +401,11 @@ with col1:
     
     # Maak een mooiere plot
     fig, ax = plt.subplots(figsize=(12, 6))
-    fig.patch.set_facecolor('#1e1e1e')
-    ax.set_facecolor('#1e1e1e')
+    fig.patch.set_facecolor('#ffffff')
+    ax.set_facecolor('#ffffff')
     
     # Grid styling
-    ax.grid(True, linestyle='--', alpha=0.3, color='#666666')
+    ax.grid(True, linestyle='--', alpha=0.3, color='#cccccc')
     
     # Plot onvervormde balk met mooiere stijl
     ax.plot([0, beam_length], [0, 0], '--', color='#cccccc', alpha=0.5, linewidth=1.5, label='Onvervormde balk')
@@ -399,7 +414,7 @@ with col1:
     x = np.linspace(0, beam_length, 300)  # Meer punten voor vloeiendere curve
     y = np.zeros_like(x)
     for i, xi in enumerate(x):
-        y[i] = -calculate_beam_response_advanced(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, [])
+        y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, [])
     
     # Schaal doorbuiging
     scale = 1.0
@@ -576,7 +591,7 @@ with col2:
         x = np.linspace(0, beam_length, 200)
         y = np.zeros_like(x)
         for i, xi in enumerate(x):
-            y[i] = -calculate_beam_response_advanced(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, st.session_state.loads)
+            y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, st.session_state.loads)
         
         max_defl = np.max(np.abs(y))
         max_pos = x[np.argmax(np.abs(y))]
