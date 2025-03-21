@@ -29,9 +29,24 @@ st.set_page_config(
     }
 )
 
+# Default waardes
+DEFAULT_HEIGHT = 100.0
+DEFAULT_WIDTH = 50.0
+DEFAULT_WALL_THICKNESS = 5.0
+DEFAULT_FLANGE_THICKNESS = 5.0
+DEFAULT_E_MODULUS = 210000.0
+DEFAULT_BEAM_LENGTH = 1000.0
+DEFAULT_FORCE = 1000.0
+
 # Functies voor berekeningen
 def calculate_I(profile_type, h, b, t, tf=None):
     """Bereken traagheidsmoment (mm⁴)"""
+    h = float(h)
+    b = float(b)
+    t = float(t)
+    if tf is not None:
+        tf = float(tf)
+    
     if profile_type == "Koker":
         return (b * h**3 - (b-2*t) * (h-2*t)**3) / 12
     else:  # I-profiel of U-profiel
@@ -40,15 +55,21 @@ def calculate_I(profile_type, h, b, t, tf=None):
 
 def calculate_beam_response(x, L, E, I, supports, loads):
     """Bereken de mechanische respons op positie x"""
+    x = float(x)
+    L = float(L)
+    E = float(E)
+    I = float(I)
+    
     y = 0  # Doorbuiging
     
     # Voor één inklemming
     if len(supports) == 1 and supports[0][1] == "Inklemming":
-        x0 = supports[0][0]  # Positie van inklemming
+        x0 = float(supports[0][0])  # Positie van inklemming
         
         for load in loads:
-            pos, F, load_type, *rest = load
-            F = float(F)
+            pos = float(load[0])
+            F = float(load[1])
+            load_type = load[2]
             
             if load_type == "Puntlast":
                 if pos > x0:  # Alleen als last voorbij inklemming
@@ -61,7 +82,7 @@ def calculate_beam_response(x, L, E, I, supports, loads):
                         y += F * a**2 * (3*(x - x0) - a) / (6 * E * I)
             
             elif load_type == "Gelijkmatig verdeeld":
-                length = float(rest[0])
+                length = float(load[3])
                 start = max(x0, pos)
                 end = pos + length
                 
@@ -73,43 +94,13 @@ def calculate_beam_response(x, L, E, I, supports, loads):
                         if x <= start:
                             y += q * ((x - x0)**2 * (4*end - start - 3*x) / 24) / (E * I)
                         elif x <= end:
-                            y += q * ((x - x0)**2 * (4*end - start - 3*x) / 24 + (x - start)**4 / 24) / (E * I)
+                            y += q * ((x - x0)**2 * (4*end - start - 3*x) / 24 
+                                    - (x - start)**4 / 24) / (E * I)
                         else:
-                            y += q * length * (x - (end + start)/2) * (x - x0)**2 / (6 * E * I)
+                            y += q * (end - start) * ((x - x0)**2 * (3*x - (end + start)/2)
+                                    - (end - start)**2 * x/4) / (6 * E * I)
     
-    # Voor twee of drie steunpunten
-    else:
-        supports = sorted(supports, key=lambda x: x[0])
-        x1, x2 = supports[0][0], supports[-1][0]
-        L_eff = x2 - x1
-        
-        for load in loads:
-            pos, F, load_type, *rest = load
-            F = float(F)
-            
-            if load_type == "Puntlast":
-                # Pas positie aan relatief tot eerste steunpunt
-                a = pos - x1  # Afstand vanaf eerste steunpunt
-                b = x2 - pos  # Afstand tot tweede steunpunt
-                
-                if x1 <= x <= x2:
-                    # Doorbuiging voor puntlast
-                    if x <= pos:
-                        y += F * b * (x - x1) * (L_eff**2 - b**2 - (x - x1)**2) / (6 * E * I * L_eff)
-                    else:
-                        y += F * a * (x2 - x) * (2*L_eff*(x - x1) - (x - x1)**2 - a**2) / (6 * E * I * L_eff)
-            
-            elif load_type == "Gelijkmatig verdeeld":
-                length = float(rest[0])
-                q = F / length
-                start = max(x1, pos)
-                end = min(x2, pos + length)
-                
-                if start < end and x1 <= x <= x2:
-                    # Vereenvoudigde formule voor verdeelde last
-                    y += -q * (x - x1)**2 * (L_eff - (x - x1))**2 / (24 * E * I * L_eff)
-    
-    return y
+    return float(y)
 
 # Styling
 st.markdown("""
@@ -271,18 +262,42 @@ profile_type = st.selectbox(
 
 col1, col2 = st.columns(2)
 with col1:
-    height = st.number_input("Hoogte (mm)", min_value=1.0, value=100.0,
-                           help="Totale hoogte van het profiel")
+    height = st.number_input(
+        "Hoogte (mm)",
+        min_value=1.0,
+        value=DEFAULT_HEIGHT,
+        step=1.0,
+        format="%.1f",
+        help="Totale hoogte van het profiel"
+    )
 with col2:
-    width = st.number_input("Breedte (mm)", min_value=1.0, value=50.0,
-                          help="Totale breedte van het profiel")
+    width = st.number_input(
+        "Breedte (mm)",
+        min_value=1.0,
+        value=DEFAULT_WIDTH,
+        step=1.0,
+        format="%.1f",
+        help="Totale breedte van het profiel"
+    )
 
-wall_thickness = st.number_input("Wanddikte (mm)", min_value=0.1, value=5.0,
-                               help="Dikte van de wanden")
+wall_thickness = st.number_input(
+    "Wanddikte (mm)",
+    min_value=0.1,
+    value=DEFAULT_WALL_THICKNESS,
+    step=0.1,
+    format="%.1f",
+    help="Dikte van de wanden"
+)
 
 if profile_type in ["I-profiel", "U-profiel"]:
-    flange_thickness = st.number_input("Flensdikte (mm)", min_value=0.1, value=5.0,
-                                     help="Dikte van de flenzen")
+    flange_thickness = st.number_input(
+        "Flensdikte (mm)",
+        min_value=0.1,
+        value=DEFAULT_FLANGE_THICKNESS,
+        step=0.1,
+        format="%.1f",
+        help="Dikte van de flenzen"
+    )
 else:
     flange_thickness = None
 
@@ -296,7 +311,9 @@ st.markdown("""
 E = st.number_input(
     "E-modulus (N/mm²)",
     min_value=1.0,
-    value=210000.0,
+    value=DEFAULT_E_MODULUS,
+    step=1000.0,
+    format="%.1f",
     help="Elasticiteitsmodulus van het materiaal (210000 N/mm² voor staal)"
 )
 
@@ -310,7 +327,9 @@ st.markdown("""
 beam_length = st.number_input(
     "Lengte (mm)",
     min_value=1.0,
-    value=1000.0,
+    value=DEFAULT_BEAM_LENGTH,
+    step=10.0,
+    format="%.1f",
     help="Totale lengte van de balk"
 )
 
@@ -332,6 +351,7 @@ if support_count == 1:
     pos = st.number_input(
         "Positie inklemming (mm)",
         0.0, beam_length, 0.0,
+        key="inklemming_pos",
         help="Positie van de inklemming vanaf het linkeruiteinde"
     )
     supports.append((pos, "Inklemming"))
@@ -343,14 +363,14 @@ else:
                 f"Positie {i+1} (mm)",
                 0.0, beam_length,
                 value=i * beam_length/(support_count-1) if support_count > 1 else 0.0,
-                key=f"pos_{i}",
+                key=f"support_pos_{i}",
                 help=f"Positie van steunpunt {i+1} vanaf het linkeruiteinde"
             )
         with col2:
             type = st.selectbox(
                 "Type",
                 ["Scharnier", "Rol"],
-                key=f"type_{i}",
+                key=f"support_type_{i}",
                 help="Scharnier: vast punt, Rol: kan horizontaal bewegen"
             )
         supports.append((pos, type))
@@ -546,34 +566,46 @@ with col2:
                     help="Kies het type belasting"
                 )
             with col2:
+                current_force = st.session_state.loads[i][1] if i < len(st.session_state.loads) else DEFAULT_FORCE
                 force = st.number_input(
                     "Waarde (N)",
-                    value=st.session_state.loads[i][1],
+                    value=float(current_force),
                     step=100.0,
-                    key=f"force_{i}",
+                    format="%.1f",
+                    key=f"load_force_{i}",
                     help="Positieve waarde voor neerwaartse kracht, negatieve voor opwaartse kracht"
                 )
             
             # Positie
+            current_pos = st.session_state.loads[i][0] if i < len(st.session_state.loads) else beam_length/2
             pos = st.slider(
                 "Positie (mm)",
-                0.0, beam_length, st.session_state.loads[i][0],
+                min_value=0.0,
+                max_value=float(beam_length),
+                value=float(current_pos),
+                step=10.0,
+                format="%.1f",
                 key=f"load_pos_{i}",
                 help="Positie van de belasting vanaf het linkeruiteinde"
             )
             
             # Lengte voor verdeelde last
             if load_type == "Gelijkmatig verdeeld":
+                current_length = st.session_state.loads[i][3] if len(st.session_state.loads[i]) > 3 else min(100.0, beam_length-pos)
                 length = st.slider(
                     "Lengte (mm)",
-                    0.0, beam_length-pos, min(100.0, beam_length-pos),
+                    min_value=0.0,
+                    max_value=float(beam_length-pos),
+                    value=float(current_length),
+                    step=10.0,
+                    format="%.1f",
                     key=f"load_length_{i}",
                     help="Lengte waarover de belasting verdeeld is"
                 )
-                st.session_state.loads[i] = (pos, force, load_type, length)
+                st.session_state.loads[i] = (float(pos), float(force), load_type, float(length))
             else:
-                st.session_state.loads[i] = (pos, force, load_type)
-            
+                st.session_state.loads[i] = (float(pos), float(force), load_type)
+
             st.markdown("</div>", unsafe_allow_html=True)
     
     st.markdown("</div>", unsafe_allow_html=True)
@@ -618,3 +650,5 @@ with col2:
             )
         
         st.markdown("</div>", unsafe_allow_html=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
