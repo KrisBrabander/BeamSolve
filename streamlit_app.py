@@ -171,52 +171,6 @@ def plot_results(x, M, rotation, deflection):
 
     return fig
 
-def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
-    """Hoofdfunctie voor balkanalyse"""
-    n_points = 200
-    x = np.linspace(0, beam_length, n_points)
-    M = np.zeros_like(x)
-    rotation = np.zeros_like(x)
-    deflection = np.zeros_like(x)
-    
-    # Bereken moment voor elke positie
-    for i, xi in enumerate(x):
-        # Bereken momenten van belastingen
-        for pos, F, load_type, *rest in loads:
-            if load_type == "Puntlast":
-                if xi >= pos:
-                    M[i] += F * (xi - pos)
-            elif load_type == "Gelijkmatig verdeeld":
-                length = float(rest[0])
-                q = F / length
-                start = max(pos, xi)
-                end = min(beam_length, pos + length)
-                if start < end:
-                    M[i] += 0.5 * q * (end - start) * (end + start - 2*xi)
-        
-        # Pas randvoorwaarden toe op basis van ondersteuningen
-        for pos, support_type in supports:
-            if support_type == "Inklemming" and xi >= pos:
-                # Inklemming: Moment = 0 op positie, rotatie = 0
-                M[i] = 0
-                rotation[i] = 0
-            elif support_type in ["Scharnier", "Rol"] and abs(xi - pos) < 1e-6:
-                # Scharnier/Rol: Doorbuiging = 0 op positie
-                deflection[i] = 0
-    
-    # Bereken rotatie en doorbuiging
-    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
-    dx = beam_length / (n_points - 1)
-    
-    # Voorwaartse integratie voor rotatie en doorbuiging
-    for i in range(1, n_points):
-        if not any(abs(x[i] - pos) < 1e-6 and type == "Inklemming" for pos, type in supports):
-            rotation[i] = rotation[i-1] + M[i-1] * dx / (E * I)
-        if not any(abs(x[i] - pos) < 1e-6 and type in ["Scharnier", "Rol"] for pos, type in supports):
-            deflection[i] = deflection[i-1] + rotation[i-1] * dx
-    
-    return x, M, rotation, deflection
-
 def plot_beam_diagram(beam_length, supports, loads):
     """Plot een schematische weergave van de balk met steunpunten en belastingen"""
     fig = go.Figure()
@@ -370,6 +324,52 @@ def plot_beam_diagram(beam_length, supports, loads):
     )
     
     return fig
+
+def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
+    """Hoofdfunctie voor balkanalyse"""
+    n_points = 200
+    x = np.linspace(0, beam_length, n_points)
+    M = np.zeros_like(x)
+    rotation = np.zeros_like(x)
+    deflection = np.zeros_like(x)
+    
+    # Bereken moment voor elke positie
+    for i, xi in enumerate(x):
+        # Bereken momenten van belastingen
+        for pos, F, load_type, *rest in loads:
+            if load_type == "Puntlast":
+                if xi >= pos:
+                    M[i] += F * (xi - pos)
+            elif load_type == "Gelijkmatig verdeeld":
+                length = float(rest[0])
+                q = F / length
+                start = max(pos, xi)
+                end = min(beam_length, pos + length)
+                if start < end:
+                    M[i] += 0.5 * q * (end - start) * (end + start - 2*xi)
+        
+        # Pas randvoorwaarden toe op basis van ondersteuningen
+        for pos, support_type in supports:
+            if support_type == "Inklemming" and xi >= pos:
+                # Inklemming: Moment = 0 op positie, rotatie = 0
+                M[i] = 0
+                rotation[i] = 0
+            elif support_type in ["Scharnier", "Rol"] and abs(xi - pos) < 1e-6:
+                # Scharnier/Rol: Doorbuiging = 0 op positie
+                deflection[i] = 0
+    
+    # Bereken rotatie en doorbuiging
+    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+    dx = beam_length / (n_points - 1)
+    
+    # Voorwaartse integratie voor rotatie en doorbuiging
+    for i in range(1, n_points):
+        if not any(abs(x[i] - pos) < 1e-6 and type == "Inklemming" for pos, type in supports):
+            rotation[i] = rotation[i-1] + M[i-1] * dx / (E * I)
+        if not any(abs(x[i] - pos) < 1e-6 and type in ["Scharnier", "Rol"] for pos, type in supports):
+            deflection[i] = deflection[i-1] + rotation[i-1] * dx
+    
+    return x, M, rotation, deflection
 
 # Sidebar content
 with sidebar:
@@ -581,14 +581,14 @@ with sidebar:
             st.session_state.loads = []
             st.session_state.load_count = 0
 
-    # Toon balkschema
-    beam_diagram = plot_beam_diagram(beam_length, supports, st.session_state.loads)
+# Main content
+with main:
+    # Toon balkschema bovenaan
+    beam_diagram = plot_beam_diagram(beam_length, st.session_state.supports, st.session_state.loads)
     st.plotly_chart(beam_diagram, use_container_width=True, config={
         'displayModeBar': False
     })
 
-# Main content
-with main:
     tab1, tab2 = st.tabs(["Analyse", "Belastingen"])
     
     with tab1:
@@ -600,57 +600,153 @@ with main:
             )
             
             # Plot resultaten
-            fig = plot_results(x, M, rotation, deflection)
+            fig = make_subplots(rows=3, cols=1,
+                              subplot_titles=("Moment", "Rotatie", "Doorbuiging"),
+                              shared_xaxes=True,
+                              vertical_spacing=0.1)
             
-            # Toon plot
-            st.markdown("""
-                <div class='plot-container'>
-                    <h3 style='color: #1f77b4; margin: 0 0 1rem 0; font-size: 1.2rem;'>Analyse Resultaten</h3>
-                </div>
-            """, unsafe_allow_html=True)
+            # Moment diagram
+            fig.add_trace(
+                go.Scatter(x=x, y=M, name="Moment",
+                          line=dict(color='#2ecc71', width=2)),
+                row=1, col=1
+            )
             
-            st.plotly_chart(fig, use_container_width=True, config={
-                'displayModeBar': True,
-                'displaylogo': False,
-                'modeBarButtonsToRemove': ['lasso2d', 'select2d'],
-                'toImageButtonOptions': {
-                    'format': 'png',
-                    'filename': 'beam_analysis',
-                    'height': 800,
-                    'width': 1200,
-                    'scale': 2
-                }
-            })
-
-            # Toon resultaten
-            max_defl = np.max(np.abs(deflection))
-            max_defl_pos = x[np.argmax(np.abs(deflection))]
-            max_moment = np.max(np.abs(M))
-            max_moment_pos = x[np.argmax(np.abs(M))]
-            max_rot = np.max(np.abs(rotation))
-            max_rot_pos = x[np.argmax(np.abs(rotation))]
-
-            st.markdown(f"""
-            <div style='display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;'>
-                <div class='grid-item'>
-                    <h3 style='color: #1f77b4; margin: 0; font-size: 1.1rem;'>Maximale doorbuiging</h3>
-                    <p style='color: #2c3e50; margin: 0.5rem 0; font-size: 1.5rem; font-weight: 600;'>{max_defl:.2f} mm</p>
-                    <p style='color: #7f8c8d; margin: 0;'>@ x = {max_defl_pos:.1f} mm</p>
-                    <div style='height: 4px; background: linear-gradient(90deg, #1f77b4 0%, #4fa1d8 100%); margin-top: 1rem; border-radius: 2px;'></div>
-                </div>
-                <div class='grid-item'>
-                    <h3 style='color: #2ca02c; margin: 0; font-size: 1.1rem;'>Maximaal moment</h3>
-                    <p style='color: #2c3e50; margin: 0.5rem 0; font-size: 1.5rem; font-weight: 600;'>{max_moment:.0f} Nmm</p>
-                    <p style='color: #7f8c8d; margin: 0;'>@ x = {max_moment_pos:.1f} mm</p>
-                    <div style='height: 4px; background: linear-gradient(90deg, #2ca02c 0%, #5fd35f 100%); margin-top: 1rem; border-radius: 2px;'></div>
-                </div>
-                <div class='grid-item'>
-                    <h3 style='color: #ff7f0e; margin: 0; font-size: 1.1rem;'>Maximale rotatie</h3>
-                    <p style='color: #2c3e50; margin: 0.5rem 0; font-size: 1.5rem; font-weight: 600;'>{max_rot:.6f} rad</p>
-                    <p style='color: #7f8c8d; margin: 0;'>@ x = {max_rot_pos:.1f} mm</p>
-                    <div style='height: 4px; background: linear-gradient(90deg, #ff7f0e 0%, #ffb27f 100%); margin-top: 1rem; border-radius: 2px;'></div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Rotatie diagram
+            fig.add_trace(
+                go.Scatter(x=x, y=rotation, name="Rotatie",
+                          line=dict(color='#3498db', width=2)),
+                row=2, col=1
+            )
+            
+            # Doorbuiging diagram
+            fig.add_trace(
+                go.Scatter(x=x, y=deflection, name="Doorbuiging",
+                          line=dict(color='#e74c3c', width=2)),
+                row=3, col=1
+            )
+            
+            # Update layout
+            fig.update_layout(
+                height=600,
+                showlegend=False,
+                plot_bgcolor='white',
+                paper_bgcolor='white'
+            )
+            
+            # Update x-assen
+            fig.update_xaxes(title_text="Positie (mm)", row=3, col=1,
+                           showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)',
+                           zeroline=True, zerolinewidth=1, zerolinecolor='rgba(0,0,0,0.2)',
+                           showline=True, linewidth=1, linecolor='black', mirror=True)
+            
+            # Update y-assen
+            fig.update_yaxes(title_text="M (Nmm)", row=1, col=1,
+                           showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)',
+                           zeroline=True, zerolinewidth=1, zerolinecolor='rgba(0,0,0,0.2)',
+                           showline=True, linewidth=1, linecolor='black', mirror=True)
+            fig.update_yaxes(title_text="φ (rad)", row=2, col=1,
+                           showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)',
+                           zeroline=True, zerolinewidth=1, zerolinecolor='rgba(0,0,0,0.2)',
+                           showline=True, linewidth=1, linecolor='black', mirror=True)
+            fig.update_yaxes(title_text="v (mm)", row=3, col=1,
+                           showgrid=True, gridwidth=1, gridcolor='rgba(0,0,0,0.1)',
+                           zeroline=True, zerolinewidth=1, zerolinecolor='rgba(0,0,0,0.2)',
+                           showline=True, linewidth=1, linecolor='black', mirror=True)
+            
+            st.plotly_chart(fig, use_container_width=True)
+            
+            # Toon maximale waarden
+            max_moment = max(abs(np.min(M)), abs(np.max(M)))
+            max_rotation = max(abs(np.min(rotation)), abs(np.max(rotation)))
+            max_deflection = max(abs(np.min(deflection)), abs(np.max(deflection)))
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Max. moment", f"{max_moment:.2f} Nmm")
+            with col2:
+                st.metric("Max. rotatie", f"{max_rotation:.6f} rad")
+            with col3:
+                st.metric("Max. doorbuiging", f"{max_deflection:.2f} mm")
         else:
             st.info("Voeg belastingen toe om de analyse te starten")
+    
+    with tab2:
+        # Belastingen interface
+        st.markdown("""
+            <div style='background: #f8f9fa; padding: 1rem; border-radius: 8px; margin-bottom: 1rem; border: 1px solid #e0e0e0;'>
+                <h3 style='color: #1f77b4; margin: 0 0 0.5rem 0; font-size: 1.1rem;'>Belastingen</h3>
+                <div style='height: 2px; background: linear-gradient(90deg, #1f77b4 0%, #4fa1d8 100%); margin-bottom: 1rem;'></div>
+            </div>
+        """, unsafe_allow_html=True)
+        
+        col1, col2 = st.columns(2)
+        with col1:
+            load_type = st.selectbox(
+                "Type belasting",
+                ["Puntlast", "Gelijkmatig verdeeld"],
+                key=f"load_type_{st.session_state.load_count}"
+            )
+        
+        with col2:
+            if load_type == "Puntlast":
+                load_value = st.number_input(
+                    "Kracht (N)",
+                    value=1000,
+                    help="Positieve waarde voor neerwaartse kracht",
+                    key=f"load_value_{st.session_state.load_count}"
+                )
+            else:
+                load_value = st.number_input(
+                    "Totale kracht (N)",
+                    value=1000,
+                    help="Totale kracht van de verdeelde belasting",
+                    key=f"load_value_{st.session_state.load_count}"
+                )
+        
+        col3, col4 = st.columns(2)
+        with col3:
+            load_pos = st.number_input(
+                "Startpositie (mm)",
+                min_value=0,
+                max_value=beam_length,
+                value=beam_length//2,
+                help="Positie vanaf linkerzijde",
+                key=f"load_pos_{st.session_state.load_count}"
+            )
+        
+        with col4:
+            if load_type == "Gelijkmatig verdeeld":
+                load_length = st.number_input(
+                    "Lengte (mm)",
+                    min_value=10,
+                    max_value=beam_length,
+                    value=min(500, beam_length),
+                    help="Lengte van de verdeelde belasting",
+                    key=f"load_length_{st.session_state.load_count}"
+                )
+        
+        col5, col6 = st.columns(2)
+        with col5:
+            if st.button("Toevoegen", use_container_width=True):
+                if load_type == "Puntlast":
+                    st.session_state.loads.append((load_pos, load_value, load_type))
+                else:
+                    st.session_state.loads.append((load_pos, load_value, load_type, load_length))
+                st.session_state.load_count += 1
+                st.rerun()
+        
+        with col6:
+            if st.button("Reset", use_container_width=True):
+                st.session_state.loads = []
+                st.session_state.load_count = 0
+                st.rerun()
+        
+        # Toon huidige belastingen
+        if len(st.session_state.loads) > 0:
+            st.markdown("### Huidige belastingen")
+            for i, load in enumerate(st.session_state.loads):
+                if load[2] == "Puntlast":
+                    st.write(f"{i+1}. Puntlast: {load[1]}N op x = {load[0]}mm")
+                else:
+                    st.write(f"{i+1}. Verdeelde last: {load[1]}N over {load[3]}mm vanaf x = {load[0]}mm")
