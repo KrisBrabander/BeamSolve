@@ -181,7 +181,7 @@ def plot_beam_diagram(beam_length, supports, loads):
         y=[0, 0],
         mode='lines',
         name='Balk',
-        line=dict(color='#2c3e50', width=4),
+        line=dict(color='#2c3e50', width=8),  # Dikkere balk
         hoverinfo='skip'
     ))
     
@@ -190,94 +190,155 @@ def plot_beam_diagram(beam_length, supports, loads):
         if support_type == "Inklemming":
             # Teken rechthoek voor inklemming
             fig.add_trace(go.Scatter(
-                x=[pos-20, pos-20, pos+20, pos+20],
-                y=[-40, 40, 40, -40],
+                x=[pos-30, pos-30, pos+30, pos+30],  # Grotere inklemming
+                y=[-60, 60, 60, -60],  # Grotere inklemming
                 fill="toself",
                 mode='lines',
                 name='Inklemming',
-                line=dict(color='#2ecc71'),
+                line=dict(color='#2ecc71', width=3),  # Dikkere lijnen
                 hovertemplate=f"Inklemming<br>x = {pos} mm"
             ))
+            # Voeg arcering toe
+            for i in range(-50, 51, 20):  # Meer arceringslijnen
+                fig.add_trace(go.Scatter(
+                    x=[pos-30, pos+30],
+                    y=[i, i],
+                    mode='lines',
+                    line=dict(color='#2ecc71', width=2),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
         elif support_type == "Scharnier":
             # Teken driehoek voor scharnier
             fig.add_trace(go.Scatter(
-                x=[pos-20, pos, pos+20],
-                y=[-40, 0, -40],
+                x=[pos-30, pos, pos+30],  # Grotere driehoek
+                y=[-60, 0, -60],  # Grotere driehoek
                 fill="toself",
                 mode='lines',
                 name='Scharnier',
-                line=dict(color='#3498db'),
+                line=dict(color='#3498db', width=3),  # Dikkere lijnen
                 hovertemplate=f"Scharnier<br>x = {pos} mm"
             ))
-        else:  # Rol
-            # Teken cirkel met driehoek voor rol
-            fig.add_trace(go.Scatter(
-                x=[pos-20, pos, pos+20],
-                y=[-40, 0, -40],
-                fill="toself",
-                mode='lines',
-                name='Rol',
-                line=dict(color='#e74c3c'),
-                hovertemplate=f"Rol<br>x = {pos} mm"
-            ))
-            # Teken cirkels voor rol
+            # Voeg cirkels toe voor scharnier
             theta = np.linspace(0, 2*np.pi, 50)
-            r = 5
+            r = 8  # Grotere cirkel
             x = r * np.cos(theta) + pos
-            y = r * np.sin(theta) - 45
+            y = r * np.sin(theta) - 60
             fig.add_trace(go.Scatter(
                 x=x, y=y,
                 mode='lines',
-                name='Rol',
-                line=dict(color='#e74c3c'),
-                hoverinfo='skip',
-                showlegend=False
+                line=dict(color='#3498db', width=2),
+                fill='toself',
+                showlegend=False,
+                hoverinfo='skip'
             ))
+        else:  # Rol
+            # Teken driehoek voor rol
+            fig.add_trace(go.Scatter(
+                x=[pos-30, pos, pos+30],  # Grotere driehoek
+                y=[-60, 0, -60],  # Grotere driehoek
+                fill="toself",
+                mode='lines',
+                name='Rol',
+                line=dict(color='#e74c3c', width=3),  # Dikkere lijnen
+                hovertemplate=f"Rol<br>x = {pos} mm"
+            ))
+            # Teken cirkels voor rol
+            for offset in [-10, 0, 10]:  # Drie cirkels
+                theta = np.linspace(0, 2*np.pi, 50)
+                r = 8  # Grotere cirkels
+                x = r * np.cos(theta) + pos + offset
+                y = r * np.sin(theta) - 70
+                fig.add_trace(go.Scatter(
+                    x=x, y=y,
+                    mode='lines',
+                    line=dict(color='#e74c3c', width=2),
+                    fill='toself',
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
     
     # Teken belastingen
     for pos, F, load_type, *rest in loads:
         if load_type == "Puntlast":
             # Teken pijl voor puntlast
-            arrow_length = 60 if F > 0 else -60
+            arrow_length = 80 if F > 0 else -80  # Langere pijlen
             fig.add_trace(go.Scatter(
                 x=[pos, pos],
                 y=[0, arrow_length],
-                mode='lines+markers',
+                mode='lines',
                 name=f'Puntlast {F}N',
-                line=dict(color='#e67e22', width=2),
-                marker=dict(symbol='arrow-down' if F > 0 else 'arrow-up', size=15),
+                line=dict(color='#e67e22', width=3),  # Dikkere lijnen
                 hovertemplate=f"Puntlast<br>F = {F} N<br>x = {pos} mm"
             ))
+            # Teken pijlpunt
+            if F > 0:
+                fig.add_trace(go.Scatter(
+                    x=[pos-10, pos, pos+10],
+                    y=[arrow_length+10, arrow_length, arrow_length+10],
+                    mode='lines',
+                    line=dict(color='#e67e22', width=3),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
+            else:
+                fig.add_trace(go.Scatter(
+                    x=[pos-10, pos, pos+10],
+                    y=[arrow_length-10, arrow_length, arrow_length-10],
+                    mode='lines',
+                    line=dict(color='#e67e22', width=3),
+                    showlegend=False,
+                    hoverinfo='skip'
+                ))
         elif load_type == "Gelijkmatig verdeeld":
             # Teken meerdere pijlen voor verdeelde belasting
             length = float(rest[0])
             q = F / length
-            n_arrows = min(int(length/50), 10)  # Maximaal 10 pijlen
-            dx = length / n_arrows
-            arrow_length = 40 if F > 0 else -40
-            for i in range(n_arrows + 1):
-                x_pos = pos + i * dx
-                if x_pos <= beam_length:
-                    fig.add_trace(go.Scatter(
-                        x=[x_pos, x_pos],
-                        y=[0, arrow_length],
-                        mode='lines+markers',
-                        name=f'q = {q:.1f} N/mm',
-                        line=dict(color='#9b59b6', width=1),
-                        marker=dict(symbol='arrow-down' if F > 0 else 'arrow-up', size=10),
-                        hovertemplate=f"Verdeelde last<br>q = {q:.1f} N/mm<br>x = {x_pos:.0f} mm",
-                        showlegend=i==0
-                    ))
+            n_arrows = min(int(length/50) + 1, 15)  # Meer pijlen, max 15
+            dx = length / (n_arrows - 1)
+            arrow_length = 60 if F > 0 else -60
             
             # Teken lijn boven de pijlen
             fig.add_trace(go.Scatter(
                 x=[pos, pos + length],
                 y=[arrow_length, arrow_length],
                 mode='lines',
-                line=dict(color='#9b59b6', width=2),
-                hoverinfo='skip',
-                showlegend=False
+                line=dict(color='#9b59b6', width=3),  # Dikkere lijnen
+                name=f'q = {q:.1f} N/mm',
+                hovertemplate=f"Verdeelde last<br>q = {q:.1f} N/mm"
             ))
+            
+            # Teken pijlen
+            for i in range(n_arrows):
+                x_pos = pos + i * dx
+                if x_pos <= beam_length:
+                    fig.add_trace(go.Scatter(
+                        x=[x_pos, x_pos],
+                        y=[0, arrow_length],
+                        mode='lines',
+                        line=dict(color='#9b59b6', width=2),
+                        showlegend=False,
+                        hoverinfo='skip'
+                    ))
+                    # Teken pijlpunt
+                    if F > 0:
+                        fig.add_trace(go.Scatter(
+                            x=[x_pos-8, x_pos, x_pos+8],
+                            y=[arrow_length+8, arrow_length, arrow_length+8],
+                            mode='lines',
+                            line=dict(color='#9b59b6', width=2),
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ))
+                    else:
+                        fig.add_trace(go.Scatter(
+                            x=[x_pos-8, x_pos, x_pos+8],
+                            y=[arrow_length-8, arrow_length, arrow_length-8],
+                            mode='lines',
+                            line=dict(color='#9b59b6', width=2),
+                            showlegend=False,
+                            hoverinfo='skip'
+                        ))
     
     # Update layout
     fig.update_layout(
@@ -290,7 +351,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             bgcolor='rgba(255,255,255,0.8)'
         ),
         margin=dict(l=20, r=20, t=50, b=20),
-        height=300,
+        height=400,  # Hogere plot
         plot_bgcolor='white',
         paper_bgcolor='white',
         title=dict(
@@ -299,7 +360,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             y=0.95,
             xanchor='center',
             yanchor='top',
-            font=dict(size=16, color='#2c3e50')
+            font=dict(size=20, color='#2c3e50')  # Grotere titel
         ),
         xaxis=dict(
             title="Positie (mm)",
@@ -307,19 +368,20 @@ def plot_beam_diagram(beam_length, supports, loads):
             gridwidth=1,
             gridcolor='rgba(0,0,0,0.1)',
             zeroline=True,
-            zerolinewidth=1,
+            zerolinewidth=2,
             zerolinecolor='#2c3e50',
             showline=True,
-            linewidth=1,
+            linewidth=2,
             linecolor='#2c3e50',
-            mirror=True
+            mirror=True,
+            range=[-beam_length*0.1, beam_length*1.1]  # Voeg marge toe
         ),
         yaxis=dict(
             showgrid=False,
             zeroline=False,
             showline=False,
             showticklabels=False,
-            range=[-100, 100]
+            range=[-150, 150]  # Grotere y-range
         )
     )
     
@@ -330,42 +392,84 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     n_points = 200
     x = np.linspace(0, beam_length, n_points)
     M = np.zeros_like(x)
+    V = np.zeros_like(x)  # Dwarskracht
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Bereken moment voor elke positie
+    # Bereken steunpuntreacties
+    R = np.zeros(len(supports))  # Reactiekrachten
+    
+    # Stel momentevenwicht en krachtenevenwicht op
+    A = np.zeros((len(supports), len(supports)))
+    b = np.zeros(len(supports))
+    
+    # Voor elke steunpunt
+    for i, (pos_i, type_i) in enumerate(supports):
+        # Krachtenevenwicht
+        A[0, i] = 1
+        
+        # Momentevenwicht t.o.v. eerste steunpunt
+        if i > 0:
+            A[i, i] = pos_i - supports[0][0]
+    
+    # Bereken belastingen voor rechterlid
+    total_force = 0
+    moment_first = 0
+    
+    for pos, F, load_type, *rest in loads:
+        if load_type == "Puntlast":
+            total_force += F
+            moment_first += F * (pos - supports[0][0])
+        elif load_type == "Gelijkmatig verdeeld":
+            length = float(rest[0])
+            q = F / length
+            total_force += F
+            moment_first += F * (pos + length/2 - supports[0][0])
+    
+    b[0] = -total_force
+    for i in range(1, len(supports)):
+        b[i] = -moment_first
+    
+    # Los reactiekrachten op
+    try:
+        R = np.linalg.solve(A, b)
+    except np.linalg.LinAlgError:
+        # Als het stelsel niet oplosbaar is
+        R = np.zeros(len(supports))
+    
+    # Bereken interne krachten voor elke positie
     for i, xi in enumerate(x):
-        # Bereken momenten van belastingen
+        # Reactiekrachten
+        for j, (pos, _) in enumerate(supports):
+            if xi >= pos:
+                V[i] += R[j]
+                M[i] += R[j] * (xi - pos)
+        
+        # Belastingen
         for pos, F, load_type, *rest in loads:
             if load_type == "Puntlast":
                 if xi >= pos:
+                    V[i] += F
                     M[i] += F * (xi - pos)
             elif load_type == "Gelijkmatig verdeeld":
                 length = float(rest[0])
                 q = F / length
-                start = max(pos, xi)
-                end = min(beam_length, pos + length)
-                if start < end:
-                    M[i] += 0.5 * q * (end - start) * (end + start - 2*xi)
-        
-        # Pas randvoorwaarden toe op basis van ondersteuningen
-        for pos, support_type in supports:
-            if support_type == "Inklemming" and xi >= pos:
-                # Inklemming: Moment = 0 op positie, rotatie = 0
-                M[i] = 0
-                rotation[i] = 0
-            elif support_type in ["Scharnier", "Rol"] and abs(xi - pos) < 1e-6:
-                # Scharnier/Rol: Doorbuiging = 0 op positie
-                deflection[i] = 0
+                if xi > pos:
+                    end = min(xi, pos + length)
+                    V[i] += q * (end - pos)
+                    M[i] += q * (end - pos) * (xi - (pos + end)/2)
     
     # Bereken rotatie en doorbuiging
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     dx = beam_length / (n_points - 1)
     
-    # Voorwaartse integratie voor rotatie en doorbuiging
+    # Voorwaartse integratie voor rotatie
     for i in range(1, n_points):
         if not any(abs(x[i] - pos) < 1e-6 and type == "Inklemming" for pos, type in supports):
             rotation[i] = rotation[i-1] + M[i-1] * dx / (E * I)
+    
+    # Voorwaartse integratie voor doorbuiging
+    for i in range(1, n_points):
         if not any(abs(x[i] - pos) < 1e-6 and type in ["Scharnier", "Rol"] for pos, type in supports):
             deflection[i] = deflection[i-1] + rotation[i-1] * dx
     
