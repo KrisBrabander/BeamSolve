@@ -24,7 +24,7 @@ st.set_page_config(
         Professionele software voor balkdoorbuigingsberekeningen.
         Versie 1.0.0
         
-        © 2025 Alle rechten voorbehouden.
+        Alle rechten voorbehouden.
         '''
     }
 )
@@ -114,211 +114,256 @@ def calculate_beam_response(x, L, E, I, supports, loads):
 # Styling
 st.markdown("""
     <style>
+    /* Algemene app styling */
     .main {
-        background-color: #f8f9fa;
+        background-color: #ffffff;
+        padding: 2rem;
     }
     .stApp {
-        max-width: 1200px;
+        max-width: 1400px;
         margin: 0 auto;
     }
+    
+    /* Header styling */
     h1 {
-        color: #1e3d59;
+        color: #1a237e;
         font-family: 'Segoe UI', sans-serif;
-        padding: 1rem 0;
-        border-bottom: 2px solid #eaecef;
-        margin-bottom: 2rem;
+        font-weight: 600;
+        font-size: 2.2rem;
+        padding: 1.5rem 0;
+        margin-bottom: 0.5rem;
+    }
+    .version-badge {
+        background-color: #e3f2fd;
+        color: #1565c0;
+        padding: 0.3rem 0.8rem;
+        border-radius: 16px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        display: inline-block;
+        margin-bottom: 1.5rem;
     }
     .subtitle {
-        color: #666;
-        font-size: 1.2rem;
+        color: #546e7a;
+        font-size: 1.1rem;
         margin-bottom: 2rem;
+        font-weight: 400;
     }
+    
+    /* Secties styling */
+    .section-container {
+        background-color: #ffffff;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 1.5rem;
+        border: 1px solid #e0e0e0;
+    }
+    .section-header {
+        color: #1a237e;
+        font-size: 1.3rem;
+        font-weight: 500;
+        margin-bottom: 1.2rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Input velden */
+    .stTextInput > div > div {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 0.5rem;
+    }
+    .stTextInput > div > div:focus-within {
+        border-color: #1565c0;
+        box-shadow: 0 0 0 2px rgba(21,101,192,0.1);
+    }
+    .stNumberInput > div > div {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    
+    /* Knoppen */
     .stButton > button {
-        background-color: #1e88e5;
+        background-color: #1565c0;
         color: white;
         border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
+        padding: 0.6rem 1.2rem;
+        border-radius: 8px;
         font-weight: 500;
-        transition: all 0.2s;
+        letter-spacing: 0.3px;
+        transition: all 0.2s ease;
     }
     .stButton > button:hover {
-        background-color: #1565c0;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        background-color: #1976d2;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        transform: translateY(-1px);
     }
     .stButton > button:active {
-        transform: translateY(1px);
+        transform: translateY(0);
     }
+    
+    /* Selectbox styling */
+    .stSelectbox > div > div {
+        background-color: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+    }
+    
+    /* Metrics */
     [data-testid="stMetricValue"] {
-        font-size: 1.5rem !important;
-        color: #1e3d59 !important;
+        font-size: 1.8rem !important;
+        color: #1a237e !important;
+        font-weight: 600 !important;
     }
     [data-testid="stMetricDelta"] {
-        color: #2196f3 !important;
+        color: #1565c0 !important;
+        font-size: 1rem !important;
     }
-    </style>
-""", unsafe_allow_html=True)
-
-# Basis styling
-st.markdown("""
-    <style>
-    .sidebar-section {
-        background-color: #f8f9fa;
-        padding: 1rem;
+    
+    /* Help icons */
+    .stTooltipIcon {
+        color: #90a4ae;
+    }
+    
+    /* Expanders */
+    .streamlit-expanderHeader {
+        background-color: #f8fafc;
         border-radius: 8px;
-        margin-bottom: 1rem;
-        border: 1px solid #eaecef;
+        border: 1px solid #e2e8f0;
+        padding: 0.8rem !important;
     }
-    .sidebar-section h4 {
-        color: #1e3d59;
-        font-size: 1rem;
-        margin-bottom: 1rem;
+    .streamlit-expanderContent {
+        border: 1px solid #e2e8f0;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 1.2rem !important;
     }
     </style>
 """, unsafe_allow_html=True)
 
-# Header
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.title("Buigingsberekeningen Pro")
-    st.markdown('<p class="subtitle">Professionele balkdoorbuigingsanalyse</p>', unsafe_allow_html=True)
-with col2:
-    st.markdown("""
-        <div style='background-color: #f1f8ff; padding: 1rem; border-radius: 8px; border: 1px solid #cfe4ff; margin-top: 1rem;'>
-            <h4 style='color: #0366d6; margin: 0; font-size: 1.1rem;'>Professional Edition</h4>
-            <p style='margin: 0.5rem 0 0 0; color: #666; font-size: 0.9rem;'>v1.0.0</p>
-        </div>
-    """, unsafe_allow_html=True)
-
-# Sidebar styling
+# Header sectie
 st.markdown("""
-    <style>
-    [data-testid="stSidebar"] {
-        background-color: #ffffff;
-        border-right: 1px solid #eaecef;
-        padding: 2rem 1rem;
-    }
-    [data-testid="stSidebar"] .stMarkdown h3 {
-        color: #1e3d59;
-        font-size: 1.2rem;
-        margin-bottom: 1.5rem;
-        padding-bottom: 0.5rem;
-        border-bottom: 2px solid #eaecef;
-    }
-    </style>
+    <h1>Buigingsberekeningen Pro</h1>
+    <div class="version-badge">Professional Edition v1.0.0</div>
+    <p class="subtitle">Professionele balkdoorbuigingsanalyse</p>
 """, unsafe_allow_html=True)
 
-# Sidebar
-with st.sidebar:
-    st.markdown('<h3>🛠️ Configuratie</h3>', unsafe_allow_html=True)
-    
-    # Profielgegevens
-    st.markdown("""
-        <div class="sidebar-section">
-            <h4>📐 Profielgegevens</h4>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    profile_type = st.selectbox(
-        "Profieltype",
-        ["Koker", "I-profiel", "U-profiel"],
-        help="Selecteer het type profiel voor de berekening"
+# Hoofdcontainer voor de app
+st.markdown('<div class="section-container">', unsafe_allow_html=True)
+
+# Profielgegevens sectie
+st.markdown("""
+    <div class="section-header">
+        <span>📐 Profielgegevens</span>
+    </div>
+""", unsafe_allow_html=True)
+
+# Profielgegevens
+profile_type = st.selectbox(
+    "Profieltype",
+    ["Koker", "I-profiel", "U-profiel"],
+    help="Selecteer het type profiel voor de berekening"
+)
+
+col1, col2 = st.columns(2)
+with col1:
+    height = st.number_input("Hoogte (mm)", min_value=1.0, value=100.0,
+                           help="Totale hoogte van het profiel")
+with col2:
+    width = st.number_input("Breedte (mm)", min_value=1.0, value=50.0,
+                          help="Totale breedte van het profiel")
+
+wall_thickness = st.number_input("Wanddikte (mm)", min_value=0.1, value=5.0,
+                               help="Dikte van de wanden")
+
+if profile_type in ["I-profiel", "U-profiel"]:
+    flange_thickness = st.number_input("Flensdikte (mm)", min_value=0.1, value=5.0,
+                                     help="Dikte van de flenzen")
+else:
+    flange_thickness = None
+
+# Materiaal
+st.markdown("""
+    <div class="section-header">
+        <span>🔧 Materiaal</span>
+    </div>
+""", unsafe_allow_html=True)
+
+E = st.number_input(
+    "E-modulus (N/mm²)",
+    min_value=1.0,
+    value=210000.0,
+    help="Elasticiteitsmodulus van het materiaal (210000 N/mm² voor staal)"
+)
+
+# Overspanning
+st.markdown("""
+    <div class="section-header">
+        <span>📏 Overspanning</span>
+    </div>
+""", unsafe_allow_html=True)
+
+beam_length = st.number_input(
+    "Lengte (mm)",
+    min_value=1.0,
+    value=1000.0,
+    help="Totale lengte van de balk"
+)
+
+# Steunpunten
+st.markdown("""
+    <div class="section-header">
+        <span>🔗 Steunpunten</span>
+    </div>
+""", unsafe_allow_html=True)
+
+support_count = st.selectbox(
+    "Aantal steunpunten",
+    [1, 2, 3],
+    help="Kies het aantal steunpunten voor de balk"
+)
+
+supports = []
+if support_count == 1:
+    pos = st.number_input(
+        "Positie inklemming (mm)",
+        0.0, beam_length, 0.0,
+        help="Positie van de inklemming vanaf het linkeruiteinde"
     )
-    
-    col1, col2 = st.columns(2)
-    with col1:
-        height = st.number_input("Hoogte (mm)", min_value=1.0, value=100.0,
-                               help="Totale hoogte van het profiel")
-    with col2:
-        width = st.number_input("Breedte (mm)", min_value=1.0, value=50.0,
-                              help="Totale breedte van het profiel")
-    
-    wall_thickness = st.number_input("Wanddikte (mm)", min_value=0.1, value=5.0,
-                                   help="Dikte van de wanden")
-    
-    if profile_type in ["I-profiel", "U-profiel"]:
-        flange_thickness = st.number_input("Flensdikte (mm)", min_value=0.1, value=5.0,
-                                         help="Dikte van de flenzen")
-    else:
-        flange_thickness = None
-    
-    # Materiaal
-    st.markdown("""
-        <div class="sidebar-section">
-            <h4>🔧 Materiaal</h4>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    E = st.number_input(
-        "E-modulus (N/mm²)",
-        min_value=1.0,
-        value=210000.0,
-        help="Elasticiteitsmodulus van het materiaal (210000 N/mm² voor staal)"
-    )
-    
-    # Overspanning
-    st.markdown("""
-        <div class="sidebar-section">
-            <h4>📏 Overspanning</h4>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    beam_length = st.number_input(
-        "Lengte (mm)",
-        min_value=1.0,
-        value=1000.0,
-        help="Totale lengte van de balk"
-    )
-    
-    # Steunpunten
-    st.markdown("""
-        <div class="sidebar-section">
-            <h4>🔗 Steunpunten</h4>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    support_count = st.selectbox(
-        "Aantal steunpunten",
-        [1, 2, 3],
-        help="Kies het aantal steunpunten voor de balk"
-    )
-    
-    supports = []
-    if support_count == 1:
-        pos = st.number_input(
-            "Positie inklemming (mm)",
-            0.0, beam_length, 0.0,
-            help="Positie van de inklemming vanaf het linkeruiteinde"
-        )
-        supports.append((pos, "Inklemming"))
-    else:
-        for i in range(support_count):
-            col1, col2 = st.columns(2)
-            with col1:
-                pos = st.number_input(
-                    f"Positie {i+1} (mm)",
-                    0.0, beam_length,
-                    value=i * beam_length/(support_count-1) if support_count > 1 else 0.0,
-                    key=f"pos_{i}",
-                    help=f"Positie van steunpunt {i+1} vanaf het linkeruiteinde"
-                )
-            with col2:
-                type = st.selectbox(
-                    "Type",
-                    ["Scharnier", "Rol"],
-                    key=f"type_{i}",
-                    help="Scharnier: vast punt, Rol: kan horizontaal bewegen"
-                )
-            supports.append((pos, type))
+    supports.append((pos, "Inklemming"))
+else:
+    for i in range(support_count):
+        col1, col2 = st.columns(2)
+        with col1:
+            pos = st.number_input(
+                f"Positie {i+1} (mm)",
+                0.0, beam_length,
+                value=i * beam_length/(support_count-1) if support_count > 1 else 0.0,
+                key=f"pos_{i}",
+                help=f"Positie van steunpunt {i+1} vanaf het linkeruiteinde"
+            )
+        with col2:
+            type = st.selectbox(
+                "Type",
+                ["Scharnier", "Rol"],
+                key=f"type_{i}",
+                help="Scharnier: vast punt, Rol: kan horizontaal bewegen"
+            )
+        supports.append((pos, type))
 
 # Hoofdgedeelte
 col1, col2 = st.columns([7, 3])
 
 with col1:
     st.markdown("""
-        <div style='background-color: white; padding: 1.5rem; border-radius: 8px; border: 1px solid #eaecef;'>
-            <h3 style='color: #1e3d59; margin-bottom: 1rem;'>📊 Visualisatie</h3>
-        </div>
+        <div class="section-container">
+            <div class="section-header">
+                <span>📊 Visualisatie</span>
+            </div>
     """, unsafe_allow_html=True)
     
     # Maak een mooiere plot
@@ -448,9 +493,10 @@ with col1:
 with col2:
     # Belastingen sectie
     st.markdown("""
-        <div style='background-color: white; padding: 1.5rem; border-radius: 8px; border: 1px solid #eaecef; margin-bottom: 1rem;'>
-            <h3 style='color: #1e3d59; margin-bottom: 1rem;'>🎯 Belastingen</h3>
-        </div>
+        <div class="section-container">
+            <div class="section-header">
+                <span>🎯 Belastingen</span>
+            </div>
     """, unsafe_allow_html=True)
     
     # Belastingen container
@@ -535,9 +581,10 @@ with col2:
     # Resultaten sectie
     if len(st.session_state.loads) > 0:
         st.markdown("""
-            <div style='background-color: white; padding: 1.5rem; border-radius: 8px; border: 1px solid #eaecef; margin-top: 1rem;'>
-                <h3 style='color: #1e3d59; margin-bottom: 1rem;'>📊 Resultaten</h3>
-            </div>
+            <div class="section-container">
+                <div class="section-header">
+                    <span>📊 Resultaten</span>
+                </div>
         """, unsafe_allow_html=True)
         
         # Resultaten container
