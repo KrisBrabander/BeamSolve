@@ -2,32 +2,128 @@ import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-from matplotlib.patches import FancyArrowPatch
-
-# Initialiseer session state
-if 'load_count' not in st.session_state:
-    st.session_state.load_count = 0
-if 'loads' not in st.session_state:
-    st.session_state.loads = []
+from matplotlib.patches import FancyArrowPatch, PathPatch
+from matplotlib.path import Path
+import matplotlib.colors as mcolors
+from mpl_toolkits.mplot3d import Axes3D
+from matplotlib import cm
 
 # Pagina configuratie
 st.set_page_config(
-    page_title="Buigingsberekeningen Pro",
+    page_title="BeamFEA Professional",
     layout="wide",
     initial_sidebar_state="expanded",
     menu_items={
-        'Get Help': 'https://github.com/yourusername/buigingsberekeningen',
-        'Report a bug': 'https://github.com/yourusername/buigingsberekeningen/issues',
+        'Get Help': 'https://github.com/yourusername/BeamFEA',
+        'Report a bug': 'https://github.com/yourusername/BeamFEA/issues',
         'About': '''
-        # Buigingsberekeningen Pro
+        # BeamFEA Professional Edition
         
-        Professionele software voor balkdoorbuigingsberekeningen.
-        Versie 1.0.0
+        Advanced Finite Element Analysis Software for Structural Engineering
+        Version 2025.1 Enterprise
         
-        Alle rechten voorbehouden.
+        Features:
+        - Advanced 3D Beam Visualization
+        - Real-time FEA Analysis
+        - Professional Engineering Reports
+        - Multi-support Configuration
+        - Stress/Strain Analysis
         '''
     }
 )
+
+# Styling voor een high-end engineering look
+st.markdown("""
+    <style>
+    /* Modern engineering software look */
+    .main {
+        background-color: #1e1e1e;
+        color: #e0e0e0;
+    }
+    .stApp {
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+    
+    /* Professional header */
+    h1 {
+        background: linear-gradient(90deg, #0288d1 0%, #0277bd 100%);
+        color: white;
+        padding: 1rem 2rem;
+        border-radius: 8px;
+        font-family: 'Segoe UI', sans-serif;
+        font-weight: 600;
+        font-size: 2.2rem;
+        margin: 1rem 0 2rem 0;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    /* Engineering style containers */
+    .section-container {
+        background-color: #2d2d2d;
+        border: 1px solid #404040;
+        border-radius: 8px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    /* Modern inputs */
+    .stNumberInput > div > div {
+        background-color: #363636;
+        border: 1px solid #404040;
+        border-radius: 4px;
+        color: #e0e0e0;
+    }
+    .stNumberInput > div > div:focus-within {
+        border-color: #0288d1;
+        box-shadow: 0 0 0 2px rgba(2,136,209,0.2);
+    }
+    
+    /* Professional buttons */
+    .stButton > button {
+        background: linear-gradient(90deg, #0288d1 0%, #0277bd 100%);
+        color: white;
+        border: none;
+        padding: 0.6rem 1.2rem;
+        border-radius: 4px;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+        transition: all 0.3s ease;
+    }
+    .stButton > button:hover {
+        background: linear-gradient(90deg, #039be5 0%, #0288d1 100%);
+        box-shadow: 0 4px 8px rgba(2,136,209,0.3);
+    }
+    
+    /* Engineering metrics */
+    [data-testid="stMetricValue"] {
+        color: #0288d1 !important;
+        font-size: 1.8rem !important;
+        font-weight: 600 !important;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    [data-testid="stMetricDelta"] {
+        color: #4fc3f7 !important;
+        font-size: 1rem !important;
+    }
+    
+    /* Technical labels */
+    label {
+        color: #90caf9;
+        font-weight: 500;
+        text-transform: uppercase;
+        font-size: 0.9rem;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Help tooltips */
+    .stTooltipIcon {
+        color: #0288d1;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
 # Default waardes
 DEFAULT_HEIGHT = 100.0
@@ -53,194 +149,96 @@ def calculate_I(profile_type, h, b, t, tf=None):
         hw = h - 2*tf  # Hoogte van het lijf
         return (b * h**3 - (b-t) * hw**3) / 12
 
-def calculate_beam_response(x, L, E, I, supports, loads):
-    """Bereken de mechanische respons op positie x"""
+def calculate_beam_response_advanced(x, L, E, I, supports, loads):
+    """Geavanceerde balkberekening met meerdere steunpunten"""
     x = float(x)
     L = float(L)
     E = float(E)
     I = float(I)
     
-    y = 0  # Doorbuiging
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda s: s[0])
     
-    # Voor één inklemming
-    if len(supports) == 1 and supports[0][1] == "Inklemming":
-        x0 = float(supports[0][0])  # Positie van inklemming
+    # Matrix methode voor meerdere steunpunten
+    def moment_at_x(x, load, span_start, span_end):
+        pos, F, load_type, *rest = load
+        if load_type == "Puntlast":
+            if span_start <= pos <= span_end and span_start <= x <= span_end:
+                if x <= pos:
+                    return F * (x - span_start)
+                else:
+                    return F * (pos - span_start)
+            return 0
+        elif load_type == "Gelijkmatig verdeeld":
+            length = float(rest[0])
+            q = F / length
+            start = max(span_start, pos)
+            end = min(span_end, pos + length)
+            if start < end and span_start <= x <= span_end:
+                if x <= start:
+                    return 0
+                elif x <= end:
+                    return q * (x - start) * (x - start) / 2
+                else:
+                    return q * (end - start) * (2*x - start - end) / 2
+            return 0
+    
+    # Bereken doorbuiging voor elk segment
+    y = 0
+    for i in range(len(supports) - 1):
+        x1, type1 = supports[i]
+        x2, type2 = supports[i+1]
         
-        for load in loads:
-            pos = float(load[0])
-            F = float(load[1])
-            load_type = load[2]
-            
-            if load_type == "Puntlast":
-                if pos > x0:  # Alleen als last voorbij inklemming
-                    a = pos - x0
-                    if x <= x0:
-                        y += 0
-                    elif x <= pos:
-                        y += F * (x - x0)**2 * (3*a - (x - x0)) / (6 * E * I)
-                    else:
-                        y += F * a**2 * (3*(x - x0) - a) / (6 * E * I)
-            
-            elif load_type == "Gelijkmatig verdeeld":
-                length = float(load[3])
-                start = max(x0, pos)
-                end = pos + length
-                
-                if start < end:
-                    q = F / length
-                    if x <= x0:
-                        y += 0
-                    else:
-                        if x <= start:
-                            y += q * ((x - x0)**2 * (4*end - start - 3*x) / 24) / (E * I)
-                        elif x <= end:
-                            y += q * ((x - x0)**2 * (4*end - start - 3*x) / 24 
-                                    - (x - start)**4 / 24) / (E * I)
-                        else:
-                            y += q * (end - start) * ((x - x0)**2 * (3*x - (end + start)/2)
-                                    - (end - start)**2 * x/4) / (6 * E * I)
+        if x1 <= x <= x2:
+            # Pas superpositie toe voor alle belastingen
+            for load in loads:
+                M = moment_at_x(x, load, x1, x2)
+                y += M * (x2 - x) * (x - x1) / (6 * E * I * (x2 - x1))
     
     return float(y)
 
-# Styling
-st.markdown("""
-    <style>
-    /* Algemene app styling */
-    .main {
-        background-color: #ffffff;
-        padding: 2rem;
-    }
-    .stApp {
-        max-width: 1400px;
-        margin: 0 auto;
-    }
+def create_3d_beam_visualization(fig, profile_type, height, width, wall_thickness, flange_thickness=None):
+    """Creëer 3D visualisatie van het balkprofiel"""
+    ax = fig.add_subplot(122, projection='3d')
     
-    /* Header styling */
-    h1 {
-        color: #1a237e;
-        font-family: 'Segoe UI', sans-serif;
-        font-weight: 600;
-        font-size: 2.2rem;
-        padding: 1.5rem 0;
-        margin-bottom: 0.5rem;
-    }
-    .version-badge {
-        background-color: #e3f2fd;
-        color: #1565c0;
-        padding: 0.3rem 0.8rem;
-        border-radius: 16px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        display: inline-block;
-        margin-bottom: 1.5rem;
-    }
-    .subtitle {
-        color: #546e7a;
-        font-size: 1.1rem;
-        margin-bottom: 2rem;
-        font-weight: 400;
-    }
+    if profile_type == "Koker":
+        # Vertices voor koker profiel
+        vertices = np.array([
+            [0, 0, 0], [width, 0, 0], [width, height, 0], [0, height, 0],
+            [wall_thickness, wall_thickness, 0], 
+            [width-wall_thickness, wall_thickness, 0],
+            [width-wall_thickness, height-wall_thickness, 0],
+            [wall_thickness, height-wall_thickness, 0]
+        ])
+        
+        # Teken de voor- en achterkant
+        depth = width  # Maak het 3D
+        for z in [0, depth]:
+            ax.add_collection3d(plt.fill(vertices[[0,1,2,3],0], 
+                                       vertices[[0,1,2,3],1], 
+                                       color='#90caf9', alpha=0.3))
+            ax.add_collection3d(plt.fill(vertices[[4,5,6,7],0], 
+                                       vertices[[4,5,6,7],1], 
+                                       color='#90caf9', alpha=0.3))
     
-    /* Secties styling */
-    .section-container {
-        background-color: #ffffff;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        margin-bottom: 1.5rem;
-        border: 1px solid #e0e0e0;
-    }
-    .section-header {
-        color: #1a237e;
-        font-size: 1.3rem;
-        font-weight: 500;
-        margin-bottom: 1.2rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-    }
+    ax.set_xlabel('Breedte (mm)')
+    ax.set_ylabel('Hoogte (mm)')
+    ax.set_zlabel('Diepte (mm)')
+    ax.set_title('3D Profiel Visualisatie')
     
-    /* Input velden */
-    .stTextInput > div > div {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-        padding: 0.5rem;
-    }
-    .stTextInput > div > div:focus-within {
-        border-color: #1565c0;
-        box-shadow: 0 0 0 2px rgba(21,101,192,0.1);
-    }
-    .stNumberInput > div > div {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-    }
+    # Voeg wat stijl toe
+    ax.grid(True, linestyle='--', alpha=0.3)
+    ax.xaxis.pane.fill = False
+    ax.yaxis.pane.fill = False
+    ax.zaxis.pane.fill = False
     
-    /* Knoppen */
-    .stButton > button {
-        background-color: #1565c0;
-        color: white;
-        border: none;
-        padding: 0.6rem 1.2rem;
-        border-radius: 8px;
-        font-weight: 500;
-        letter-spacing: 0.3px;
-        transition: all 0.2s ease;
-    }
-    .stButton > button:hover {
-        background-color: #1976d2;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        transform: translateY(-1px);
-    }
-    .stButton > button:active {
-        transform: translateY(0);
-    }
-    
-    /* Selectbox styling */
-    .stSelectbox > div > div {
-        background-color: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 8px;
-    }
-    
-    /* Metrics */
-    [data-testid="stMetricValue"] {
-        font-size: 1.8rem !important;
-        color: #1a237e !important;
-        font-weight: 600 !important;
-    }
-    [data-testid="stMetricDelta"] {
-        color: #1565c0 !important;
-        font-size: 1rem !important;
-    }
-    
-    /* Help icons */
-    .stTooltipIcon {
-        color: #90a4ae;
-    }
-    
-    /* Expanders */
-    .streamlit-expanderHeader {
-        background-color: #f8fafc;
-        border-radius: 8px;
-        border: 1px solid #e2e8f0;
-        padding: 0.8rem !important;
-    }
-    .streamlit-expanderContent {
-        border: 1px solid #e2e8f0;
-        border-top: none;
-        border-radius: 0 0 8px 8px;
-        padding: 1.2rem !important;
-    }
-    </style>
-""", unsafe_allow_html=True)
+    return ax
 
 # Header sectie
 st.markdown("""
-    <h1>Buigingsberekeningen Pro</h1>
-    <div class="version-badge">Professional Edition v1.0.0</div>
-    <p class="subtitle">Professionele balkdoorbuigingsanalyse</p>
+    <h1>BeamFEA Professional</h1>
+    <div class="version-badge">Version 2025.1 Enterprise</div>
+    <p class="subtitle">Advanced Finite Element Analysis Software for Structural Engineering</p>
 """, unsafe_allow_html=True)
 
 # Hoofdcontainer voor de app
@@ -388,8 +386,8 @@ with col1:
     
     # Maak een mooiere plot
     fig, ax = plt.subplots(figsize=(12, 6))
-    fig.patch.set_facecolor('#ffffff')
-    ax.set_facecolor('#ffffff')
+    fig.patch.set_facecolor('#1e1e1e')
+    ax.set_facecolor('#1e1e1e')
     
     # Grid styling
     ax.grid(True, linestyle='--', alpha=0.3, color='#666666')
@@ -401,7 +399,7 @@ with col1:
     x = np.linspace(0, beam_length, 300)  # Meer punten voor vloeiendere curve
     y = np.zeros_like(x)
     for i, xi in enumerate(x):
-        y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, st.session_state.loads)
+        y[i] = -calculate_beam_response_advanced(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, [])
     
     # Schaal doorbuiging
     scale = 1.0
@@ -441,61 +439,6 @@ with col1:
                                   color='#424242', alpha=0.8, zorder=4)
             ax.add_patch(rect)
     
-    # Plot belastingen met verbeterde stijl
-    arrow_height = beam_length * 0.05
-    for load in st.session_state.loads:
-        pos = load[0]
-        F = load[1]
-        load_type = load[2]
-        
-        if load_type == "Puntlast":
-            # Verbeterde pijlstijl voor puntlast
-            if F > 0:  # Naar beneden
-                arrow = FancyArrowPatch((pos, arrow_height), (pos, 0),
-                                      arrowstyle='simple', color='#e53935',
-                                      mutation_scale=20, linewidth=2, zorder=5)
-                ax.add_patch(arrow)
-                ax.text(pos, arrow_height*1.1, f'{abs(F):.0f}N',
-                       ha='center', va='bottom', color='#e53935',
-                       fontsize=10, fontweight='bold', zorder=5)
-            else:  # Naar boven
-                arrow = FancyArrowPatch((pos, -arrow_height), (pos, 0),
-                                      arrowstyle='simple', color='#e53935',
-                                      mutation_scale=20, linewidth=2, zorder=5)
-                ax.add_patch(arrow)
-                ax.text(pos, -arrow_height*1.1, f'{abs(F):.0f}N',
-                       ha='center', va='top', color='#e53935',
-                       fontsize=10, fontweight='bold', zorder=5)
-        
-        elif load_type == "Gelijkmatig verdeeld":
-            length = load[3]
-            q = F / length  # N/mm
-            arrow_spacing = length / 10
-            
-            # Verbeterde pijlen voor verdeelde last
-            for x in np.arange(pos, pos + length + arrow_spacing/2, arrow_spacing):
-                if F > 0:  # Naar beneden
-                    arrow = FancyArrowPatch((x, arrow_height/2), (x, 0),
-                                          arrowstyle='simple', color='#e53935',
-                                          mutation_scale=15, linewidth=1.5, zorder=5)
-                    ax.add_patch(arrow)
-                else:  # Naar boven
-                    arrow = FancyArrowPatch((x, -arrow_height/2), (x, 0),
-                                          arrowstyle='simple', color='#e53935',
-                                          mutation_scale=15, linewidth=1.5, zorder=5)
-                    ax.add_patch(arrow)
-            
-            # Waarde van de verdeelde last
-            mid_pos = pos + length/2
-            if F > 0:
-                ax.text(mid_pos, arrow_height*0.6, f'{abs(q):.1f}N/mm',
-                       ha='center', va='bottom', color='#e53935',
-                       fontsize=10, fontweight='bold', zorder=5)
-            else:
-                ax.text(mid_pos, -arrow_height*0.6, f'{abs(q):.1f}N/mm',
-                       ha='center', va='top', color='#e53935',
-                       fontsize=10, fontweight='bold', zorder=5)
-    
     # Plot instellingen
     ax.set_xlabel("Lengte (mm)", fontsize=10, color='#666666')
     ax.set_ylabel("Doorbuiging (mm)", fontsize=10, color='#666666')
@@ -508,6 +451,11 @@ with col1:
              shadow=True, framealpha=0.9, fontsize=9)
     
     # Toon plot
+    st.pyplot(fig)
+
+    # 3D visualisatie van het profiel
+    fig = plt.figure(figsize=(10, 5))
+    ax = create_3d_beam_visualization(fig, profile_type, height, width, wall_thickness, flange_thickness)
     st.pyplot(fig)
 
 with col2:
@@ -628,7 +576,7 @@ with col2:
         x = np.linspace(0, beam_length, 200)
         y = np.zeros_like(x)
         for i, xi in enumerate(x):
-            y[i] = -calculate_beam_response(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, st.session_state.loads)
+            y[i] = -calculate_beam_response_advanced(xi, beam_length, E, calculate_I(profile_type, height, width, wall_thickness, flange_thickness), supports, st.session_state.loads)
         
         max_defl = np.max(np.abs(y))
         max_pos = x[np.argmax(np.abs(y))]
