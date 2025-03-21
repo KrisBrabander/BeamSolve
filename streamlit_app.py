@@ -1,12 +1,8 @@
 import streamlit as st
 import numpy as np
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-from matplotlib.patches import FancyArrowPatch
-from matplotlib.gridspec import GridSpec
-import matplotlib.colors as mcolors
-import plotly.graph_objects as go
-from plotly.subplots import make_subplots
+from matplotlib.patches import Rectangle, Polygon, Circle
+import matplotlib.gridspec as gridspec
 
 st.set_page_config(layout="wide", page_title="BeamCAE 2025")
 
@@ -194,6 +190,163 @@ with sidebar:
     support_count = st.selectbox("Aantal steunpunten", [1, 2, 3], help="Aantal steunpunten")
     st.markdown('</div>', unsafe_allow_html=True)
 
+# Numerieke integratie functies
+def calculate_I(profile_type, h, b, t_w, t_f=None):
+    """Bereken traagheidsmoment"""
+    if profile_type == "Koker":
+        # I = (bh³)/12 - (b-2t)(h-2t)³/12
+        I = (b * h**3)/12 - ((b-2*t_w) * (h-2*t_w)**3)/12
+    else:  # I- of H-profiel
+        # I = (bh³)/12 + 2*[(b*t_f*(h-t_f)²)/4]
+        I = (t_w * (h-2*t_f)**3)/12 + 2*(b*t_f*(h/2-t_f/2)**2)
+    return I
+
+def calc_deflection(M, EI, dx, theta_0, v_0, start_idx, end_idx, reverse=False):
+    """
+    Bereken doorbuiging middels numerieke integratie
+    Parameters:
+        M: Array met momentwaardes
+        EI: Buigstijfheid
+        dx: Stapgrootte
+        theta_0: Initiële rotatie
+        v_0: Initiële verplaatsing
+        start_idx: Start index voor integratie
+        end_idx: Eind index voor integratie
+        reverse: Integreer in omgekeerde richting
+    """
+    theta_prev = theta_0
+    v_prev = v_0
+    
+    n = len(M)
+    rotation = np.zeros(n)
+    deflection = np.zeros(n)
+    rotation[start_idx] = theta_0
+    deflection[start_idx] = v_0
+    
+    if reverse:
+        range_indices = range(start_idx-1, end_idx-1, -1)
+    else:
+        range_indices = range(start_idx+1, end_idx+1)
+    
+    for i in range_indices:
+        # Numerieke integratie met trapeziumregel
+        M_prev = M[i-1] if not reverse else M[i+1]
+        M_curr = M[i]
+        M_avg = 0.5 * (M_prev + M_curr)
+        
+        # Bereken rotatie
+        theta_curr = theta_prev + (M_avg/EI) * dx
+        rotation[i] = theta_curr
+        
+        # Bereken verplaatsing
+        v_curr = v_prev + 0.5 * (theta_curr + theta_prev) * dx
+        deflection[i] = v_curr
+        
+        # Update voor volgende iteratie
+        theta_prev = theta_curr
+        v_prev = v_curr
+    
+    return rotation, deflection
+
+def find_initial_rotation(M, EI, dx, support_indices, init_rot=0.0, delta_rot=0.0001):
+    """
+    Vind de juiste initiële rotatie door iteratief te zoeken
+    """
+    def calc_error(rot):
+        _, defl = calc_deflection(M, EI, dx, rot, 0.0, 
+                                support_indices[0], support_indices[1])
+        return defl[support_indices[1]]
+    
+    # Test initiële richting
+    err_0 = calc_error(init_rot)
+    err_pos = calc_error(init_rot + delta_rot)
+    
+    # Bepaal zoekrichting
+    if abs(err_pos) < abs(err_0):
+        search_dir = 1
+    else:
+        search_dir = -1
+    
+    # Iteratief zoeken naar nulpunt
+    max_iter = 100
+    iter_count = 0
+    curr_rot = init_rot
+    best_rot = curr_rot
+    min_error = abs(err_0)
+    
+    while iter_count < max_iter:
+        curr_rot += search_dir * delta_rot
+        curr_error = abs(calc_error(curr_rot))
+        
+        if curr_error < min_error:
+            min_error = curr_error
+            best_rot = curr_rot
+        elif curr_error > min_error * 1.5:  # Error wordt significant groter
+            break
+            
+        iter_count += 1
+    
+    return best_rot
+
+def calculate_moment_at_x(x, L, supports, loads):
+    M = 0
+    for pos, F, load_type, *rest in loads:
+        if load_type == "Puntlast":
+            if x >= pos:
+                M += F * (x - pos)
+        elif load_type == "Gelijkmatig verdeeld":
+            length = float(rest[0])
+            q = F / length
+            start = max(pos, x)
+            end = min(L, pos + length)
+            if start < end:
+                M += 0.5 * q * (end - start) * (end + start - 2*x)
+    return M
+
+# Update main analysis code
+def analyze_beam(beam_length, supports, loads, profile_type, height, width, 
+                wall_thickness, flange_thickness, E):
+    """
+    Hoofdfunctie voor balkanalyse
+    """
+    # Discretisatie parameters
+    n_points = 200
+    dx = beam_length / (n_points - 1)
+    x = np.linspace(0, beam_length, n_points)
+    
+    # Bereken traagheidsmoment
+    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+    EI = E * I
+    
+    # Initialiseer arrays
+    M = np.zeros(n_points)  # Moment array
+    
+    # Bereken momentenlijn
+    for i, xi in enumerate(x):
+        M[i] = calculate_moment_at_x(xi, beam_length, supports, loads)
+    
+    # Vind support indices
+    support_indices = []
+    for pos, _ in supports:
+        idx = np.argmin(np.abs(x - pos))
+        support_indices.append(idx)
+    
+    # Bereken initiële rotatie
+    init_rotation = find_initial_rotation(M, EI, dx, support_indices)
+    
+    # Bereken doorbuiging voor hoofddeel
+    rotation, deflection = calc_deflection(M, EI, dx, init_rotation, 0.0,
+                                         support_indices[0], len(x)-1)
+    
+    # Bereken doorbuiging voor eventuele linker uitkraging
+    if support_indices[0] > 0:
+        left_rot, left_defl = calc_deflection(M, EI, dx, -init_rotation, 0.0,
+                                            support_indices[0], 0, reverse=True)
+        rotation[:support_indices[0]] = left_rot[:support_indices[0]]
+        deflection[:support_indices[0]] = left_defl[:support_indices[0]]
+    
+    return x, M, rotation, deflection
+
 # Main content
 with main:
     # Create tabs
@@ -203,36 +356,11 @@ with main:
         # Modern visualization container
         st.markdown('<div style="background-color: #252525; padding: 1.5rem; border-radius: 8px; border: 1px solid #333;">', unsafe_allow_html=True)
         
-        # Create advanced visualization
-        fig = plt.figure(figsize=(15, 8))
-        gs = GridSpec(2, 3, figure=fig)
-        
-        # Main beam plot
-        ax_beam = fig.add_subplot(gs[:, :2])
-        ax_beam.set_facecolor('#1e1e1e')
-        fig.patch.set_facecolor('#1e1e1e')
-        
-        # Grid styling
-        ax_beam.grid(True, linestyle='--', alpha=0.2, color='#666666')
-        ax_beam.spines['bottom'].set_color('#666666')
-        ax_beam.spines['top'].set_color('#666666')
-        ax_beam.spines['left'].set_color('#666666')
-        ax_beam.spines['right'].set_color('#666666')
-        ax_beam.tick_params(colors='#666666')
-        
-        # Plot beam
-        ax_beam.plot([0, beam_length], [0, 0], '-', color='#00b4d8', linewidth=3, label='Balk')
-        
-        # Add supports
+        # Verzamel supports
         supports = []
         if support_count == 1:
             pos = st.slider("Positie inklemming (mm)", 0.0, beam_length, 0.0, key="inklemming_pos")
             supports.append((pos, "Inklemming"))
-            # Draw fixed support
-            rect_height = beam_length * 0.04
-            rect = patches.Rectangle((pos-2, -rect_height/2), 4, rect_height,
-                                  color='#0077be', alpha=0.8, zorder=4)
-            ax_beam.add_patch(rect)
         else:
             for i in range(support_count):
                 pos = st.slider(
@@ -247,59 +375,54 @@ with main:
                     key=f"support_type_{i}"
                 )
                 supports.append((pos, type))
-                # Draw support
-                if type == "Scharnier":
-                    triangle = plt.Polygon([[pos, 0], 
-                                         [pos - beam_length*0.02, -beam_length*0.02],
-                                         [pos + beam_length*0.02, -beam_length*0.02]],
-                                        color='#0077be', alpha=0.8, zorder=4)
-                    ax_beam.add_patch(triangle)
-                else:
-                    circle = plt.Circle((pos, -beam_length*0.02), beam_length*0.01,
-                                      color='#0077be', alpha=0.8, zorder=4)
-                    ax_beam.add_patch(circle)
         
-        # Plot settings
-        ax_beam.set_xlabel("Lengte (mm)", color='#e0e0e0')
-        ax_beam.set_ylabel("Doorbuiging (mm)", color='#e0e0e0')
-        ax_beam.set_xlim(-beam_length*0.1, beam_length*1.1)
-        ax_beam.set_ylim(-beam_length*0.15, beam_length*0.15)
+        # Voer analyse uit
+        x, M, rotation, deflection = analyze_beam(
+            beam_length, supports, st.session_state.loads,
+            profile_type, height, width, wall_thickness, flange_thickness, E
+        )
         
-        # Cross-section visualization
-        ax_section = fig.add_subplot(gs[0, 2])
-        ax_section.set_facecolor('#1e1e1e')
+        # Plot resultaten
+        fig = plt.figure(figsize=(15, 10))
+        gs = gridspec.GridSpec(3, 3, height_ratios=[2, 1, 1])
         
-        if profile_type == "Koker":
-            # Draw hollow section
-            rect_outer = patches.Rectangle((0, 0), width, height, 
-                                        facecolor='none', edgecolor='#00b4d8', linewidth=2)
-            rect_inner = patches.Rectangle((wall_thickness, wall_thickness), 
-                                        width-2*wall_thickness, height-2*wall_thickness,
-                                        facecolor='#1e1e1e', edgecolor='#00b4d8', linewidth=2)
-            ax_section.add_patch(rect_outer)
-            ax_section.add_patch(rect_inner)
-        else:
-            # Draw I/H section
-            # Flanges
-            ax_section.add_patch(patches.Rectangle((0, 0), width, flange_thickness, 
-                                                facecolor='#00b4d8', alpha=0.3, edgecolor='#00b4d8'))
-            ax_section.add_patch(patches.Rectangle((0, height-flange_thickness), width, flange_thickness,
-                                                facecolor='#00b4d8', alpha=0.3, edgecolor='#00b4d8'))
-            # Web
-            ax_section.add_patch(patches.Rectangle((width/2-wall_thickness/2, flange_thickness),
-                                                wall_thickness, height-2*flange_thickness,
-                                                facecolor='#00b4d8', alpha=0.3, edgecolor='#00b4d8'))
+        # Doorbuigingsplot
+        ax_defl = fig.add_subplot(gs[0, :])
+        ax_defl.plot(x, deflection, '-', color='#00b4d8', linewidth=2, label='Doorbuiging')
+        ax_defl.grid(True, linestyle='--', alpha=0.2)
+        ax_defl.set_xlabel('Positie (mm)')
+        ax_defl.set_ylabel('Doorbuiging (mm)')
+        ax_defl.set_title('Doorbuiging')
         
-        ax_section.set_aspect('equal')
-        ax_section.set_xlim(-width*0.1, width*1.1)
-        ax_section.set_ylim(-height*0.1, height*1.1)
-        ax_section.set_title("Doorsnede", color='#e0e0e0')
-        ax_section.set_xticks([])
-        ax_section.set_yticks([])
+        # Momentenplot
+        ax_moment = fig.add_subplot(gs[1, :])
+        ax_moment.plot(x, M, '-', color='#0077be', linewidth=2, label='Moment')
+        ax_moment.grid(True, linestyle='--', alpha=0.2)
+        ax_moment.set_xlabel('Positie (mm)')
+        ax_moment.set_ylabel('Moment (Nmm)')
         
-        # Show the plot
+        # Rotatieplot
+        ax_rot = fig.add_subplot(gs[2, :])
+        ax_rot.plot(x, rotation, '-', color='#00b4d8', linewidth=2, label='Rotatie')
+        ax_rot.grid(True, linestyle='--', alpha=0.2)
+        ax_rot.set_xlabel('Positie (mm)')
+        ax_rot.set_ylabel('Rotatie (rad)')
+        
+        plt.tight_layout()
         st.pyplot(fig)
         
+        # Toon maximale doorbuiging
+        max_defl = np.max(np.abs(deflection))
+        max_defl_pos = x[np.argmax(np.abs(deflection))]
+        st.markdown(f"""
+        <div style='background-color: #1e1e1e; padding: 1rem; border-radius: 4px; margin-top: 1rem;'>
+            <h3 style='color: #00b4d8; margin: 0;'>Maximale doorbuiging</h3>
+            <p style='color: #e0e0e0; margin: 0.5rem 0;'>
+                {max_defl:.2f} mm @ x = {max_defl_pos:.1f} mm
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)
 
 with tab2:
@@ -461,81 +584,3 @@ with tab2:
             )
         
         st.markdown("</div>", unsafe_allow_html=True)
-
-def calculate_I(profile_type, h, b, t, tf=None):
-    """Bereken traagheidsmoment"""
-    if profile_type == "Koker":
-        # I = (bh³)/12 - ((b-2t)(h-2t)³)/12
-        return (b * h**3 - (b-2*t) * (h-2*t)**3) / 12
-    elif profile_type in ["I-profiel", "H-profiel"]:
-        # Voor I/H-profiel
-        hw = h - 2*tf  # Hoogte van het lijf
-        return (b * h**3 - (b-t) * hw**3) / 12
-
-def calculate_beam_response(x, L, E, I, supports, loads):
-    """Verbeterde berekening voor meerdere steunpunten"""
-    def moment_at_x(x, load, span_start, span_end):
-        pos, F, load_type, *rest = load
-        if load_type == "Puntlast":
-            if span_start <= pos <= span_end and span_start <= x <= span_end:
-                if x <= pos:
-                    return F * (x - span_start)
-                else:
-                    return F * (pos - span_start)
-            return 0
-        elif load_type == "Gelijkmatig verdeeld":
-            length = float(rest[0])
-            q = F / length
-            start = max(span_start, pos)
-            end = min(span_end, pos + length)
-            if start < end and span_start <= x <= span_end:
-                if x <= start:
-                    return 0
-                elif x <= end:
-                    return q * (x - start) * (x - start) / 2
-                else:
-                    return q * (end - start) * (2*x - start - end) / 2
-            return 0
-    
-    # Sorteer steunpunten op positie
-    supports = sorted(supports, key=lambda s: s[0])
-    
-    # Bereken doorbuiging voor elk segment
-    y = 0
-    if len(supports) == 1:  # Enkelvoudige inklemming
-        x0 = supports[0][0]
-        for load in loads:
-            pos, F, load_type, *rest = load
-            if load_type == "Puntlast":
-                if x <= x0:
-                    y = 0
-                elif x <= pos:
-                    y += -F * (x - x0)**2 * (3*pos - x0 - 2*x) / (6 * E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
-                else:
-                    y += -F * (pos - x0)**2 * (3*x - x0 - 2*pos) / (6 * E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
-            elif load_type == "Gelijkmatig verdeeld":
-                length = float(rest[0])
-                q = F / length
-                if x <= x0:
-                    y = 0
-                else:
-                    start = max(x0, pos)
-                    end = min(L, pos + length)
-                    if start < end:
-                        if x <= start:
-                            y += 0
-                        elif x <= end:
-                            y += -q * ((x - start)**4 / 24 - (x - x0)**2 * (x - start)**2 / 4) / (E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
-                        else:
-                            y += -q * (end - start) * ((x - x0)**2 * (3*x - x0 - 2*end) / 6) / (E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness))
-    else:  # Meerdere steunpunten
-        for i in range(len(supports) - 1):
-            x1, type1 = supports[i]
-            x2, type2 = supports[i+1]
-            
-            if x1 <= x <= x2:
-                for load in loads:
-                    M = moment_at_x(x, load, x1, x2)
-                    y += M * (x2 - x) * (x - x1) / (6 * E * calculate_I(profile_type, height, width, wall_thickness, flange_thickness) * (x2 - x1))
-    
-    return float(y)
