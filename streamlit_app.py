@@ -580,10 +580,11 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     for pos, reaction in reactions.items():
         # Dwarskracht van reactiekracht
         V += reaction["force"] * (x >= pos)
-        # Moment van reactiekracht
-        M += reaction["force"] * np.maximum(0, x - pos)
-        # Direct moment van inklemming
-        M += reaction["moment"] * (x >= pos)
+        # Moment van reactiekracht (alleen na het punt)
+        M += reaction["force"] * np.where(x > pos, x - pos, 0)
+        # Direct moment van inklemming (alleen bij inklemming)
+        if abs(reaction["moment"]) > 0:  # Alleen als er echt een moment is
+            M += reaction["moment"] * (x >= pos)
     
     # Verwerk belastingen
     for load in loads:
@@ -592,42 +593,47 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         load_type = load[2]
         
         if load_type == "Puntlast":
+            # Dwarskracht: stap bij puntlast
             V -= value * (x >= pos)
-            M -= value * np.maximum(0, x - pos)
+            # Moment: alleen na het aangrijpingspunt
+            M -= value * np.where(x > pos, x - pos, 0)
             
         elif load_type == "Verdeelde last":
             length = load[3] if len(load) > 3 else beam_length - pos
             end_pos = pos + length
             # Belast gebied
             mask = (x >= pos) & (x <= end_pos)
-            # Dwarskracht: q·(x-a) voor a≤x≤b
-            V[mask] -= value * (x[mask] - pos)
-            # Na de last: q·L
-            V[x > end_pos] -= value * length
-            # Moment: q·(x-a)²/2 voor a≤x≤b
-            M[mask] -= value * (x[mask] - pos)**2 / 2
-            # Na de last: q·L·(x-(a+L/2))
-            M[x > end_pos] -= value * length * (x[x > end_pos] - (pos + length/2))
+            after_mask = x > end_pos
+            
+            # Dwarskracht
+            V[mask] -= value * (x[mask] - pos)  # Lineair toenemend in belast gebied
+            V[after_mask] -= value * length  # Constante waarde na belast gebied
+            
+            # Moment
+            M[mask] -= value * (x[mask] - pos)**2 / 2  # Kwadratisch in belast gebied
+            M[after_mask] -= value * length * (x[after_mask] - (pos + length/2))  # Lineair na belast gebied
             
         elif load_type == "Driehoekslast":
             length = load[3]
             end_pos = pos + length
             # Belast gebied
             mask = (x >= pos) & (x <= end_pos)
+            after_mask = x > end_pos
+            
             # Relatieve x-positie voor driehoek
-            rel_x = (x[mask] - pos) / length
-            # Dwarskracht: integraal van driehoekslast
-            V[mask] -= value * length * rel_x**2 / 2
-            # Na de last: totale kracht
-            V[x > end_pos] -= value * length / 2
-            # Moment: integraal van dwarskracht
-            M[mask] -= value * length * rel_x**3 / 6
-            # Na de last: kracht * arm naar zwaartepunt
-            M[x > end_pos] -= value * length * (x[x > end_pos] - (pos + 2*length/3)) / 2
+            rel_x = np.where(mask, (x - pos) / length, 0)
+            
+            # Dwarskracht
+            V[mask] -= value * length * rel_x**2 / 2  # Kwadratisch in belast gebied
+            V[after_mask] -= value * length / 2  # Constante waarde na belast gebied
+            
+            # Moment
+            M[mask] -= value * length * rel_x**3 / 6  # Kubisch in belast gebied
+            M[after_mask] -= value * length * (x[after_mask] - (pos + 2*length/3)) / 2  # Lineair na belast gebied
             
         elif load_type == "Moment":
-            # Direct moment op positie
-            M -= value * (x >= pos)
+            # Direct moment alleen na het aangrijpingspunt
+            M -= value * (x > pos)
     
     return V, M
 
