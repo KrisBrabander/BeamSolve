@@ -4,6 +4,7 @@ import plotly.graph_objects as go
 from datetime import datetime
 import os
 import base64
+from plotly.subplots import make_subplots
 
 # Profiel bibliotheken
 # HEA profielen (h, b, tw, tf)
@@ -122,22 +123,18 @@ def calculate_I(profile_type, h, b, t_w, t_f=None):
         return I_f + I_w
     return 0
 
-def plot_results(x, M, rotation, deflection):
-    """Plot resultaten met Plotly"""
-    fig = go.Figure(data=[
-        go.Scatter(x=x, y=deflection, name="Doorbuiging"),
-        go.Scatter(x=x, y=M, name="Moment"),
-        go.Scatter(x=x, y=rotation, name="Rotatie")
-    ])
-    
-    fig.update_layout(
-        title="Analyse Resultaten",
-        xaxis_title="Positie (mm)",
-        yaxis_title="Waarde",
-        legend_title="Groep"
-    )
-    
-    return fig
+def calculate_A(profile_type, h, b, t_w, t_f=None):
+    """Bereken oppervlakte voor verschillende profieltypes"""
+    if profile_type == "Koker":
+        return (h * b) - ((h - 2*t_w) * (b - 2*t_w))
+    elif profile_type in ["I-profiel", "U-profiel"]:
+        # Flens oppervlakte
+        A_f = 2 * (b * t_f)
+        # Lijf oppervlakte
+        h_w = h - 2*t_f
+        A_w = t_w * h_w
+        return A_f + A_w
+    return 0
 
 def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
     """Plot een schematische weergave van de balk met steunpunten en belastingen"""
@@ -337,6 +334,247 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
     
     return fig
 
+def plot_results(x, V, M, rotation, deflection):
+    """Plot alle resultaten in één figuur met subplots"""
+    fig = make_subplots(
+        rows=4, cols=1,
+        subplot_titles=(
+            "Balkschema en Doorbuiging",
+            "Dwarskrachtenlijn (V)",
+            "Momentenlijn (M)",
+            "Rotatielijn (θ)"
+        ),
+        vertical_spacing=0.08,
+        row_heights=[0.4, 0.2, 0.2, 0.2]
+    )
+    
+    # Balkschema en doorbuiging
+    fig.add_trace(
+        go.Scatter(
+            x=x, 
+            y=deflection,
+            mode='lines',
+            name='Doorbuiging',
+            line=dict(color='#2ecc71', width=3)
+        ),
+        row=1, col=1
+    )
+    
+    # Dwarskrachtenlijn
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=V,
+            mode='lines',
+            name='Dwarskracht',
+            line=dict(color='#e74c3c', width=2),
+            fill='tozeroy'
+        ),
+        row=2, col=1
+    )
+    
+    # Momentenlijn
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=M,
+            mode='lines',
+            name='Moment',
+            line=dict(color='#3498db', width=2),
+            fill='tozeroy'
+        ),
+        row=3, col=1
+    )
+    
+    # Rotatielijn
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=rotation,
+            mode='lines',
+            name='Rotatie',
+            line=dict(color='#9b59b6', width=2)
+        ),
+        row=4, col=1
+    )
+    
+    # Update layout
+    fig.update_layout(
+        height=800,
+        showlegend=True,
+        plot_bgcolor='white',
+        paper_bgcolor='white',
+        title_text="Analyse Resultaten",
+        title_x=0.5,
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="left",
+            x=0.01,
+            bgcolor='rgba(255, 255, 255, 0.8)'
+        )
+    )
+    
+    # Update assen
+    fig.update_xaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(0,0,0,0.1)',
+        zeroline=True,
+        zerolinewidth=2,
+        zerolinecolor='rgba(0,0,0,0.5)'
+    )
+    
+    fig.update_yaxes(
+        showgrid=True,
+        gridwidth=1,
+        gridcolor='rgba(0,0,0,0.1)',
+        zeroline=True,
+        zerolinewidth=2,
+        zerolinecolor='rgba(0,0,0,0.5)'
+    )
+    
+    # Labels
+    fig.update_xaxes(title_text="Positie (mm)", row=4, col=1)
+    fig.update_yaxes(title_text="w (mm)", row=1, col=1)
+    fig.update_yaxes(title_text="V (N)", row=2, col=1)
+    fig.update_yaxes(title_text="M (Nmm)", row=3, col=1)
+    fig.update_yaxes(title_text="θ (rad)", row=4, col=1)
+    
+    return fig
+
+def calculate_reactions(beam_length, supports, loads):
+    """Bereken reactiekrachten voor alle belastingen"""
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda s: s[0])
+    n = len(supports)
+    
+    # Matrix voor reactiekrachten
+    A = np.zeros((3, 3))  # 3 vergelijkingen: ΣFy=0, ΣM_A=0, ΣM_B=0
+    b = np.zeros(3)
+    
+    # Afstanden tot steunpunten
+    x_A = supports[0][0]  # Positie eerste steunpunt
+    x_B = supports[1][0]  # Positie tweede steunpunt
+    L_AB = x_B - x_A     # Afstand tussen steunpunten
+    
+    # Vul matrix A voor evenwichtsvergelijkingen
+    A[0] = [1, 0, 1]     # ΣFy=0: Va + Vb = F
+    A[1] = [0, 1, 0]     # ΣFx=0: Ha = 0
+    A[2] = [L_AB, 0, 0]  # ΣM_B=0: Va*L_AB = M_B
+    
+    # Bereken bijdrage van elke belasting
+    for load in loads:
+        pos, value, type = load[:3]
+        x = pos - x_A  # Positie t.o.v. steunpunt A
+        
+        if type == "Puntlast":
+            # Verticale kracht
+            b[0] -= value  # ΣFy
+            b[2] -= value * x  # ΣM_B
+            
+        elif type == "Moment":
+            # Puntmoment
+            b[2] -= value  # ΣM_B
+            
+        elif type == "Verdeelde last":
+            # Gelijkmatig verdeelde belasting
+            length = load[3]
+            q = value
+            F_total = q * length
+            x_c = pos + length/2  # Zwaartepunt belasting
+            
+            b[0] -= F_total  # ΣFy
+            b[2] -= F_total * (x_c - x_A)  # ΣM_B
+            
+        elif type == "Driehoekslast":
+            # Lineair variërende belasting
+            length = load[3]
+            q_max = value
+            F_total = 0.5 * q_max * length
+            x_c = pos + 2*length/3  # Zwaartepunt driehoekslast
+            
+            b[0] -= F_total  # ΣFy
+            b[2] -= F_total * (x_c - x_A)  # ΣM_B
+    
+    # Los reactiekrachten op
+    try:
+        reactions = np.linalg.solve(A, b)
+    except np.linalg.LinAlgError:
+        reactions = np.linalg.lstsq(A, b, rcond=None)[0]
+    
+    return reactions[0], reactions[1], reactions[2]  # Va, Ha, Vb
+
+def calculate_internal_forces(x, beam_length, supports, loads, reactions):
+    """Bereken dwarskracht en moment op elke positie x"""
+    Va, Ha, Vb = reactions
+    x_A = supports[0][0]
+    x_B = supports[1][0]
+    
+    V = np.zeros_like(x)  # Dwarskracht
+    M = np.zeros_like(x)  # Moment
+    
+    # Voor elk punt x
+    for i, xi in enumerate(x):
+        # Initialiseer krachten op dit punt
+        V_x = 0
+        M_x = 0
+        
+        # Bijdrage van steunpunten
+        if xi > x_A:
+            V_x += Va
+            M_x += Va * (xi - x_A)
+        if xi > x_B:
+            V_x += Vb
+            M_x += Vb * (xi - x_B)
+            
+        # Bijdrage van belastingen
+        for load in loads:
+            pos, value, type = load[:3]
+            
+            if type == "Puntlast":
+                if xi > pos:
+                    V_x -= value
+                    M_x -= value * (xi - pos)
+                    
+            elif type == "Moment":
+                if xi > pos:
+                    M_x -= value
+                    
+            elif type == "Verdeelde last":
+                length = load[3]
+                q = value
+                if xi > pos:
+                    if xi <= pos + length:
+                        # Binnen belast gebied
+                        l = xi - pos
+                        V_x -= q * l
+                        M_x -= q * l * l/2
+                    else:
+                        # Voorbij belast gebied
+                        V_x -= q * length
+                        M_x -= q * length * (xi - (pos + length/2))
+                        
+            elif type == "Driehoekslast":
+                length = load[3]
+                q_max = value
+                if xi > pos:
+                    if xi <= pos + length:
+                        # Binnen belast gebied
+                        l = xi - pos
+                        q_x = q_max * (l/length)
+                        V_x -= q_x * l/2
+                        M_x -= q_x * l * l/6
+                    else:
+                        # Voorbij belast gebied
+                        V_x -= q_max * length/2
+                        M_x -= q_max * length/2 * (xi - (pos + 2*length/3))
+        
+        V[i] = V_x
+        M[i] = M_x
+    
+    return V, M
+
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk en bereken momenten, dwarskrachten, rotaties en doorbuigingen"""
     # Discretisatie
@@ -344,111 +582,36 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     x = np.linspace(0, beam_length, n_points)
     dx = x[1] - x[0]
     
-    # Initialiseer arrays
-    M = np.zeros_like(x)  # Moment
-    V = np.zeros_like(x)  # Dwarskracht
-    w = np.zeros_like(x)  # Doorbuiging
-    theta = np.zeros_like(x)  # Rotatie
-    
     # Bereken traagheidsmoment
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     
-    # Sorteer steunpunten op positie
-    supports = sorted(supports, key=lambda s: s[0])
-    n = len(supports)
-    
-    # Matrix voor oplegreacties
-    A = np.zeros((n, n))
-    b = np.zeros(n)
-    
-    # Verticaal evenwicht
-    A[0,:] = 1.0
-    
-    # Som van externe krachten
-    F_ext = 0
-    M_ext = 0
-    for load in loads:
-        pos, value, type = load[:3]
-        if type == "Puntlast":
-            F_ext += value
-            M_ext += value * pos
-        elif type == "Verdeelde last":
-            length = load[3]
-            F_ext += value * length
-            M_ext += value * length * (pos + length/2)
-        elif type == "Moment":
-            M_ext += value
-    
-    b[0] = -F_ext  # Verticaal evenwicht
-    
-    # Momentevenwichten
-    ref_pos = supports[0][0]
-    for i in range(1, n):
-        for j in range(n):
-            A[i,j] = supports[j][0] - ref_pos
-        b[i] = -M_ext
-    
-    # Los reactiekrachten op
-    try:
-        R = np.linalg.solve(A, b)
-    except np.linalg.LinAlgError:
-        R = np.linalg.lstsq(A, b, rcond=None)[0]
+    # Bereken reactiekrachten
+    reactions = calculate_reactions(beam_length, supports, loads)
     
     # Bereken interne krachten
-    for i, xi in enumerate(x):
-        # Dwarskracht en moment door reactiekrachten
-        for j, (pos, _) in enumerate(supports):
-            if xi >= pos:
-                V[i] += R[j]
-                M[i] += R[j] * (xi - pos)
-        
-        # Dwarskracht en moment door belastingen
-        for load in loads:
-            pos, value, type = load[:3]
-            if type == "Puntlast":
-                if xi >= pos:
-                    V[i] -= value
-                    M[i] -= value * (xi - pos)
-            elif type == "Verdeelde last":
-                length = load[3]
-                q = value
-                if xi >= pos:
-                    if xi <= pos + length:
-                        # Binnen belaste gebied
-                        load_length = xi - pos
-                        V[i] -= q * load_length
-                        M[i] -= q * load_length * (xi - (pos + load_length/2))
-                    else:
-                        # Voorbij belaste gebied
-                        V[i] -= q * length
-                        M[i] -= q * length * (xi - (pos + length/2))
-            elif type == "Moment":
-                if xi >= pos:
-                    M[i] -= value
+    V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Bereken doorbuiging door dubbele integratie van moment
+    # Bereken rotatie en doorbuiging met numerieke integratie
     EI = E * I
     
-    # Eerste integratie: M/EI -> θ (helling)
-    theta[0] = 0  # Beginwaarde
+    # Eerste integratie voor rotatie (θ = ∫M/EI dx)
+    theta = np.zeros_like(x)
     for i in range(1, len(x)):
         theta[i] = theta[i-1] + (M[i-1] / EI) * dx
     
-    # Tweede integratie: θ -> w (doorbuiging)
-    w[0] = 0  # Beginwaarde
+    # Tweede integratie voor doorbuiging (w = ∫θ dx)
+    w = np.zeros_like(x)
     for i in range(1, len(x)):
         w[i] = w[i-1] + theta[i-1] * dx
     
     # Pas randvoorwaarden toe
-    # Vind indices van steunpunten
     support_indices = [np.abs(x - pos).argmin() for pos, _ in supports]
     
-    # Matrix voor randvoorwaarden
-    n_constraints = len(supports) + 1  # Aantal steunpunten + 1 voor rotatie bij vaste inklemming
+    # Los randvoorwaarden op met matrix methode
+    n_constraints = sum(2 if type == "Vast" else 1 for _, type in supports)
     A_bc = np.zeros((n_constraints, 2))  # 2 onbekenden: C1 (rotatie) en C2 (verplaatsing)
     b_bc = np.zeros(n_constraints)
     
-    # Vul randvoorwaarden in
     row = 0
     for idx, (_, type) in zip(support_indices, supports):
         if type == "Vast":
@@ -465,29 +628,25 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
             b_bc[row] = -w[idx]
             row += 1
     
-    # Los randvoorwaarden op
+    # Los correcties op
     try:
         C = np.linalg.solve(A_bc[:row], b_bc[:row])
-        # Pas correcties toe
-        theta += C[0]
-        w += C[0] * x + C[1]
     except np.linalg.LinAlgError:
-        # Als er geen unieke oplossing is, gebruik de kleinste kwadraten methode
         C = np.linalg.lstsq(A_bc[:row], b_bc[:row], rcond=None)[0]
-        theta += C[0]
-        w += C[0] * x + C[1]
     
-    return x, M, theta, w
+    # Pas correcties toe
+    theta += C[0]  # Rotatie correctie
+    w += C[0] * x + C[1]  # Verplaatsing correctie
+    
+    return x, V, M, theta, w
 
-def generate_report_html(beam_data, results, plots):
+def generate_report_html(beam_data, results_plot):
     """Genereer een HTML rapport"""
     
     # Converteer plots naar base64 images
-    plot_images = []
-    for plot in plots:
-        img_bytes = plot.to_image(format="png")
-        img_base64 = base64.b64encode(img_bytes).decode()
-        plot_images.append(f"data:image/png;base64,{img_base64}")
+    img_bytes = results_plot.to_image(format="png")
+    img_base64 = base64.b64encode(img_bytes).decode()
+    plot_image = f"data:image/png;base64,{img_base64}"
     
     # HTML template
     html = f"""
@@ -555,9 +714,9 @@ def generate_report_html(beam_data, results, plots):
             <table>
                 <tr><th>Parameter</th><th>Waarde</th></tr>
                 <tr><td>Profieltype</td><td>{beam_data['profile_type']}</td></tr>
-                <tr><td>Hoogte</td><td>{beam_data['height']} mm</td></tr>
-                <tr><td>Breedte</td><td>{beam_data['width']} mm</td></tr>
-                <tr><td>Wanddikte</td><td>{beam_data['wall_thickness']} mm</td></tr>
+                <tr><td>Hoogte</td><td>{beam_data['dimensions']['height']} mm</td></tr>
+                <tr><td>Breedte</td><td>{beam_data['dimensions']['width']} mm</td></tr>
+                <tr><td>Wanddikte</td><td>{beam_data['dimensions']['wall_thickness']} mm</td></tr>
                 <tr><td>Overspanning</td><td>{beam_data['length']} mm</td></tr>
                 <tr><td>E-modulus</td><td>{beam_data['E']} N/mm²</td></tr>
             </table>
@@ -583,19 +742,16 @@ def generate_report_html(beam_data, results, plots):
             <h3>4. Resultaten</h3>
             <table>
                 <tr><th>Parameter</th><th>Waarde</th></tr>
-                <tr><td>Maximaal moment</td><td>{results['max_moment']:.2f} Nmm</td></tr>
-                <tr><td>Maximale doorbuiging</td><td>{results['max_deflection']:.2f} mm</td></tr>
-                <tr><td>Maximale rotatie</td><td>{results['max_rotation']:.6f} rad</td></tr>
+                <tr><td>Maximaal moment</td><td>{beam_data['results']['max_M']:.2f} Nmm</td></tr>
+                <tr><td>Maximale doorbuiging</td><td>{beam_data['results']['max_deflection']:.2f} mm</td></tr>
+                <tr><td>Maximale rotatie</td><td>{beam_data['results']['max_rotation']:.6f} rad</td></tr>
             </table>
         </div>
 
         <div class="section">
             <h3>5. Grafieken</h3>
-            <h4>5.1 Balkschema</h4>
-            <img src="{plot_images[0]}" alt="Balkschema">
-            
-            <h4>5.2 Analyse Grafieken</h4>
-            <img src="{plot_images[1]}" alt="Analyse">
+            <h4>5.1 Analyse Resultaten</h4>
+            <img src="{plot_image}" alt="Analyse">
         </div>
 
         <div class="footer">
@@ -632,14 +788,18 @@ if 'units' not in st.session_state:
 def main():
     st.set_page_config(page_title="BeamSolve Professional", layout="wide")
     
-    # Sidebar voor profiel selectie
+    # Sidebar voor invoer
     with st.sidebar:
         st.title("BeamSolve Professional")
         st.markdown("---")
         
         # Profiel selectie
-        profile_type = st.selectbox("Profieltype", ["HEA", "HEB", "IPE", "UNP", "Koker"])
-        profile_name = st.selectbox("Profiel", get_profile_list(profile_type))
+        st.subheader("1. Profiel")
+        col1, col2 = st.columns(2)
+        with col1:
+            profile_type = st.selectbox("Type", ["HEA", "HEB", "IPE", "UNP", "Koker"])
+        with col2:
+            profile_name = st.selectbox("Naam", get_profile_list(profile_type))
         
         # Haal profiel dimensies op
         dimensions = get_profile_dimensions(profile_type, profile_name)
@@ -651,109 +811,196 @@ def main():
                 height, width, wall_thickness, flange_thickness = dimensions
         
         # Toon dimensies
-        st.markdown("### Profiel Dimensies")
-        st.write(f"Hoogte: {height} mm")
-        st.write(f"Breedte: {width} mm")
-        st.write(f"Wanddikte: {wall_thickness} mm")
-        if profile_type != "Koker":
-            st.write(f"Flensdikte: {flange_thickness} mm")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Hoogte", f"{height} mm")
+            st.metric("Breedte", f"{width} mm")
+        with col2:
+            st.metric("Wanddikte", f"{wall_thickness} mm")
+            if profile_type != "Koker":
+                st.metric("Flensdikte", f"{flange_thickness} mm")
         
         # E-modulus
-        E = st.number_input("E-modulus (N/mm²)", value=210000.0, step=1000.0)
+        E = st.number_input("E-modulus", value=210000.0, step=1000.0, format="%.0f", help="N/mm²")
         
         st.markdown("---")
         
-        # Invoer sectie
-        st.header("Invoer")
-        
         # Overspanning
-        beam_length = st.number_input("Overspanning (mm)", value=3000.0, step=100.0)
+        st.subheader("2. Overspanning")
+        beam_length = st.number_input("Lengte", value=3000.0, step=100.0, format="%.0f", help="mm")
         
         # Steunpunten
-        st.subheader("Steunpunten")
-        supports = []
-        num_supports = st.number_input("Aantal steunpunten", min_value=2, max_value=4, value=2)
+        st.subheader("3. Steunpunten")
+        num_supports = st.number_input("Aantal", min_value=2, max_value=4, value=2)
         
+        supports = []
         for i in range(num_supports):
-            col_pos, col_type = st.columns(2)
-            with col_pos:
-                pos = st.number_input(f"Positie {i+1} (mm)", value=0.0 if i == 0 else beam_length if i == 1 else beam_length/2)
-            with col_type:
-                type = st.selectbox(f"Type {i+1}", ["Vast", "Rol"], index=0 if i == 0 else 1)
+            col1, col2 = st.columns(2)
+            with col1:
+                pos = st.number_input(
+                    f"Positie {i+1}",
+                    value=0.0 if i == 0 else beam_length if i == 1 else beam_length/2,
+                    min_value=0.0,
+                    max_value=beam_length,
+                    step=100.0,
+                    format="%.0f",
+                    help="mm"
+                )
+            with col2:
+                type = st.selectbox(
+                    f"Type {i+1}",
+                    ["Vast", "Scharnier"],
+                    index=0 if i == 0 else 1
+                )
             supports.append((pos, type))
         
         # Belastingen
-        st.subheader("Belastingen")
-        loads = []
-        num_loads = st.number_input("Aantal belastingen", min_value=1, max_value=5, value=1)
+        st.subheader("4. Belastingen")
+        num_loads = st.number_input("Aantal", min_value=0, max_value=5, value=1)
         
+        loads = []
         for i in range(num_loads):
-            col_type, col_val, col_pos = st.columns(3)
-            with col_type:
-                load_type = st.selectbox(f"Type {i+1}", ["Puntlast", "Verdeelde last", "Moment"], key=f"load_type_{i}")
-            with col_val:
-                value = st.number_input(f"Waarde {i+1} (N)", value=1000.0, step=100.0, key=f"load_value_{i}")
-            with col_pos:
-                position = st.number_input(f"Positie {i+1} (mm)", value=beam_length/2, step=100.0, key=f"load_pos_{i}")
+            st.markdown(f"**Belasting {i+1}**")
             
-            if load_type == "Verdeelde last":
-                length = st.number_input(f"Lengte {i+1} (mm)", value=1000.0, step=100.0, key=f"load_length_{i}")
+            col1, col2 = st.columns(2)
+            with col1:
+                load_type = st.selectbox(
+                    "Type",
+                    ["Puntlast", "Verdeelde last", "Moment", "Driehoekslast"],
+                    key=f"load_type_{i}"
+                )
+            with col2:
+                if load_type == "Moment":
+                    unit = "Nmm"
+                elif load_type in ["Verdeelde last", "Driehoekslast"]:
+                    unit = "N/mm"
+                else:
+                    unit = "N"
+                    
+                value = st.number_input(
+                    f"Waarde ({unit})",
+                    value=1000.0,
+                    step=100.0,
+                    format="%.1f",
+                    key=f"load_value_{i}"
+                )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                position = st.number_input(
+                    "Positie",
+                    value=beam_length/2,
+                    min_value=0.0,
+                    max_value=beam_length,
+                    step=100.0,
+                    format="%.0f",
+                    help="mm",
+                    key=f"load_pos_{i}"
+                )
+            
+            if load_type in ["Verdeelde last", "Driehoekslast"]:
+                with col2:
+                    length = st.number_input(
+                        "Lengte",
+                        value=1000.0,
+                        min_value=0.0,
+                        max_value=beam_length - position,
+                        step=100.0,
+                        format="%.0f",
+                        help="mm",
+                        key=f"load_length_{i}"
+                    )
                 loads.append((position, value, load_type, length))
             else:
                 loads.append((position, value, load_type))
     
-    # Hoofdgedeelte - Visualisaties
-    if st.button("Bereken", type="primary"):
-        # Verzamel alle gegevens
-        beam_data = {
-            "profile_type": profile_type,
-            "profile_name": profile_name,
-            "height": height,
-            "width": width,
-            "wall_thickness": wall_thickness,
-            "flange_thickness": flange_thickness,
-            "length": beam_length,
-            "E": E,
-            "supports": supports,
-            "loads": loads
-        }
-        
+    # Hoofdgedeelte
+    if st.sidebar.button("Bereken", type="primary", use_container_width=True):
         # Voer analyse uit
-        x, M, rotation, deflection = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
+        x, V, M, rotation, deflection = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
         
         # Toon resultaten
         col1, col2 = st.columns([2, 1])
         
         with col1:
-            # Balkschema en vervormingen
-            st.subheader("Balkschema en Vervormingen")
-            beam_plot = plot_beam_diagram(beam_length, supports, loads, x, deflection)
-            st.plotly_chart(beam_plot, use_container_width=True, height=600)
-            
-            # Analyse resultaten
             st.subheader("Analyse Resultaten")
-            analysis_plot = plot_results(x, M, rotation, deflection)
-            st.plotly_chart(analysis_plot, use_container_width=True, height=600)
+            
+            # Plot alle resultaten
+            results_plot = plot_results(x, V, M, rotation, deflection)
+            st.plotly_chart(results_plot, use_container_width=True)
+            
+            # Maximale waarden
+            max_vals = {
+                "Dwarskracht": f"{max(abs(np.min(V)), abs(np.max(V))):.0f} N",
+                "Moment": f"{max(abs(np.min(M)), abs(np.max(M))):.0f} Nmm",
+                "Rotatie": f"{max(abs(np.min(rotation)), abs(np.max(rotation))):.6f} rad",
+                "Doorbuiging": f"{max(abs(np.min(deflection)), abs(np.max(deflection))):.2f} mm"
+            }
+            
+            st.subheader("Maximale Waarden")
+            cols = st.columns(4)
+            for i, (key, val) in enumerate(max_vals.items()):
+                cols[i].metric(key, val)
         
         with col2:
-            # Maximale waarden
-            st.subheader("Maximale Waarden")
+            st.subheader("Profiel Details")
+            I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+            W = I / (height/2)
+            A = calculate_A(profile_type, height, width, wall_thickness, flange_thickness)
+            
+            st.metric("Oppervlakte", f"{A:.0f} mm²")
+            st.metric("Traagheidsmoment", f"{I:.0f} mm⁴")
+            st.metric("Weerstandsmoment", f"{W:.0f} mm³")
+            
+            # Spanningen
+            st.subheader("Spanningen")
             max_moment = max(abs(np.min(M)), abs(np.max(M)))
-            max_deflection = max(abs(np.min(deflection)), abs(np.max(deflection)))
-            max_rotation = max(abs(np.min(rotation)), abs(np.max(rotation)))
+            sigma = max_moment / W
+            st.metric("Max. buigspanning", f"{sigma:.1f} N/mm²")
             
-            st.metric("Maximaal moment", f"{max_moment:.2f} Nmm")
-            st.metric("Maximale doorbuiging", f"{max_deflection:.2f} mm")
-            st.metric("Maximale rotatie", f"{max_rotation:.6f} rad")
+            # Toetsing
+            st.subheader("Toetsing")
+            f_y = 235  # Vloeigrens S235
+            UC = sigma / f_y
+            st.metric("Unity Check", f"{UC:.2f}", help="UC ≤ 1.0")
             
-            # Rapport genereren
+            if UC > 1.0:
+                st.error("Profiel voldoet niet! Kies een zwaarder profiel.")
+            elif UC > 0.9:
+                st.warning("Profiel zwaar belast. Overweeg een zwaarder profiel.")
+            else:
+                st.success("Profiel voldoet ruim.")
+            
+            # Download rapport
             st.markdown("---")
-            if st.button("Genereer Rapport", type="secondary"):
-                html_content = generate_report_html(beam_data, {
-                    "max_moment": max_moment,
-                    "max_deflection": max_deflection,
-                    "max_rotation": max_rotation
-                }, [beam_plot, analysis_plot])
+            if st.button("Download Rapport", type="secondary", use_container_width=True):
+                # Genereer rapport
+                beam_data = {
+                    "profile_type": profile_type,
+                    "profile_name": profile_name,
+                    "dimensions": {
+                        "height": height,
+                        "width": width,
+                        "wall_thickness": wall_thickness,
+                        "flange_thickness": flange_thickness
+                    },
+                    "properties": {
+                        "A": A,
+                        "I": I,
+                        "W": W
+                    },
+                    "results": {
+                        "max_V": max(abs(np.min(V)), abs(np.max(V))),
+                        "max_M": max_moment,
+                        "max_deflection": max(abs(np.min(deflection)), abs(np.max(deflection))),
+                        "max_rotation": max(abs(np.min(rotation)), abs(np.max(rotation))),
+                        "max_stress": sigma,
+                        "unity_check": UC
+                    }
+                }
+                
+                # Genereer rapport
+                html_content = generate_report_html(beam_data, results_plot)
                 output_dir = "reports"
                 os.makedirs(output_dir, exist_ok=True)
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
