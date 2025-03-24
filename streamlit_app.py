@@ -3,13 +3,109 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
 import os
-import sys
+import base64
 
-# Add project root to Python path
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+# Profiel bibliotheken
+# HEA profielen (h, b, tw, tf)
+HEA_PROFILES = {
+    "HEA 100": (96, 100, 5.0, 8.0),
+    "HEA 120": (114, 120, 5.0, 8.0),
+    "HEA 140": (133, 140, 5.5, 8.5),
+    "HEA 160": (152, 160, 6.0, 9.0),
+    "HEA 180": (171, 180, 6.0, 9.5),
+    "HEA 200": (190, 200, 6.5, 10.0),
+    "HEA 220": (210, 220, 7.0, 11.0),
+    "HEA 240": (230, 240, 7.5, 12.0),
+    "HEA 260": (250, 260, 7.5, 12.5),
+    "HEA 280": (270, 280, 8.0, 13.0),
+    "HEA 300": (290, 300, 8.5, 14.0),
+}
 
-from src.profiles import get_profile_list, get_profile_dimensions
-from src.report import generate_report_html, save_report
+# HEB profielen (h, b, tw, tf)
+HEB_PROFILES = {
+    "HEB 100": (100, 100, 6.0, 10.0),
+    "HEB 120": (120, 120, 6.5, 11.0),
+    "HEB 140": (140, 140, 7.0, 12.0),
+    "HEB 160": (160, 160, 8.0, 13.0),
+    "HEB 180": (180, 180, 8.5, 14.0),
+    "HEB 200": (200, 200, 9.0, 15.0),
+    "HEB 220": (220, 220, 9.5, 16.0),
+    "HEB 240": (240, 240, 10.0, 17.0),
+    "HEB 260": (260, 260, 10.0, 17.5),
+    "HEB 280": (280, 280, 10.5, 18.0),
+    "HEB 300": (300, 300, 11.0, 19.0),
+}
+
+# IPE profielen (h, b, tw, tf)
+IPE_PROFILES = {
+    "IPE 80": (80, 46, 3.8, 5.2),
+    "IPE 100": (100, 55, 4.1, 5.7),
+    "IPE 120": (120, 64, 4.4, 6.3),
+    "IPE 140": (140, 73, 4.7, 6.9),
+    "IPE 160": (160, 82, 5.0, 7.4),
+    "IPE 180": (180, 91, 5.3, 8.0),
+    "IPE 200": (200, 100, 5.6, 8.5),
+    "IPE 220": (220, 110, 5.9, 9.2),
+    "IPE 240": (240, 120, 6.2, 9.8),
+    "IPE 270": (270, 135, 6.6, 10.2),
+    "IPE 300": (300, 150, 7.1, 10.7),
+}
+
+# UNP profielen (h, b, tw, tf)
+UNP_PROFILES = {
+    "UNP 80": (80, 45, 6.0, 8.0),
+    "UNP 100": (100, 50, 6.0, 8.5),
+    "UNP 120": (120, 55, 7.0, 9.0),
+    "UNP 140": (140, 60, 7.0, 10.0),
+    "UNP 160": (160, 65, 7.5, 10.5),
+    "UNP 180": (180, 70, 8.0, 11.0),
+    "UNP 200": (200, 75, 8.5, 11.5),
+    "UNP 220": (220, 80, 9.0, 12.5),
+    "UNP 240": (240, 85, 9.5, 13.0),
+}
+
+# Koker profielen (h, b, t)
+KOKER_PROFILES = {
+    "Koker 40x40x3": (40, 40, 3.0),
+    "Koker 50x50x3": (50, 50, 3.0),
+    "Koker 60x60x3": (60, 60, 3.0),
+    "Koker 60x60x4": (60, 60, 4.0),
+    "Koker 70x70x3": (70, 70, 3.0),
+    "Koker 70x70x4": (70, 70, 4.0),
+    "Koker 80x80x3": (80, 80, 3.0),
+    "Koker 80x80x4": (80, 80, 4.0),
+    "Koker 80x80x5": (80, 80, 5.0),
+    "Koker 90x90x3": (90, 90, 3.0),
+    "Koker 90x90x4": (90, 90, 4.0),
+}
+
+def get_profile_dimensions(profile_type, profile_name):
+    """Haal de dimensies op voor een specifiek profiel"""
+    if profile_type == "HEA":
+        return HEA_PROFILES.get(profile_name)
+    elif profile_type == "HEB":
+        return HEB_PROFILES.get(profile_name)
+    elif profile_type == "IPE":
+        return IPE_PROFILES.get(profile_name)
+    elif profile_type == "UNP":
+        return UNP_PROFILES.get(profile_name)
+    elif profile_type == "Koker":
+        return KOKER_PROFILES.get(profile_name)
+    return None
+
+def get_profile_list(profile_type):
+    """Krijg een lijst van alle profielen van een bepaald type"""
+    if profile_type == "HEA":
+        return list(HEA_PROFILES.keys())
+    elif profile_type == "HEB":
+        return list(HEB_PROFILES.keys())
+    elif profile_type == "IPE":
+        return list(IPE_PROFILES.keys())
+    elif profile_type == "UNP":
+        return list(UNP_PROFILES.keys())
+    elif profile_type == "Koker":
+        return list(KOKER_PROFILES.keys())
+    return []
 
 # Initialize session state
 if 'loads' not in st.session_state:
@@ -551,3 +647,137 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
             deflection -= deflection_correction
     
     return x, M, rotation, deflection
+
+def generate_report_html(beam_data, results, plots):
+    """Genereer een HTML rapport"""
+    
+    # Converteer plots naar base64 images
+    plot_images = []
+    for plot in plots:
+        img_bytes = pio.to_image(plot, format="png")
+        img_base64 = base64.b64encode(img_bytes).decode()
+        plot_images.append(f"data:image/png;base64,{img_base64}")
+    
+    # HTML template
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            .header {{
+                text-align: center;
+                padding: 20px;
+                background: #f8f9fa;
+                margin-bottom: 30px;
+                border-radius: 8px;
+            }}
+            .section {{
+                margin-bottom: 30px;
+                padding: 20px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 15px 0;
+            }}
+            th, td {{
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }}
+            th {{
+                background-color: #f8f9fa;
+            }}
+            img {{
+                max-width: 100%;
+                height: auto;
+                margin: 20px 0;
+            }}
+            .footer {{
+                text-align: center;
+                padding: 20px;
+                color: #666;
+                font-size: 0.9em;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>BeamSolve Professional</h1>
+            <h2>Technisch Rapport</h2>
+            <p>Gegenereerd op: {datetime.now().strftime('%d-%m-%Y %H:%M')}</p>
+        </div>
+
+        <div class="section">
+            <h3>1. Invoergegevens</h3>
+            <table>
+                <tr><th>Parameter</th><th>Waarde</th></tr>
+                <tr><td>Profieltype</td><td>{beam_data['profile_type']}</td></tr>
+                <tr><td>Hoogte</td><td>{beam_data['height']} mm</td></tr>
+                <tr><td>Breedte</td><td>{beam_data['width']} mm</td></tr>
+                <tr><td>Wanddikte</td><td>{beam_data['wall_thickness']} mm</td></tr>
+                <tr><td>Overspanning</td><td>{beam_data['length']} mm</td></tr>
+                <tr><td>E-modulus</td><td>{beam_data['E']} N/mm²</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>2. Steunpunten</h3>
+            <table>
+                <tr><th>Positie</th><th>Type</th></tr>
+                {chr(10).join([f'<tr><td>{pos} mm</td><td>{type}</td></tr>' for pos, type in beam_data['supports']])}
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>3. Belastingen</h3>
+            <table>
+                <tr><th>Type</th><th>Waarde</th><th>Positie</th><th>Lengte</th></tr>
+                {chr(10).join([f'<tr><td>{load[2]}</td><td>{load[1]} N</td><td>{load[0]} mm</td><td>{load[3] if len(load) > 3 else "-"} mm</td></tr>' for load in beam_data['loads']])}
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>4. Resultaten</h3>
+            <table>
+                <tr><th>Parameter</th><th>Waarde</th></tr>
+                <tr><td>Maximaal moment</td><td>{results['max_moment']:.2f} Nmm</td></tr>
+                <tr><td>Maximale doorbuiging</td><td>{results['max_deflection']:.2f} mm</td></tr>
+                <tr><td>Maximale rotatie</td><td>{results['max_rotation']:.6f} rad</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>5. Grafieken</h3>
+            <h4>5.1 Balkschema</h4>
+            <img src="{plot_images[0]}" alt="Balkschema">
+            
+            <h4>5.2 Analyse Grafieken</h4>
+            <img src="{plot_images[1]}" alt="Analyse">
+        </div>
+
+        <div class="footer">
+            <p>BeamSolve Professional {datetime.now().year}</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
+
+def save_report(html_content, output_path):
+    """Sla het rapport op als HTML bestand"""
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    return output_path
