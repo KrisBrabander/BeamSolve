@@ -140,12 +140,21 @@ def plot_beam_diagram(beam_length, supports, loads):
     """Teken professioneel balkschema"""
     fig = go.Figure()
     
-    # Teken balk - dikker en duidelijker
+    # Moderne kleuren
+    colors = {
+        'beam': '#2c3e50',  # Donkerblauw-grijs
+        'support': '#3498db',  # Helder blauw
+        'load': '#e74c3c',  # Rood
+        'background': '#ffffff',  # Wit
+        'grid': '#ecf0f1'  # Lichtgrijs
+    }
+    
+    # Teken balk - modern en strak
     fig.add_trace(go.Scatter(
         x=[0, beam_length/1000],
         y=[0, 0],
         mode='lines',
-        line=dict(color='black', width=4),
+        line=dict(color=colors['beam'], width=6),
         name='Balk'
     ))
     
@@ -153,170 +162,235 @@ def plot_beam_diagram(beam_length, supports, loads):
     for pos, type in supports:
         x_pos = pos/1000  # Convert to meters
         triangle_size = beam_length/50
-        type = type.lower()  # Convert to lowercase for consistent comparison
+        type = type.lower()
+        
         if type == "inklemming":
-            # Inklemming (driehoek met arcering)
-            # Onderste deel
+            # Moderne inklemming met gevulde rechthoek en arcering
             fig.add_trace(go.Scatter(
-                x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
-                y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
+                x=[x_pos, x_pos, x_pos+triangle_size/1000, x_pos+triangle_size/1000, x_pos],
+                y=[-triangle_size/1000, triangle_size/1000, triangle_size/1000, -triangle_size/1000, -triangle_size/1000],
                 fill="toself",
                 mode='lines',
-                line=dict(color='black', width=2),
-                fillcolor='lightgray',
-                name='Inklemming'
+                line=dict(color=colors['support'], width=2),
+                fillcolor=colors['support'],
+                opacity=0.3,
+                name='Inklemming',
+                showlegend=True if type == "inklemming" else False
             ))
-            # Arcering lijnen onder
-            for offset in np.linspace(-triangle_size/1000, triangle_size/1000, 5):
+            # Moderne arcering met dunnere lijnen
+            for i in range(5):
+                offset = -triangle_size/1000 + i * triangle_size/500
                 fig.add_trace(go.Scatter(
-                    x=[x_pos+offset-triangle_size/2000, x_pos+offset+triangle_size/2000],
-                    y=[-triangle_size/1000, -triangle_size/2000],
+                    x=[x_pos, x_pos+triangle_size/1000],
+                    y=[offset, offset],
                     mode='lines',
-                    line=dict(color='black', width=1),
+                    line=dict(color=colors['support'], width=1),
                     showlegend=False
                 ))
-            # Bovenste deel
-            fig.add_trace(go.Scatter(
-                x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
-                y=[triangle_size/1000, triangle_size/1000, 0, triangle_size/1000],
-                fill="toself",
-                mode='lines',
-                line=dict(color='black', width=2),
-                fillcolor='lightgray',
-                showlegend=False
-            ))
-            # Arcering lijnen boven
-            for offset in np.linspace(-triangle_size/1000, triangle_size/1000, 5):
-                fig.add_trace(go.Scatter(
-                    x=[x_pos+offset-triangle_size/2000, x_pos+offset+triangle_size/2000],
-                    y=[triangle_size/1000, triangle_size/2000],
-                    mode='lines',
-                    line=dict(color='black', width=1),
-                    showlegend=False
-                ))
+                
         elif type == "scharnier":
-            # Scharnier (driehoek)
+            # Modern driehoekig support met vulling
             fig.add_trace(go.Scatter(
                 x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
                 y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
                 fill="toself",
                 mode='lines',
-                line=dict(color='black', width=2),
-                fillcolor='white',
-                name='Scharnier'
+                line=dict(color=colors['support'], width=2),
+                fillcolor=colors['support'],
+                opacity=0.3,
+                name='Scharnier',
+                showlegend=True if type == "scharnier" else False
             ))
+            
         elif type == "rol":
-            # Scharnier (driehoek)
+            # Moderne rol met cirkels
             fig.add_trace(go.Scatter(
                 x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
                 y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
                 fill="toself",
                 mode='lines',
-                line=dict(color='black', width=2),
-                fillcolor='white',
-                name='Rol'
+                line=dict(color=colors['support'], width=2),
+                fillcolor=colors['support'],
+                opacity=0.3,
+                name='Rol',
+                showlegend=True if type == "rol" else False
             ))
-            # Rol (cirkel)
-            circle_radius = triangle_size/2000
-            theta = np.linspace(0, 2*np.pi, 50)
-            circle_x = x_pos + circle_radius * np.cos(theta)
-            circle_y = -triangle_size/1000 - circle_radius + circle_radius * np.sin(theta)
-            fig.add_trace(go.Scatter(
-                x=circle_x,
-                y=circle_y,
-                mode='lines',
-                line=dict(color='black', width=1),
-                fill='toself',
-                fillcolor='white',
-                showlegend=False
-            ))
+            # Voeg cirkels toe voor rol effect
+            circle_size = triangle_size/2000
+            for i in [-1, 0, 1]:
+                fig.add_trace(go.Scatter(
+                    x=[x_pos + i*circle_size*2],
+                    y=[-triangle_size/1000 - circle_size],
+                    mode='markers',
+                    marker=dict(size=8, color=colors['support']),
+                    showlegend=False
+                ))
     
     # Teken belastingen
     for load in loads:
-        pos, value, load_type, *rest = load
-        x_pos = pos/1000  # Convert to meters
+        x_pos = load[0]/1000
+        value = load[1]
+        load_type = load[2]
+        arrow_height = beam_length/40
+        
         if load_type == "Puntlast":
-            # Puntlast pijl
-            arrow_height = beam_length/30
+            # Moderne pijl voor puntlast
             fig.add_trace(go.Scatter(
                 x=[x_pos, x_pos],
                 y=[arrow_height/1000, 0],
-                mode='lines+text',
-                text=[f'{value/1000:.1f} kN', ''],
-                textposition='top center',
-                line=dict(color='blue', width=2),
-                name='Puntlast'
+                mode='lines',
+                line=dict(color=colors['load'], width=2),
+                name=f'{value/1000:.1f} kN'
             ))
             # Pijlpunt
             fig.add_trace(go.Scatter(
                 x=[x_pos-arrow_height/2000, x_pos, x_pos+arrow_height/2000],
                 y=[arrow_height/2000, 0, arrow_height/2000],
                 mode='lines',
-                line=dict(color='blue', width=2),
+                line=dict(color=colors['load'], width=2),
                 showlegend=False
             ))
+            
         elif load_type == "Verdeelde last":
-            length = rest[0]/1000  # Convert to meters
-            arrow_height = beam_length/40
-            # Pijlen voor verdeelde last
-            num_arrows = min(max(int(length*5), 3), 10)  # Minimaal 3, maximaal 10 pijlen
+            length = load[3]/1000 if len(load) > 3 else (beam_length - load[0])/1000
+            # Moderne verdeelde last met meer pijlen en verbindingslijn
+            num_arrows = min(max(int(length*5), 3), 10)
+            
+            # Verbindingslijn bovenaan
+            fig.add_trace(go.Scatter(
+                x=[x_pos, x_pos+length],
+                y=[arrow_height/1000, arrow_height/1000],
+                mode='lines',
+                line=dict(color=colors['load'], width=2),
+                showlegend=False
+            ))
+            
+            # Pijlen
             for i in range(num_arrows):
                 arrow_x = x_pos + (i * length/(num_arrows-1))
+                # Pijlsteel
                 fig.add_trace(go.Scatter(
                     x=[arrow_x, arrow_x],
                     y=[arrow_height/1000, 0],
                     mode='lines',
-                    line=dict(color='blue', width=1),
+                    line=dict(color=colors['load'], width=2),
                     showlegend=(i==0),
                     name=f'{value/1000:.1f} kN/m'
                 ))
                 # Pijlpunt
                 fig.add_trace(go.Scatter(
                     x=[arrow_x-arrow_height/4000, arrow_x, arrow_x+arrow_height/4000],
-                    y=[arrow_height/2000, 0, arrow_height/2000],
+                    y=[arrow_height/4000, 0, arrow_height/4000],
                     mode='lines',
-                    line=dict(color='blue', width=1),
+                    line=dict(color=colors['load'], width=2),
                     showlegend=False
                 ))
-            # Lijn boven pijlen
+            
+        elif load_type == "Driehoekslast":
+            length = load[3]/1000
+            # Moderne driehoekslast met variabele pijlgrootte
+            num_arrows = min(max(int(length*5), 3), 10)
+            
+            # Verbindingslijn met gradient
+            x_gradient = np.linspace(x_pos, x_pos+length, 100)
+            y_gradient = np.linspace(0, arrow_height/1000, 100)
             fig.add_trace(go.Scatter(
                 x=[x_pos, x_pos+length],
-                y=[arrow_height/1000, arrow_height/1000],
+                y=[0, arrow_height/1000],
                 mode='lines',
-                line=dict(color='blue', width=2),
+                line=dict(color=colors['load'], width=2),
+                showlegend=False
+            ))
+            
+            # Pijlen met variabele lengte
+            for i in range(num_arrows):
+                rel_pos = i/(num_arrows-1)
+                arrow_x = x_pos + length * rel_pos
+                arrow_height_scaled = arrow_height * rel_pos
+                
+                # Pijlsteel
+                fig.add_trace(go.Scatter(
+                    x=[arrow_x, arrow_x],
+                    y=[arrow_height_scaled/1000, 0],
+                    mode='lines',
+                    line=dict(color=colors['load'], width=2),
+                    showlegend=(i==num_arrows-1),
+                    name=f'{value/1000:.1f} kN/m'
+                ))
+                # Pijlpunt
+                fig.add_trace(go.Scatter(
+                    x=[arrow_x-arrow_height/4000, arrow_x, arrow_x+arrow_height/4000],
+                    y=[arrow_height_scaled/4000, 0, arrow_height_scaled/4000],
+                    mode='lines',
+                    line=dict(color=colors['load'], width=2),
+                    showlegend=False
+                ))
+            
+        elif load_type == "Moment":
+            # Modern moment symbool met gebogen pijl
+            radius = arrow_height/2000
+            theta = np.linspace(0, 2*np.pi, 50)
+            # Teken cirkel
+            fig.add_trace(go.Scatter(
+                x=x_pos + radius*np.cos(theta),
+                y=radius*np.sin(theta),
+                mode='lines',
+                line=dict(color=colors['load'], width=2),
+                name=f'{value/1e6:.1f} kNm'
+            ))
+            # Pijlpunt op cirkel
+            arrow_angle = np.pi/4
+            fig.add_trace(go.Scatter(
+                x=[x_pos + radius*np.cos(arrow_angle), 
+                   x_pos + radius*np.cos(arrow_angle-np.pi/6),
+                   x_pos + radius*np.cos(arrow_angle+np.pi/6)],
+                y=[radius*np.sin(arrow_angle),
+                   radius*np.sin(arrow_angle-np.pi/6),
+                   radius*np.sin(arrow_angle+np.pi/6)],
+                mode='lines',
+                line=dict(color=colors['load'], width=2),
                 showlegend=False
             ))
     
-    # Update layout voor professionele uitstraling
+    # Update layout voor moderne uitstraling
     fig.update_layout(
-        title="Balkschema en Belastingen",
-        height=300,  # Kleiner voor betere overzichtelijkheid
+        title=dict(
+            text="Balkschema en Belastingen",
+            font=dict(size=24, color=colors['beam'])
+        ),
+        height=300,
         showlegend=True,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
+        plot_bgcolor=colors['background'],
+        paper_bgcolor=colors['background'],
         yaxis=dict(
             scaleanchor="x",
             scaleratio=1,
-            range=[-beam_length/20/1000, beam_length/20/1000],  # Beter zichtbare schaal
+            range=[-beam_length/20/1000, beam_length/20/1000],
             zeroline=True,
             zerolinewidth=1,
-            zerolinecolor='black',
-            showgrid=False
+            zerolinecolor=colors['beam'],
+            showgrid=True,
+            gridcolor=colors['grid'],
+            gridwidth=1
         ),
         xaxis=dict(
             range=[-beam_length/20/1000, beam_length*1.1/1000],
             zeroline=True,
             zerolinewidth=1,
-            zerolinecolor='black',
-            showgrid=False
+            zerolinecolor=colors['beam'],
+            showgrid=True,
+            gridcolor=colors['grid'],
+            gridwidth=1
         ),
-        margin=dict(t=50, b=50),
+        margin=dict(t=50, b=50, l=50, r=50),
         legend=dict(
             yanchor="top",
             y=0.99,
             xanchor="right",
             x=0.99,
-            bgcolor='rgba(255,255,255,0.8)'
+            bgcolor='rgba(255,255,255,0.8)',
+            bordercolor=colors['beam'],
+            borderwidth=1
         )
     )
     
