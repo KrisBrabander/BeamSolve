@@ -335,77 +335,69 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
     return fig
 
 def plot_results(x, V, M, rotation, deflection):
-    """Plot alle resultaten in één figuur met subplots"""
+    """Plot alle resultaten in één figuur met subplots, vergelijkbaar met professionele software"""
+    # Maak een figuur met subplots
     fig = make_subplots(
-        rows=4, cols=1,
+        rows=3, cols=1,
         subplot_titles=(
-            "Balkschema en Doorbuiging",
-            "Dwarskrachtenlijn (V)",
-            "Momentenlijn (M)",
-            "Rotatielijn (θ)"
+            "Balkschema en Belastingen",
+            "Dwarskrachtenlijn (kN)",
+            "Momentenlijn (kNm)"
         ),
-        vertical_spacing=0.08,
-        row_heights=[0.4, 0.2, 0.2, 0.2]
+        vertical_spacing=0.12,
+        row_heights=[0.4, 0.3, 0.3]
     )
     
-    # Balkschema en doorbuiging
+    # Balkschema (bovenste plot)
+    # Teken de balk zelf
     fig.add_trace(
         go.Scatter(
-            x=x, 
-            y=deflection,
+            x=x,
+            y=[0]*len(x),
             mode='lines',
-            name='Doorbuiging',
-            line=dict(color='#2ecc71', width=3)
+            name='Balk',
+            line=dict(color='#3498db', width=6),
+            showlegend=False
         ),
         row=1, col=1
     )
     
-    # Dwarskrachtenlijn
+    # Dwarskrachtenlijn (middelste plot)
     fig.add_trace(
         go.Scatter(
             x=x,
-            y=V,
+            y=[v/1000 for v in V],  # Converteer naar kN
             mode='lines',
             name='Dwarskracht',
-            line=dict(color='#e74c3c', width=2),
-            fill='tozeroy'
+            line=dict(color='#27ae60', width=2),
+            fill='tozeroy',
+            fillcolor='rgba(46, 204, 113, 0.3)'
         ),
         row=2, col=1
     )
     
-    # Momentenlijn
+    # Momentenlijn (onderste plot)
     fig.add_trace(
         go.Scatter(
             x=x,
-            y=M,
+            y=[m/1000000 for m in M],  # Converteer naar kNm
             mode='lines',
             name='Moment',
-            line=dict(color='#3498db', width=2),
-            fill='tozeroy'
+            line=dict(color='#8e44ad', width=2),
+            fill='tozeroy',
+            fillcolor='rgba(142, 68, 173, 0.3)'
         ),
         row=3, col=1
     )
     
-    # Rotatielijn
-    fig.add_trace(
-        go.Scatter(
-            x=x,
-            y=rotation,
-            mode='lines',
-            name='Rotatie',
-            line=dict(color='#9b59b6', width=2)
-        ),
-        row=4, col=1
-    )
-    
-    # Update layout
+    # Update layout voor professionele uitstraling
     fig.update_layout(
-        height=800,
+        height=900,
         showlegend=True,
-        plot_bgcolor='white',
+        plot_bgcolor='rgba(240,240,240,0.8)',
         paper_bgcolor='white',
-        title_text="Analyse Resultaten",
-        title_x=0.5,
+        font=dict(size=12),
+        margin=dict(t=100),
         legend=dict(
             yanchor="top",
             y=0.99,
@@ -415,31 +407,59 @@ def plot_results(x, V, M, rotation, deflection):
         )
     )
     
-    # Update assen
+    # Update x-assen
     fig.update_xaxes(
         showgrid=True,
         gridwidth=1,
-        gridcolor='rgba(0,0,0,0.1)',
+        gridcolor='rgba(255,255,255,0.9)',
         zeroline=True,
         zerolinewidth=2,
-        zerolinecolor='rgba(0,0,0,0.5)'
+        zerolinecolor='rgba(0,0,0,0.2)',
+        title_text="Positie (m)",
+        dtick=1  # Markering elke meter
     )
     
+    # Update y-assen
     fig.update_yaxes(
         showgrid=True,
         gridwidth=1,
-        gridcolor='rgba(0,0,0,0.1)',
+        gridcolor='rgba(255,255,255,0.9)',
         zeroline=True,
         zerolinewidth=2,
-        zerolinecolor='rgba(0,0,0,0.5)'
+        zerolinecolor='rgba(0,0,0,0.5)',
+        row=1, col=1
     )
     
-    # Labels
-    fig.update_xaxes(title_text="Positie (mm)", row=4, col=1)
-    fig.update_yaxes(title_text="w (mm)", row=1, col=1)
-    fig.update_yaxes(title_text="V (N)", row=2, col=1)
-    fig.update_yaxes(title_text="M (Nmm)", row=3, col=1)
-    fig.update_yaxes(title_text="θ (rad)", row=4, col=1)
+    # Specifieke y-as labels
+    fig.update_yaxes(title_text="", row=1, col=1)  # Geen y-as label voor balkschema
+    fig.update_yaxes(title_text="V (kN)", row=2, col=1)
+    fig.update_yaxes(title_text="M (kNm)", row=3, col=1)
+    
+    # Voeg waarden toe bij belangrijke punten
+    max_shear = max(abs(min(V)), abs(max(V))) / 1000
+    max_moment = max(abs(min(M)), abs(max(M))) / 1000000
+    
+    # Voeg annotaties toe voor maximale waarden
+    max_v_idx = np.argmax(np.abs(V))
+    max_m_idx = np.argmax(np.abs(M))
+    
+    fig.add_annotation(
+        x=x[max_v_idx],
+        y=V[max_v_idx]/1000,
+        text=f"{V[max_v_idx]/1000:.1f} kN",
+        showarrow=True,
+        arrowhead=2,
+        row=2, col=1
+    )
+    
+    fig.add_annotation(
+        x=x[max_m_idx],
+        y=M[max_m_idx]/1000000,
+        text=f"{M[max_m_idx]/1000000:.1f} kNm",
+        showarrow=True,
+        arrowhead=2,
+        row=3, col=1
+    )
     
     return fig
 
@@ -954,7 +974,7 @@ def main():
             
             # Spanningen
             st.subheader("Spanningen")
-            max_moment = max(abs(np.min(M)), abs(np.max(M)))
+            max_moment = max(abs(min(M)), abs(max(M)))
             sigma = max_moment / W
             st.metric("Max. buigspanning", f"{sigma:.1f} N/mm²")
             
