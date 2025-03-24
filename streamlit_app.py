@@ -334,13 +334,25 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
         elif load_type == "Gelijkmatig verdeeld":
             # Teken meerdere pijlen voor verdeelde belasting
             length = float(rest[0])
-            q = F / length
-            n_arrows = min(int(length/50) + 1, 15)
-            dx = length / (n_arrows - 1)
+            q = F / length  # Last per lengte-eenheid
+            # Bereken reactiekrachten voor verdeelde belasting
+            start = pos
+            end = pos + length
+            if end > beam_length:  # Begrens tot einde van de balk
+                end = beam_length
+            if start < 0:  # Begin vanaf begin van de balk
+                start = 0
+                
+            load_length = end - start
+            load_center = start + load_length/2
+            total_load = q * load_length
+            
+            n_arrows = min(int(load_length/50) + 1, 15)
+            dx = load_length / (n_arrows - 1)
             arrow_length = 60 if F > 0 else -60
             
             # Teken lijn boven de pijlen
-            x_load = np.linspace(pos, pos + length, n_arrows)
+            x_load = np.linspace(start, end, n_arrows)
             y_load = np.array([deflection[np.abs(x - xi).argmin()] * scale_factor for xi in x_load])
             
             fig.add_trace(go.Scatter(
@@ -354,7 +366,7 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
             
             # Teken pijlen
             for i in range(n_arrows):
-                x_pos = pos + i * dx
+                x_pos = start + i * dx
                 if x_pos <= beam_length:
                     y_pos = deflection[np.abs(x - x_pos).argmin()] * scale_factor
                     fig.add_trace(go.Scatter(
@@ -433,113 +445,104 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
     return fig
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
-    """Hoofdfunctie voor balkanalyse met verbeterde mechanica berekeningen"""
+    """Analyseer de balk en bereken momenten, dwarskrachten, rotaties en doorbuigingen"""
     n_points = 200
     x = np.linspace(0, beam_length, n_points)
-    M = np.zeros_like(x)
-    V = np.zeros_like(x)  # Dwarskracht
-    rotation = np.zeros_like(x)
-    deflection = np.zeros_like(x)
+    dx = x[1] - x[0]
     
-    # Bereken steunpuntreacties
-    if len(supports) == 0:
-        return x, M, rotation, deflection
-        
-    if len(supports) == 2:  # Focus eerst op 2 steunpunten als meest voorkomend geval
-        # Voor twee steunpunten
-        pos1, type1 = supports[0]
-        pos2, type2 = supports[1]
-        L = pos2 - pos1
-        
-        # Bereken reactiekrachten voor elke belasting
-        for pos, F, load_type, *rest in loads:
-            if load_type == "Puntlast":
-                # Bereken reactiekrachten voor puntlast
-                a = pos - pos1  # Afstand vanaf linker steunpunt
-                b = pos2 - pos  # Afstand tot rechter steunpunt
-                R1 = F * b / L  # Reactiekracht linker steunpunt
-                R2 = F * a / L  # Reactiekracht rechter steunpunt
-                
-                # Bereken moment en dwarskracht voor elk punt
-                for i, xi in enumerate(x):
-                    if pos1 <= xi <= pos2:  # Alleen tussen de steunpunten
-                        if xi <= pos:  # Links van de last
-                            V[i] += R1
-                            M[i] += R1 * (xi - pos1)
-                        else:  # Rechts van de last
-                            V[i] -= R2
-                            M[i] += R1 * (xi - pos1) - F * (xi - pos)
-                            
-            elif load_type == "Gelijkmatig verdeeld":
-                length = float(rest[0])
-                q = F / length  # Last per lengte-eenheid
-                # Bereken reactiekrachten voor verdeelde belasting
-                start = pos
-                end = pos + length
-                if end > pos2:  # Begrens tot tweede steunpunt
-                    end = pos2
-                if start < pos1:  # Begin vanaf eerste steunpunt
-                    start = pos1
-                    
-                load_length = end - start
-                load_center = start + load_length/2
-                total_load = q * load_length
-                
-                a = load_center - pos1  # Afstand vanaf linker steunpunt tot zwaartepunt
-                R1 = total_load * (L - a) / L  # Reactiekracht linker steunpunt
-                R2 = total_load * a / L  # Reactiekracht rechter steunpunt
-                
-                # Bereken moment en dwarskracht voor elk punt
-                for i, xi in enumerate(x):
-                    if pos1 <= xi <= pos2:  # Alleen tussen de steunpunten
-                        if xi <= start:  # Voor de belasting
-                            V[i] += R1
-                            M[i] += R1 * (xi - pos1)
-                        elif xi >= end:  # Na de belasting
-                            V[i] -= R2
-                            M[i] += R1 * (xi - pos1) - total_load * (xi - load_center)
-                        else:  # Onder de belasting
-                            load_tot_hier = q * (xi - start)
-                            V[i] += R1 - load_tot_hier
-                            M[i] += R1 * (xi - pos1) - q * (xi - start)**2 / 2
-
+    # Initialiseer arrays
+    M = np.zeros_like(x)  # Moment
+    V = np.zeros_like(x)  # Dwarskracht
+    rotation = np.zeros_like(x)  # Rotatie
+    deflection = np.zeros_like(x)  # Doorbuiging
+    
     # Bereken traagheidsmoment
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     
-    # Bereken doorbuiging met dubbele integratie methode
-    dx = x[1] - x[0]
-    EI = E * I
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda s: s[0])
     
-    # Eerste integratie voor rotatie
-    rotation = np.zeros_like(x)
-    for i in range(1, len(x)):
-        rotation[i] = rotation[i-1] + (M[i] + M[i-1]) * dx / (2 * EI)
+    # Bereken reactiekrachten
+    R = np.zeros(len(supports))  # Reactiekrachten bij steunpunten
     
-    # Vind initiële rotatie bij eerste steunpunt
-    if len(supports) == 2:
-        pos1, _ = supports[0]
-        pos2, _ = supports[1]
-        idx1 = np.abs(x - pos1).argmin()
-        idx2 = np.abs(x - pos2).argmin()
+    # Matrix voor oplegreacties
+    A = np.zeros((len(supports), len(supports)))
+    b = np.zeros(len(supports))
+    
+    # Vul matrix A en vector b voor momentenvergelijkingen
+    for i, (pos_i, type_i) in enumerate(supports):
+        for j, (pos_j, type_j) in enumerate(supports):
+            # Coëfficiënt voor reactiekracht j in momentenvergelijking om steunpunt i
+            A[i,j] = pos_j - pos_i
         
-        # Bereken initiële rotatie zodat doorbuiging bij tweede steunpunt nul is
-        theta0 = -rotation[idx2] + (deflection[idx2] - deflection[idx1]) / (x[idx2] - x[idx1])
-        rotation += theta0
+        # Bereken moment van externe krachten om steunpunt i
+        for load in loads:
+            if len(load) == 3:  # Puntlast of moment
+                pos, value, load_type = load
+                if load_type == "Puntlast":
+                    b[i] -= value * (pos - pos_i)
+                elif load_type == "Moment":
+                    b[i] -= value
+            else:  # Verdeelde last
+                pos, value, load_type, length = load
+                # Resultante van verdeelde last werkt aan in midden van belaste lengte
+                center = pos + length/2
+                total_force = value * length
+                b[i] -= total_force * (center - pos_i)
     
-    # Tweede integratie voor doorbuiging
-    deflection = np.zeros_like(x)
+    # Los reactiekrachten op
+    R = np.linalg.solve(A, b)
+    
+    # Bereken dwarskracht en moment
+    for i, xi in enumerate(x):
+        # Bijdrage van reactiekrachten
+        for j, (pos, _) in enumerate(supports):
+            if xi >= pos:
+                V[i] += R[j]
+                M[i] += R[j] * (xi - pos)
+        
+        # Bijdrage van belastingen
+        for load in loads:
+            if len(load) == 3:  # Puntlast of moment
+                pos, value, load_type = load
+                if xi >= pos:
+                    if load_type == "Puntlast":
+                        V[i] -= value
+                        M[i] -= value * (xi - pos)
+                    elif load_type == "Moment":
+                        M[i] -= value
+            else:  # Verdeelde last
+                pos, value, load_type, length = load
+                if xi >= pos:
+                    # Bereken totale last tot dit punt
+                    overlap = min(xi - pos, length)
+                    if overlap > 0:
+                        force = value * overlap
+                        center = pos + overlap/2
+                        V[i] -= force
+                        M[i] -= force * (xi - center)
+    
+    # Bereken rotatie en doorbuiging door dubbele integratie
     for i in range(1, len(x)):
-        deflection[i] = deflection[i-1] + (rotation[i] + rotation[i-1]) * dx / 2
+        # Integreer M/EI voor rotatie
+        rotation[i] = rotation[i-1] + (M[i-1] / (E * I)) * dx
+        # Integreer rotatie voor doorbuiging
+        deflection[i] = deflection[i-1] + rotation[i-1] * dx
     
-    # Pas randvoorwaarden toe
-    for pos, support_type in supports:
-        idx = np.abs(x - pos).argmin()
-        if support_type in ["Scharnier", "Inklemming"]:  # Deze ondersteuningen verhinderen verticale verplaatsing
-            delta = deflection[idx]
-            deflection -= delta
+    # Corrigeer voor randvoorwaarden
+    # Vind vaste steunpunten
+    fixed_supports = [(i, pos) for i, (pos, type) in enumerate(supports) if type == "Vast"]
+    
+    if fixed_supports:
+        # Pas rotatie en doorbuiging aan voor vaste steunpunten
+        for idx, pos in fixed_supports:
+            # Vind dichtstbijzijnde x-waarde
+            support_idx = np.argmin(np.abs(x - pos))
+            rotation_correction = rotation[support_idx]
+            deflection_correction = deflection[support_idx]
             
-        if support_type == "Inklemming":  # Inklemming verhindert ook rotatie
-            theta = rotation[idx]
-            rotation -= theta
+            # Corrigeer alle waarden
+            rotation -= rotation_correction
+            deflection -= deflection_correction
     
     return x, M, rotation, deflection
