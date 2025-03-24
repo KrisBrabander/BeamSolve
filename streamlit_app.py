@@ -432,21 +432,17 @@ def calculate_reactions(beam_length, supports, loads):
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda x: x[0])
     
-    # We hebben minimaal 2 steunpunten nodig
-    if len(supports) < 2:
+    # We hebben minimaal 1 steunpunt nodig
+    if len(supports) < 1:
         return {}
     
     # Maak matrix voor reactiekrachten
     n_supports = len(supports)
-    A = np.zeros((2, n_supports))  # 2 vergelijkingen: som krachten en som momenten
-    b = np.zeros(2)
+    A = np.zeros((1, n_supports))  # 1 vergelijking: som krachten
+    b = np.zeros(1)
     
     # Vul matrix voor som krachten (eerste rij)
     A[0, :] = 1.0
-    
-    # Vul matrix voor som momenten t.o.v. eerste steunpunt (tweede rij)
-    for i in range(n_supports):
-        A[1, i] = supports[i][0]  # Afstand tot eerste steunpunt
     
     # Bereken belastingstermen
     for load in loads:
@@ -456,22 +452,15 @@ def calculate_reactions(beam_length, supports, loads):
         
         if load_type == "Puntlast":
             b[0] += value  # Som krachten
-            b[1] += value * pos  # Som momenten
-            
-        elif load_type == "Moment":
-            b[1] += value  # Alleen effect op momenten
             
         elif load_type in ["Verdeelde last", "Driehoekslast"]:
             length = load[3]
             if load_type == "Verdeelde last":
                 total_force = value * length
-                force_pos = pos + length/2
             else:  # Driehoekslast
                 total_force = 0.5 * value * length
-                force_pos = pos + 2*length/3
                 
             b[0] += total_force
-            b[1] += total_force * force_pos
     
     try:
         # Los reactiekrachten op
@@ -502,9 +491,6 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         
         if load_type == "Puntlast":
             V -= value * (x >= pos)
-            
-        elif load_type == "Moment":
-            M -= value * (x >= pos)
             
         elif load_type in ["Verdeelde last", "Driehoekslast"]:
             length = load[3]
@@ -554,16 +540,16 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
         support_positions = np.array([s[0] for s in supports])
         support_indices = np.array([np.abs(x - pos).argmin() for pos in support_positions])
         
-        if len(support_indices) >= 2:
+        if len(support_indices) >= 1:
             # Matrix oplossing voor randvoorwaarden
-            idx1, idx2 = support_indices[:2]
-            A = np.array([[1, 1], [idx2 - idx1, 1]])
-            b = np.array([-w[idx1], -w[idx2]])
+            idx1 = support_indices[0]
+            A = np.array([[1]])
+            b = np.array([-w[idx1]])
             
             try:
-                c1, c2 = np.linalg.solve(A, b)
+                c1 = np.linalg.solve(A, b)
                 # Vectorized correctie
-                w += c1 * np.arange(len(x)) + c2
+                w += c1
                 theta += c1
             except np.linalg.LinAlgError:
                 w.fill(0)
@@ -794,7 +780,7 @@ def main():
         
         # Steunpunten
         st.subheader("3. Steunpunten")
-        num_supports = st.number_input("Aantal", min_value=2, max_value=4, value=2)
+        num_supports = st.number_input("Aantal", min_value=1, max_value=4, value=1)
         
         supports = []
         for i in range(num_supports):
@@ -961,7 +947,7 @@ def main():
                     "loads": loads,
                     "results": {
                         "max_V": max(abs(np.min(V)), abs(np.max(V))),
-                        "max_M": max_moment,
+                        "max_M": max(abs(np.min(M)), abs(np.max(M))),
                         "max_deflection": max(abs(np.min(deflection)), abs(np.max(deflection))),
                         "max_rotation": max(abs(np.min(rotation)), abs(np.max(rotation))),
                         "max_stress": sigma,
