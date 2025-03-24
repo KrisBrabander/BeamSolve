@@ -3,6 +3,11 @@ import numpy as np
 import plotly.graph_objects as go
 from datetime import datetime
 import os
+import sys
+
+# Add project root to Python path
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+
 from src.profiles import get_profile_list, get_profile_dimensions
 from src.report import generate_report_html, save_report
 
