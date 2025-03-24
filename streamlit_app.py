@@ -156,6 +156,7 @@ def plot_beam_diagram(beam_length, supports, loads):
         type = type.lower()  # Convert to lowercase for consistent comparison
         if type == "inklemming":
             # Inklemming (driehoek met arcering)
+            # Onderste deel
             fig.add_trace(go.Scatter(
                 x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
                 y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
@@ -165,7 +166,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 fillcolor='lightgray',
                 name='Inklemming'
             ))
-            # Arcering lijnen
+            # Arcering lijnen onder
             for offset in np.linspace(-triangle_size/1000, triangle_size/1000, 5):
                 fig.add_trace(go.Scatter(
                     x=[x_pos+offset-triangle_size/2000, x_pos+offset+triangle_size/2000],
@@ -174,7 +175,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     line=dict(color='black', width=1),
                     showlegend=False
                 ))
-            # Bovenste inklemming
+            # Bovenste deel
             fig.add_trace(go.Scatter(
                 x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
                 y=[triangle_size/1000, triangle_size/1000, 0, triangle_size/1000],
@@ -286,35 +287,37 @@ def plot_beam_diagram(beam_length, supports, loads):
                 showlegend=False
             ))
     
-    # Layout
-    margin = beam_length/20
+    # Update layout voor professionele uitstraling
     fig.update_layout(
+        title="Balkschema en Belastingen",
+        height=300,  # Kleiner voor betere overzichtelijkheid
         showlegend=True,
-        legend=dict(
-            x=0,
-            y=1.1,
-            orientation='h'
-        ),
         plot_bgcolor='white',
         paper_bgcolor='white',
-        xaxis=dict(
-            range=[-margin/1000, (beam_length+margin)/1000],
-            title='Positie [m]',
-            gridcolor='lightgray',
-            zeroline=True,
-            zerolinecolor='black',
-            dtick=1  # 1m intervallen
-        ),
         yaxis=dict(
-            range=[-beam_length/15000, beam_length/15000],
-            scaleanchor='x',
+            scaleanchor="x",
             scaleratio=1,
-            showgrid=False,
-            zeroline=False,
-            showticklabels=False
+            range=[-beam_length/20/1000, beam_length/20/1000],  # Beter zichtbare schaal
+            zeroline=True,
+            zerolinewidth=1,
+            zerolinecolor='black',
+            showgrid=False
         ),
-        height=300,
-        margin=dict(l=50, r=50, t=50, b=50)
+        xaxis=dict(
+            range=[-beam_length/20/1000, beam_length*1.1/1000],
+            zeroline=True,
+            zerolinewidth=1,
+            zerolinecolor='black',
+            showgrid=False
+        ),
+        margin=dict(t=50, b=50),
+        legend=dict(
+            yanchor="top",
+            y=0.99,
+            xanchor="right",
+            x=0.99,
+            bgcolor='rgba(255,255,255,0.8)'
+        )
     )
     
     return fig
@@ -396,7 +399,7 @@ def plot_results(x, V, M, rotation, deflection):
         zeroline=True,
         zerolinecolor='rgba(0,0,0,0.2)',
         title_text="Positie (m)",
-        dtick=1  # Markering elke meter
+        dtick=1  # 1m intervallen
     )
     
     # Update y-assen
@@ -928,56 +931,48 @@ def main():
             
             # Download rapport
             st.markdown("---")
-            if st.button("Download Rapport", type="secondary", use_container_width=True):
-                # Genereer rapport
-                beam_data = {
-                    "profile_type": profile_type,
-                    "profile_name": profile_name,
-                    "dimensions": {
-                        "height": height,
-                        "width": width,
-                        "wall_thickness": wall_thickness,
-                        "flange_thickness": flange_thickness
-                    },
-                    "properties": {
-                        "A": A,
-                        "I": I,
-                        "W": W
-                    },
-                    "length": beam_length,
-                    "E": E,
-                    "supports": supports,
-                    "loads": loads,
-                    "results": {
-                        "max_V": max(abs(np.min(V)), abs(np.max(V))),
-                        "max_M": max(abs(np.min(M)), abs(np.max(M))),
-                        "max_deflection": max(abs(np.min(deflection)), abs(np.max(deflection))),
-                        "max_rotation": max(abs(np.min(rotation)), abs(np.max(rotation))),
-                        "max_stress": sigma,
-                        "unity_check": UC
-                    }
-                }
-                
+            if st.button("Genereer Rapport", type="primary"):
                 # Genereer rapport
                 try:
-                    output_dir = "reports"
-                    os.makedirs(output_dir, exist_ok=True)
-                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    output_path = os.path.join(output_dir, f"beamsolve_report_{timestamp}.pdf")
+                    beam_data = {
+                        "profile_type": profile_type,
+                        "profile_name": profile_name,
+                        "dimensions": {
+                            "height": height,
+                            "width": width,
+                            "wall_thickness": wall_thickness,
+                            "flange_thickness": flange_thickness
+                        },
+                        "properties": {
+                            "A": A,
+                            "I": I,
+                            "W": W
+                        },
+                        "length": beam_length,
+                        "E": E,
+                        "supports": supports,
+                        "loads": loads,
+                        "results": {
+                            "max_V": max(abs(np.min(V)), abs(np.max(V))),
+                            "max_M": max(abs(np.min(M)), abs(np.max(M))),
+                            "max_deflection": max(abs(np.min(deflection)), abs(np.max(deflection))),
+                            "max_rotation": max(abs(np.min(rotation)), abs(np.max(rotation))),
+                            "max_stress": sigma,
+                            "unity_check": UC
+                        }
+                    }
                     
+                    # Genereer PDF
                     pdf_content = generate_pdf_report(beam_data, results_plot)
-                    save_report(pdf_content, output_path)
                     
-                    st.success(f"Rapport opgeslagen als: {output_path}")
-                    
-                    # Download knop
-                    with open(output_path, "rb") as f:
-                        st.download_button(
-                            label="Download Rapport (PDF)",
-                            data=f.read(),
-                            file_name=f"beamsolve_report_{timestamp}.pdf",
-                            mime="application/pdf"
-                        )
+                    # Sla op en toon download knop
+                    st.download_button(
+                        label="⬇️ Download Rapport (PDF)",
+                        data=pdf_content,
+                        file_name="beamsolve_report.pdf",
+                        mime="application/pdf",
+                        key="download_report"
+                    )
                 except Exception as e:
                     st.error(f"Fout bij genereren rapport: {str(e)}")
 
