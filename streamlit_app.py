@@ -174,6 +174,25 @@ def plot_beam_diagram(beam_length, supports, loads):
                     line=dict(color='black', width=1),
                     showlegend=False
                 ))
+            # Bovenste inklemming
+            fig.add_trace(go.Scatter(
+                x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
+                y=[triangle_size/1000, triangle_size/1000, 0, triangle_size/1000],
+                fill="toself",
+                mode='lines',
+                line=dict(color='black', width=2),
+                fillcolor='lightgray',
+                showlegend=False
+            ))
+            # Arcering lijnen boven
+            for offset in np.linspace(-triangle_size/1000, triangle_size/1000, 5):
+                fig.add_trace(go.Scatter(
+                    x=[x_pos+offset-triangle_size/2000, x_pos+offset+triangle_size/2000],
+                    y=[triangle_size/1000, triangle_size/2000],
+                    mode='lines',
+                    line=dict(color='black', width=1),
+                    showlegend=False
+                ))
         elif type == "scharnier":
             # Scharnier (driehoek)
             fig.add_trace(go.Scatter(
@@ -360,10 +379,6 @@ def plot_results(x, V, M, rotation, deflection):
     fig.update_layout(
         height=900,
         showlegend=True,
-        plot_bgcolor='rgba(240,240,240,0.8)',
-        paper_bgcolor='white',
-        font=dict(size=12),
-        margin=dict(t=100),
         legend=dict(
             yanchor="top",
             y=0.99,
@@ -571,134 +586,120 @@ def calculate_profile_properties(profile_type, height, width, wall_thickness, fl
     W = I / (height/2) if height > 0 else 0
     return A, I, W
 
-def generate_report_html(beam_data, results_plot):
-    """Genereer een HTML rapport"""
+def generate_pdf_report(beam_data, results_plot):
+    """Genereer een PDF rapport"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import mm
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+    from io import BytesIO
+    import base64
     
-    # Converteer plots naar base64 images
-    img_bytes = results_plot.to_image(format="png")
-    img_base64 = base64.b64encode(img_bytes).decode()
-    plot_image = f"data:image/png;base64,{img_base64}"
+    # Converteer plot naar afbeelding
+    img_bytes = results_plot.to_image(format="png", width=800, height=600)
+    plot_img = BytesIO(img_bytes)
     
-    # HTML template
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 20px;
-            }}
-            .header {{
-                text-align: center;
-                padding: 20px;
-                background: #f8f9fa;
-                margin-bottom: 30px;
-                border-radius: 8px;
-            }}
-            .section {{
-                margin-bottom: 30px;
-                padding: 20px;
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }}
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin: 15px 0;
-            }}
-            th, td {{
-                padding: 12px;
-                text-align: left;
-                border-bottom: 1px solid #ddd;
-            }}
-            th {{
-                background-color: #f8f9fa;
-            }}
-            img {{
-                max-width: 100%;
-                height: auto;
-                margin: 20px 0;
-            }}
-            .footer {{
-                text-align: center;
-                padding: 20px;
-                color: #666;
-                font-size: 0.9em;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>BeamSolve Professional</h1>
-            <h2>Technisch Rapport</h2>
-            <p>Gegenereerd op: {datetime.now().strftime('%d-%m-%Y %H:%M')}</p>
-        </div>
-
-        <div class="section">
-            <h3>1. Invoergegevens</h3>
-            <table>
-                <tr><th>Parameter</th><th>Waarde</th></tr>
-                <tr><td>Profieltype</td><td>{beam_data['profile_type']}</td></tr>
-                <tr><td>Hoogte</td><td>{beam_data['dimensions']['height']} mm</td></tr>
-                <tr><td>Breedte</td><td>{beam_data['dimensions']['width']} mm</td></tr>
-                <tr><td>Wanddikte</td><td>{beam_data['dimensions']['wall_thickness']} mm</td></tr>
-                <tr><td>Overspanning</td><td>{beam_data['length']} mm</td></tr>
-                <tr><td>E-modulus</td><td>{beam_data['E']} N/mm²</td></tr>
-            </table>
-        </div>
-
-        <div class="section">
-            <h3>2. Steunpunten</h3>
-            <table>
-                <tr><th>Positie</th><th>Type</th></tr>
-                {chr(10).join([f'<tr><td>{pos} mm</td><td>{type}</td></tr>' for pos, type in beam_data['supports']])}
-            </table>
-        </div>
-
-        <div class="section">
-            <h3>3. Belastingen</h3>
-            <table>
-                <tr><th>Type</th><th>Waarde</th><th>Positie</th><th>Lengte</th></tr>
-                {chr(10).join([f'<tr><td>{load[2]}</td><td>{load[1]} N</td><td>{load[0]} mm</td><td>{load[3] if len(load) > 3 else "-"} mm</td></tr>' for load in beam_data['loads']])}
-            </table>
-        </div>
-
-        <div class="section">
-            <h3>4. Resultaten</h3>
-            <table>
-                <tr><th>Parameter</th><th>Waarde</th></tr>
-                <tr><td>Maximaal moment</td><td>{beam_data['results']['max_M']:.2f} Nmm</td></tr>
-                <tr><td>Maximale doorbuiging</td><td>{beam_data['results']['max_deflection']:.2f} mm</td></tr>
-                <tr><td>Maximale rotatie</td><td>{beam_data['results']['max_rotation']:.6f} rad</td></tr>
-            </table>
-        </div>
-
-        <div class="section">
-            <h3>5. Grafieken</h3>
-            <h4>5.1 Analyse Resultaten</h4>
-            <img src="{plot_image}" alt="Analyse">
-        </div>
-
-        <div class="footer">
-            <p>BeamSolve Professional {datetime.now().year}</p>
-        </div>
-    </body>
-    </html>
-    """
+    # Maak PDF document
+    buffer = BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
     
-    return html
+    # Opmaakstijlen
+    styles = getSampleStyleSheet()
+    title_style = styles['Heading1']
+    heading_style = styles['Heading2']
+    normal_style = styles['Normal']
+    
+    # Document elementen
+    elements = []
+    
+    # Titel
+    elements.append(Paragraph("BeamSolve Professional - Berekeningsrapport", title_style))
+    elements.append(Spacer(1, 12))
+    
+    # Profiel informatie
+    elements.append(Paragraph("Profiel Gegevens", heading_style))
+    profile_data = [
+        ["Profiel Type", beam_data["profile_type"]],
+        ["Hoogte", f"{beam_data['dimensions']['height']} mm"],
+        ["Breedte", f"{beam_data['dimensions']['width']} mm"],
+        ["Wanddikte", f"{beam_data['dimensions']['wall_thickness']} mm"]
+    ]
+    if "flange_thickness" in beam_data["dimensions"]:
+        profile_data.append(["Flensdikte", f"{beam_data['dimensions']['flange_thickness']} mm"])
+    
+    profile_table = Table(profile_data, colWidths=[100, 200])
+    profile_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('PADDING', (0, 0), (-1, -1), 6)
+    ]))
+    elements.append(profile_table)
+    elements.append(Spacer(1, 12))
+    
+    # Profiel eigenschappen
+    elements.append(Paragraph("Profiel Eigenschappen", heading_style))
+    properties_data = [
+        ["Oppervlakte", f"{beam_data['properties']['A']:.0f} mm²"],
+        ["Traagheidsmoment", f"{beam_data['properties']['I']:.0f} mm⁴"],
+        ["Weerstandsmoment", f"{beam_data['properties']['W']:.0f} mm³"]
+    ]
+    properties_table = Table(properties_data, colWidths=[100, 200])
+    properties_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('PADDING', (0, 0), (-1, -1), 6)
+    ]))
+    elements.append(properties_table)
+    elements.append(Spacer(1, 12))
+    
+    # Algemene gegevens
+    elements.append(Paragraph("Algemene Gegevens", heading_style))
+    general_data = [
+        ["Lengte", f"{beam_data['length']:.0f} mm"],
+        ["E-modulus", f"{beam_data['E']:.0f} N/mm²"]
+    ]
+    general_table = Table(general_data, colWidths=[100, 200])
+    general_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('PADDING', (0, 0), (-1, -1), 6)
+    ]))
+    elements.append(general_table)
+    elements.append(Spacer(1, 12))
+    
+    # Resultaten
+    elements.append(Paragraph("Resultaten", heading_style))
+    results_data = [
+        ["Max. Dwarskracht", f"{beam_data['results']['max_V']:.1f} kN"],
+        ["Max. Moment", f"{beam_data['results']['max_M']:.1f} kNm"],
+        ["Max. Doorbuiging", f"{beam_data['results']['max_deflection']:.2f} mm"],
+        ["Max. Rotatie", f"{beam_data['results']['max_rotation']:.4f} rad"],
+        ["Max. Spanning", f"{beam_data['results']['max_stress']:.1f} N/mm²"],
+        ["Unity Check", f"{beam_data['results']['unity_check']:.2f}"]
+    ]
+    results_table = Table(results_data, colWidths=[100, 200])
+    results_table.setStyle(TableStyle([
+        ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
+        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+        ('PADDING', (0, 0), (-1, -1), 6)
+    ]))
+    elements.append(results_table)
+    elements.append(Spacer(1, 12))
+    
+    # Grafieken
+    elements.append(Paragraph("Grafieken", heading_style))
+    img = Image(plot_img, width=160*mm, height=120*mm)
+    elements.append(img)
+    
+    # Genereer PDF
+    doc.build(elements)
+    return buffer.getvalue()
 
-def save_report(html_content, output_path):
-    """Sla het rapport op als HTML bestand"""
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-    return output_path
+def save_report(report_content, output_path):
+    """Sla het rapport op"""
+    with open(output_path, 'wb') as f:
+        f.write(report_content)
 
 # Initialize session state
 if 'loads' not in st.session_state:
@@ -908,7 +909,6 @@ def main():
             
             # Spanningen
             st.subheader("Spanningen")
-            st.subheader("Spanningen")          
             max_moment = max(abs(min(M)), abs(max(M)))
             sigma = max_moment / W
             st.metric("Max. buigspanning", f"{sigma:.1f} N/mm²")
@@ -960,13 +960,24 @@ def main():
                 
                 # Genereer rapport
                 try:
-                    html_content = generate_report_html(beam_data, results_plot)
                     output_dir = "reports"
                     os.makedirs(output_dir, exist_ok=True)
                     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    output_path = os.path.join(output_dir, f"beamsolve_report_{timestamp}.html")
-                    save_report(html_content, output_path)
+                    output_path = os.path.join(output_dir, f"beamsolve_report_{timestamp}.pdf")
+                    
+                    pdf_content = generate_pdf_report(beam_data, results_plot)
+                    save_report(pdf_content, output_path)
+                    
                     st.success(f"Rapport opgeslagen als: {output_path}")
+                    
+                    # Download knop
+                    with open(output_path, "rb") as f:
+                        st.download_button(
+                            label="Download Rapport (PDF)",
+                            data=f.read(),
+                            file_name=f"beamsolve_report_{timestamp}.pdf",
+                            mime="application/pdf"
+                        )
                 except Exception as e:
                     st.error(f"Fout bij genereren rapport: {str(e)}")
 
