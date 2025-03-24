@@ -596,15 +596,17 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             M -= value * np.maximum(0, x - pos)
             
         elif load_type == "Verdeelde last":
-            length = load[3]
+            length = load[3] if len(load) > 3 else beam_length - pos
             end_pos = pos + length
             # Belast gebied
             mask = (x >= pos) & (x <= end_pos)
-            # Dwarskracht
+            # Dwarskracht: q·(x-a) voor a≤x≤b
             V[mask] -= value * (x[mask] - pos)
+            # Na de last: q·L
             V[x > end_pos] -= value * length
-            # Moment
+            # Moment: q·(x-a)²/2 voor a≤x≤b
             M[mask] -= value * (x[mask] - pos)**2 / 2
+            # Na de last: q·L·(x-(a+L/2))
             M[x > end_pos] -= value * length * (x[x > end_pos] - (pos + length/2))
             
         elif load_type == "Driehoekslast":
@@ -612,16 +614,19 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             end_pos = pos + length
             # Belast gebied
             mask = (x >= pos) & (x <= end_pos)
-            # Relatieve x-positie
+            # Relatieve x-positie voor driehoek
             rel_x = (x[mask] - pos) / length
-            # Dwarskracht
+            # Dwarskracht: integraal van driehoekslast
             V[mask] -= value * length * rel_x**2 / 2
+            # Na de last: totale kracht
             V[x > end_pos] -= value * length / 2
-            # Moment
+            # Moment: integraal van dwarskracht
             M[mask] -= value * length * rel_x**3 / 6
+            # Na de last: kracht * arm naar zwaartepunt
             M[x > end_pos] -= value * length * (x[x > end_pos] - (pos + 2*length/3)) / 2
             
         elif load_type == "Moment":
+            # Direct moment op positie
             M -= value * (x >= pos)
     
     return V, M
