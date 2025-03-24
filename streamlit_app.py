@@ -477,7 +477,7 @@ def plot_results(x, V, M, rotation, deflection):
     return fig
 
 def calculate_reactions(beam_length, supports, loads):
-    """Bereken reactiekrachten voor alle belastingen"""
+    """Bereken reactiekrachten voor alle belastingen met moment evenwicht"""
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda x: x[0])
     
@@ -485,13 +485,40 @@ def calculate_reactions(beam_length, supports, loads):
     if len(supports) < 1:
         return {}
     
-    # Maak matrix voor reactiekrachten
-    n_supports = len(supports)
-    A = np.zeros((1, n_supports))  # 1 vergelijking: som krachten
-    b = np.zeros(1)
+    # Tel het aantal onbekenden (krachten en momenten)
+    n_unknowns = len(supports)  # Verticale reacties
+    n_fixed = sum(1 for _, type in supports if type.lower() == "inklemming")
+    n_unknowns += n_fixed  # Extra onbekenden voor inklemming (momenten)
+    
+    # Bepaal aantal vergelijkingen
+    n_equations = min(3, n_unknowns)  # Max 3: ΣF=0, ΣM=0, en extra voor hyperstatisch
+    
+    # Maak matrices voor het stelsel
+    A = np.zeros((n_equations, n_unknowns))
+    b = np.zeros(n_equations)
     
     # Vul matrix voor som krachten (eerste rij)
-    A[0, :] = 1.0
+    for i in range(len(supports)):
+        A[0, i] = 1.0  # Verticale reacties
+    
+    # Vul matrix voor momentevenwicht (tweede rij)
+    if n_equations > 1:
+        for i, (pos, _) in enumerate(supports):
+            A[1, i] = pos  # Moment van verticale reacties
+        
+        # Voeg momenten toe voor inklemmingen
+        j = len(supports)
+        for i, (_, type) in enumerate(supports):
+            if type.lower() == "inklemming":
+                A[1, j] = 1.0  # Directe momenten
+                j += 1
+    
+    # Extra vergelijking voor hyperstatisch systeem
+    if n_equations > 2:
+        # Gebruik compatibiliteit voor extra vergelijking
+        # Voor nu: verdeel de last gelijk over de steunpunten
+        for i in range(len(supports)):
+            A[2, i] = 1.0 / len(supports)
     
     # Bereken belastingstermen
     for load in loads:
@@ -501,74 +528,113 @@ def calculate_reactions(beam_length, supports, loads):
         
         if load_type == "Puntlast":
             b[0] += value  # Som krachten
+            if n_equations > 1:
+                b[1] += value * pos  # Moment
             
-        elif load_type in ["Verdeelde last", "Driehoekslast"]:
+        elif load_type == "Verdeelde last":
             length = load[3]
-            if load_type == "Verdeelde last":
-                total_force = value * length
-            else:  # Driehoekslast
-                total_force = 0.5 * value * length
-                
+            total_force = value * length
+            force_pos = pos + length/2
             b[0] += total_force
+            if n_equations > 1:
+                b[1] += total_force * force_pos
+            
+        elif load_type == "Driehoekslast":
+            length = load[3]
+            total_force = 0.5 * value * length
+            force_pos = pos + 2*length/3
+            b[0] += total_force
+            if n_equations > 1:
+                b[1] += total_force * force_pos
+            
+        elif load_type == "Moment":
+            if n_equations > 1:
+                b[1] += value
     
     try:
-        # Los reactiekrachten op
-        reactions = np.linalg.solve(A, b)
+        # Los het stelsel op
+        x = np.linalg.solve(A, b)
         
-        # Maak dictionary met reactiekrachten
-        reaction_dict = {}
-        for i, support in enumerate(supports):
-            reaction_dict[support[0]] = reactions[i]
+        # Maak dictionary met reacties
+        reactions = {}
+        for i, (pos, type) in enumerate(supports):
+            reactions[pos] = {"force": x[i], "moment": 0.0}
         
-        return reaction_dict
+        # Voeg momenten toe voor inklemmingen
+        j = len(supports)
+        for i, (pos, type) in enumerate(supports):
+            if type.lower() == "inklemming" and j < len(x):
+                reactions[pos]["moment"] = x[j]
+                j += 1
+        
+        return reactions
     except np.linalg.LinAlgError:
-        # Als het stelsel niet oplosbaar is
-        return {support[0]: 0.0 for support in supports}
+        return {pos: {"force": 0.0, "moment": 0.0} for pos, _ in supports}
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     """Bereken dwarskracht en moment op elke positie x"""
     V = np.zeros_like(x)  # Dwarskracht array
     M = np.zeros_like(x)  # Moment array
-    dx = x[1] - x[0]
     
-    # Verwerk alle krachten in één keer met numpy operaties
-    for pos, force in reactions.items():
-        V += force * (x >= pos)
+    # Verwerk reactiekrachten
+    for pos, reaction in reactions.items():
+        # Dwarskracht van reactiekracht
+        V += reaction["force"] * (x >= pos)
+        # Moment van reactiekracht
+        M += reaction["force"] * np.maximum(0, x - pos)
+        # Direct moment van inklemming
+        M += reaction["moment"] * (x >= pos)
     
+    # Verwerk belastingen
     for load in loads:
-        pos, value, load_type = load[:3]
+        pos = load[0]
+        value = load[1]
+        load_type = load[2]
         
         if load_type == "Puntlast":
             V -= value * (x >= pos)
+            M -= value * np.maximum(0, x - pos)
             
-        elif load_type in ["Verdeelde last", "Driehoekslast"]:
+        elif load_type == "Verdeelde last":
             length = load[3]
             end_pos = pos + length
-            load_region = (x >= pos) & (x <= end_pos)
-            beyond_region = x > end_pos
+            # Belast gebied
+            mask = (x >= pos) & (x <= end_pos)
+            # Dwarskracht
+            V[mask] -= value * (x[mask] - pos)
+            V[x > end_pos] -= value * length
+            # Moment
+            M[mask] -= value * (x[mask] - pos)**2 / 2
+            M[x > end_pos] -= value * length * (x[x > end_pos] - (pos + length/2))
             
-            if load_type == "Verdeelde last":
-                # Vectorized calculation
-                V[load_region] -= value * (x[load_region] - pos)
-                V[beyond_region] -= value * length
-            else:  # Driehoekslast
-                # Vectorized triangle load
-                local_x = np.where(load_region, x - pos, 0)
-                local_q = value * (local_x / length)
-                V[load_region] -= 0.5 * local_q[load_region] * local_x[load_region]
-                V[beyond_region] -= 0.5 * value * length
-    
-    # Bereken moment met cumsum
-    M += np.cumsum(V) * dx
+        elif load_type == "Driehoekslast":
+            length = load[3]
+            end_pos = pos + length
+            # Belast gebied
+            mask = (x >= pos) & (x <= end_pos)
+            # Relatieve x-positie
+            rel_x = (x[mask] - pos) / length
+            # Dwarskracht
+            V[mask] -= value * length * rel_x**2 / 2
+            V[x > end_pos] -= value * length / 2
+            # Moment
+            M[mask] -= value * length * rel_x**3 / 6
+            M[x > end_pos] -= value * length * (x[x > end_pos] - (pos + 2*length/3)) / 2
+            
+        elif load_type == "Moment":
+            M -= value * (x >= pos)
     
     return V, M
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk en bereken dwarskrachten, momenten, rotatie en doorbuiging"""
-    # Optimaal aantal punten voor goede nauwkeurigheid en snelheid
-    num_points = 201
-    x = np.linspace(0, beam_length, num_points)
+    # Aantal punten voor berekening (meer punten voor betere nauwkeurigheid)
+    n_points = 2001
+    x = np.linspace(0, beam_length, n_points)
     dx = x[1] - x[0]
+    
+    # Bereken profiel eigenschappen
+    A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
     
     # Bereken reactiekrachten
     reactions = calculate_reactions(beam_length, supports, loads)
@@ -576,38 +642,38 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Bereken interne krachten
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Bereken doorbuiging en rotatie met juiste profiel eigenschappen
-    A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
-    EI = E * I
+    # Bereken rotatie en doorbuiging
+    rotation = np.zeros_like(x)
+    deflection = np.zeros_like(x)
     
-    if EI > 0:
-        # Vectorized berekeningen voor rotatie en doorbuiging
-        theta = np.cumsum(M / EI) * dx
-        w = np.cumsum(theta) * dx
-        
-        # Pas randvoorwaarden toe
-        support_positions = np.array([s[0] for s in supports])
-        support_indices = np.array([np.abs(x - pos).argmin() for pos in support_positions])
-        
-        if len(support_indices) >= 1:
-            # Matrix oplossing voor randvoorwaarden
-            idx1 = support_indices[0]
-            A = np.array([[1]])
-            b = np.array([-w[idx1]])
-            
-            try:
-                c1 = np.linalg.solve(A, b)
-                # Vectorized correctie
-                w += c1
-                theta += c1
-            except np.linalg.LinAlgError:
-                w.fill(0)
-                theta.fill(0)
-    else:
-        w = np.zeros_like(x)
-        theta = np.zeros_like(x)
+    # Integreer moment voor rotatie (EIθ = ∫M dx)
+    for i in range(1, len(x)):
+        rotation[i] = rotation[i-1] + (M[i] * dx) / (E * I)
     
-    return x, V, M, theta, w
+    # Pas randvoorwaarden toe voor rotatie
+    for pos, type in supports:
+        if type.lower() == "inklemming":
+            idx = np.abs(x - pos).argmin()
+            if idx == 0:  # Inklemming aan begin
+                rotation -= rotation[0]
+            elif idx == len(x) - 1:  # Inklemming aan eind
+                rotation -= rotation[-1]
+    
+    # Integreer rotatie voor doorbuiging (w = ∫θ dx)
+    for i in range(1, len(x)):
+        deflection[i] = deflection[i-1] + rotation[i] * dx
+    
+    # Pas randvoorwaarden toe voor doorbuiging
+    support_positions = sorted(pos for pos, _ in supports)
+    for pos in support_positions:
+        idx = np.abs(x - pos).argmin()
+        if idx > 0:  # Niet het eerste punt
+            # Bereken en pas correctie toe
+            slope = (deflection[-1] - deflection[idx]) / (x[-1] - x[idx])
+            correction = deflection[idx] + slope * (x - x[idx])
+            deflection -= correction * (x >= x[idx])
+    
+    return x, V, M, rotation, deflection
 
 @st.cache_data
 def calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness):
