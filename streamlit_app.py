@@ -503,8 +503,10 @@ def calculate_reactions(beam_length, supports, loads):
     
     # Vul matrix voor momentevenwicht (tweede rij)
     if n_equations > 1:
+        # Neem moment om eerste steunpunt
+        moment_point = supports[0][0]
         for i, (pos, _) in enumerate(supports):
-            A[1, i] = pos  # Moment van verticale reacties
+            A[1, i] = pos - moment_point  # Moment van verticale reacties t.o.v. eerste steunpunt
         
         # Voeg momenten toe voor inklemmingen
         j = len(supports)
@@ -515,10 +517,9 @@ def calculate_reactions(beam_length, supports, loads):
     
     # Extra vergelijking voor hyperstatisch systeem
     if n_equations > 2:
-        # Gebruik compatibiliteit voor extra vergelijking
-        # Voor nu: verdeel de last gelijk over de steunpunten
-        for i in range(len(supports)):
-            A[2, i] = 1.0 / len(supports)
+        # Gebruik rotatie compatibiliteit voor extra vergelijking
+        for i, (pos, _) in enumerate(supports):
+            A[2, i] = pos * (beam_length - pos)  # Invloed op rotatie
     
     # Bereken belastingstermen
     for load in loads:
@@ -529,15 +530,15 @@ def calculate_reactions(beam_length, supports, loads):
         if load_type == "Puntlast":
             b[0] += value  # Som krachten
             if n_equations > 1:
-                b[1] += value * pos  # Moment
+                b[1] += value * (pos - moment_point)  # Moment t.o.v. eerste steunpunt
             
         elif load_type == "Verdeelde last":
-            length = load[3]
+            length = load[3] if len(load) > 3 else beam_length - pos
             total_force = value * length
             force_pos = pos + length/2
             b[0] += total_force
             if n_equations > 1:
-                b[1] += total_force * force_pos
+                b[1] += total_force * (force_pos - moment_point)
             
         elif load_type == "Driehoekslast":
             length = load[3]
@@ -545,7 +546,7 @@ def calculate_reactions(beam_length, supports, loads):
             force_pos = pos + 2*length/3
             b[0] += total_force
             if n_equations > 1:
-                b[1] += total_force * force_pos
+                b[1] += total_force * (force_pos - moment_point)
             
         elif load_type == "Moment":
             if n_equations > 1:
@@ -569,6 +570,7 @@ def calculate_reactions(beam_length, supports, loads):
         
         return reactions
     except np.linalg.LinAlgError:
+        st.error("Kan reactiekrachten niet berekenen: systeem is instabiel")
         return {pos: {"force": 0.0, "moment": 0.0} for pos, _ in supports}
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
@@ -576,17 +578,11 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     V = np.zeros_like(x)  # Dwarskracht array
     M = np.zeros_like(x)  # Moment array
     
-    # Verwerk reactiekrachten
-    for pos, reaction in reactions.items():
-        # Dwarskracht van reactiekracht
-        V += reaction["force"] * (x >= pos)
-        # Moment van reactiekracht (alleen na het punt)
-        M += reaction["force"] * np.where(x > pos, x - pos, 0)
-        # Direct moment van inklemming (alleen bij inklemming)
-        if abs(reaction["moment"]) > 0:  # Alleen als er echt een moment is
-            M += reaction["moment"] * (x >= pos)
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda x: x[0])
+    first_support_pos = supports[0][0] if supports else 0
     
-    # Verwerk belastingen
+    # Verwerk belastingen eerst
     for load in loads:
         pos = load[0]
         value = load[1]
@@ -634,6 +630,19 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         elif load_type == "Moment":
             # Direct moment alleen na het aangrijpingspunt
             M -= value * (x > pos)
+    
+    # Verwerk reactiekrachten
+    for pos, reaction in reactions.items():
+        # Dwarskracht van reactiekracht
+        V += reaction["force"] * (x >= pos)
+        # Moment van reactiekracht (alleen na het punt)
+        M += reaction["force"] * np.where(x > pos, x - pos, 0)
+        # Direct moment van inklemming (alleen bij inklemming)
+        if abs(reaction["moment"]) > 0:  # Alleen als er echt een moment is
+            M += reaction["moment"] * (x > pos)
+    
+    # Zorg dat er geen moment is voor het eerste steunpunt
+    M = np.where(x < first_support_pos, 0, M)
     
     return V, M
 
