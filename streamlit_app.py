@@ -563,8 +563,11 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
 @st.cache_data
 def calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness):
     """Cache profiel eigenschappen voor snellere berekeningen"""
-    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
-    A = calculate_A(profile_type, height, width, wall_thickness, flange_thickness)
+    # Map profile types to calculation types
+    calc_type = "Koker" if profile_type == "Koker" else ("U-profiel" if profile_type == "UNP" else "I-profiel")
+    
+    A = calculate_A(calc_type, height, width, wall_thickness, flange_thickness)
+    I = calculate_I(calc_type, height, width, wall_thickness, flange_thickness)
     W = I / (height/2) if height > 0 else 0
     return I, A, W
 
