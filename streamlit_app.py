@@ -107,6 +107,399 @@ def get_profile_list(profile_type):
         return list(KOKER_PROFILES.keys())
     return []
 
+def calculate_I(profile_type, h, b, t_w, t_f=None):
+    """Bereken traagheidsmoment voor verschillende profieltypes"""
+    if profile_type == "Koker":
+        h_i = h - 2*t_w
+        b_i = b - 2*t_w
+        return (b*h**3)/12 - (b_i*h_i**3)/12
+    elif profile_type in ["I-profiel", "U-profiel"]:
+        # Flens bijdrage
+        I_f = 2 * (b*t_f**3/12 + b*t_f*(h/2 - t_f/2)**2)
+        # Lijf bijdrage
+        h_w = h - 2*t_f
+        I_w = t_w*h_w**3/12
+        return I_f + I_w
+    return 0
+
+def plot_results(x, M, rotation, deflection):
+    """Plot resultaten met Plotly"""
+    fig = go.Figure(data=[
+        go.Scatter(x=x, y=deflection, name="Doorbuiging"),
+        go.Scatter(x=x, y=M, name="Moment"),
+        go.Scatter(x=x, y=rotation, name="Rotatie")
+    ])
+    
+    fig.update_layout(
+        title="Analyse Resultaten",
+        xaxis_title="Positie (mm)",
+        yaxis_title="Waarde",
+        legend_title="Groep"
+    )
+    
+    return fig
+
+def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
+    """Plot een schematische weergave van de balk met steunpunten en belastingen"""
+    fig = go.Figure()
+    
+    # Teken de balk
+    if x is not None and deflection is not None:
+        # Teken vervormde balk
+        scale_factor = beam_length / (20 * max(abs(np.max(deflection)), abs(np.min(deflection))) if np.any(deflection != 0) else 1)
+        fig.add_trace(go.Scatter(
+            x=x,
+            y=deflection * scale_factor,
+            mode='lines',
+            name='Vervormde balk',
+            line=dict(color='#2c3e50', width=8),
+            hoverinfo='skip'
+        ))
+    else:
+        # Teken onvervormde balk
+        fig.add_trace(go.Scatter(
+            x=[0, beam_length],
+            y=[0, 0],
+            mode='lines',
+            name='Balk',
+            line=dict(color='#2c3e50', width=8),
+            hoverinfo='skip'
+        ))
+    
+    # Teken steunpunten
+    for pos, type in supports:
+        if type == "Vast":
+            # Driehoek voor vaste steunpunt
+            fig.add_trace(go.Scatter(
+                x=[pos-30, pos, pos+30],
+                y=[-30, 0, -30],
+                fill="toself",
+                mode='lines',
+                name='Vast steunpunt',
+                line=dict(color='#e74c3c'),
+                hoverinfo='skip'
+            ))
+        else:
+            # Cirkel voor rol steunpunt
+            fig.add_trace(go.Scatter(
+                x=[pos-15, pos, pos+15, pos],
+                y=[-30, -15, -30, -30],
+                fill="toself",
+                mode='lines',
+                name='Rol steunpunt',
+                line=dict(color='#3498db'),
+                hoverinfo='skip'
+            ))
+    
+    # Teken belastingen
+    for load in loads:
+        pos, value, type = load[:3]
+        if type == "Puntlast":
+            # Pijl voor puntlast
+            arrow_height = 50 if value >= 0 else -50
+            fig.add_trace(go.Scatter(
+                x=[pos, pos],
+                y=[arrow_height, 0],
+                mode='lines+markers',
+                name=f'Puntlast {value}N',
+                line=dict(color='#2ecc71'),
+                marker=dict(
+                    size=10,
+                    symbol='arrow-down' if value >= 0 else 'arrow-up'
+                )
+            ))
+        elif type == "Verdeelde last":
+            # Meerdere pijlen voor verdeelde last
+            length = load[3]  # Lengte van de verdeelde last
+            num_arrows = 5
+            positions = np.linspace(pos, pos + length, num_arrows)
+            for p in positions:
+                arrow_height = 40 if value >= 0 else -40
+                fig.add_trace(go.Scatter(
+                    x=[p, p],
+                    y=[arrow_height, 0],
+                    mode='lines+markers',
+                    name=f'Verdeelde last {value}N/mm',
+                    line=dict(color='#f1c40f'),
+                    marker=dict(
+                        size=8,
+                        symbol='arrow-down' if value >= 0 else 'arrow-up'
+                    ),
+                    showlegend=(p == positions[0])  # Toon legende alleen voor eerste pijl
+                ))
+        elif type == "Moment":
+            # Gebogen pijl voor moment
+            radius = 30
+            theta = np.linspace(0, 2*np.pi, 50)
+            x_circle = pos + radius * np.cos(theta)
+            y_circle = radius * np.sin(theta)
+            
+            # Teken cirkel
+            fig.add_trace(go.Scatter(
+                x=x_circle,
+                y=y_circle,
+                mode='lines',
+                name=f'Moment {value}Nmm',
+                line=dict(color='#9b59b6')
+            ))
+            
+            # Teken pijlpunt
+            arrow_angle = np.pi/6 if value >= 0 else -np.pi/6
+            arrow_x = [pos + radius * np.cos(arrow_angle),
+                      pos + (radius + 10) * np.cos(arrow_angle),
+                      pos + radius * np.cos(arrow_angle + np.pi/6)]
+            arrow_y = [radius * np.sin(arrow_angle),
+                      (radius + 10) * np.sin(arrow_angle),
+                      radius * np.sin(arrow_angle + np.pi/6)]
+            fig.add_trace(go.Scatter(
+                x=arrow_x,
+                y=arrow_y,
+                mode='lines',
+                line=dict(color='#9b59b6'),
+                showlegend=False
+            ))
+    
+    # Update layout
+    margin = 100
+    y_range = [-100, 100]
+    if x is not None and deflection is not None:
+        y_range = [
+            min(-100, np.min(deflection) * scale_factor * 1.2),
+            max(100, np.max(deflection) * scale_factor * 1.2)
+        ]
+    
+    fig.update_layout(
+        showlegend=True,
+        xaxis=dict(
+            range=[-margin, beam_length + margin],
+            title="Positie (mm)"
+        ),
+        yaxis=dict(
+            range=y_range,
+            scaleanchor="x",
+            scaleratio=1
+        ),
+        title="Balkschema"
+    )
+    
+    return fig
+
+def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
+    """Analyseer de balk en bereken momenten, dwarskrachten, rotaties en doorbuigingen"""
+    # Discretisatie
+    n_points = 200
+    x = np.linspace(0, beam_length, n_points)
+    dx = x[1] - x[0]
+    
+    # Initialiseer arrays
+    M = np.zeros_like(x)  # Moment
+    V = np.zeros_like(x)  # Dwarskracht
+    w = np.zeros_like(x)  # Doorbuiging
+    theta = np.zeros_like(x)  # Rotatie
+    
+    # Bereken traagheidsmoment
+    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+    
+    # Verwerk belastingen
+    for load in loads:
+        pos, value, type = load[:3]
+        if type == "Puntlast":
+            # Puntlast: stuksgewijs constante dwarskracht, lineair moment
+            V[x >= pos] += value
+            M[x >= pos] += value * (x[x >= pos] - pos)
+        elif type == "Verdeelde last":
+            # Verdeelde last: lineaire dwarskracht, kwadratisch moment
+            length = load[3]
+            q = value  # Last per mm
+            for i, xi in enumerate(x):
+                if xi >= pos and xi <= pos + length:
+                    V[i] += q * (xi - pos)
+                    M[i] += q * (xi - pos)**2 / 2
+                elif xi > pos + length:
+                    V[i] += q * length
+                    M[i] += q * length * (xi - (pos + length/2))
+        elif type == "Moment":
+            # Moment: geen dwarskracht, constante momentsprong
+            M[x >= pos] += value
+    
+    # Pas steunpuntreacties toe
+    support_positions = [s[0] for s in supports]
+    support_indices = [np.argmin(abs(x - pos)) for pos in support_positions]
+    
+    # Los steunpuntreacties op (vereenvoudigd voor 2 steunpunten)
+    if len(supports) == 2:
+        L = beam_length
+        R1 = -M[-1] / L  # Reactiekracht links
+        R2 = M[0] / L  # Reactiekracht rechts
+        
+        # Pas reactiekrachten toe
+        V[x >= support_positions[0]] += R1
+        V[x >= support_positions[1]] += R2
+        
+        # Update momenten
+        for i, xi in enumerate(x):
+            if xi >= support_positions[0]:
+                M[i] += R1 * (xi - support_positions[0])
+            if xi >= support_positions[1]:
+                M[i] += R2 * (xi - support_positions[1])
+    
+    # Bereken rotatie en doorbuiging door integratie
+    # θ = ∫(M/EI)dx
+    # w = ∫θdx
+    for i in range(1, len(x)):
+        theta[i] = theta[i-1] + (M[i-1] / (E * I)) * dx
+        w[i] = w[i-1] + theta[i-1] * dx
+    
+    # Pas randvoorwaarden toe
+    # Voor vaste oplegging: w = 0, θ = 0
+    # Voor scharnier: w = 0
+    for pos, type in supports:
+        idx = np.argmin(abs(x - pos))
+        if type == "Vast":
+            theta_correction = theta[idx]
+            w_correction = w[idx]
+            theta -= theta_correction
+            w -= w_correction + theta_correction * (x - x[idx])
+        else:  # Rol
+            w_correction = w[idx]
+            w -= w_correction
+    
+    return x, M, theta, w
+
+def generate_report_html(beam_data, results, plots):
+    """Genereer een HTML rapport"""
+    
+    # Converteer plots naar base64 images
+    plot_images = []
+    for plot in plots:
+        img_bytes = pio.to_image(plot, format="png")
+        img_base64 = base64.b64encode(img_bytes).decode()
+        plot_images.append(f"data:image/png;base64,{img_base64}")
+    
+    # HTML template
+    html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+                max-width: 1200px;
+                margin: 0 auto;
+                padding: 20px;
+            }}
+            .header {{
+                text-align: center;
+                padding: 20px;
+                background: #f8f9fa;
+                margin-bottom: 30px;
+                border-radius: 8px;
+            }}
+            .section {{
+                margin-bottom: 30px;
+                padding: 20px;
+                background: white;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }}
+            table {{
+                width: 100%;
+                border-collapse: collapse;
+                margin: 15px 0;
+            }}
+            th, td {{
+                padding: 12px;
+                text-align: left;
+                border-bottom: 1px solid #ddd;
+            }}
+            th {{
+                background-color: #f8f9fa;
+            }}
+            img {{
+                max-width: 100%;
+                height: auto;
+                margin: 20px 0;
+            }}
+            .footer {{
+                text-align: center;
+                padding: 20px;
+                color: #666;
+                font-size: 0.9em;
+            }}
+        </style>
+    </head>
+    <body>
+        <div class="header">
+            <h1>BeamSolve Professional</h1>
+            <h2>Technisch Rapport</h2>
+            <p>Gegenereerd op: {datetime.now().strftime('%d-%m-%Y %H:%M')}</p>
+        </div>
+
+        <div class="section">
+            <h3>1. Invoergegevens</h3>
+            <table>
+                <tr><th>Parameter</th><th>Waarde</th></tr>
+                <tr><td>Profieltype</td><td>{beam_data['profile_type']}</td></tr>
+                <tr><td>Hoogte</td><td>{beam_data['height']} mm</td></tr>
+                <tr><td>Breedte</td><td>{beam_data['width']} mm</td></tr>
+                <tr><td>Wanddikte</td><td>{beam_data['wall_thickness']} mm</td></tr>
+                <tr><td>Overspanning</td><td>{beam_data['length']} mm</td></tr>
+                <tr><td>E-modulus</td><td>{beam_data['E']} N/mm²</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>2. Steunpunten</h3>
+            <table>
+                <tr><th>Positie</th><th>Type</th></tr>
+                {chr(10).join([f'<tr><td>{pos} mm</td><td>{type}</td></tr>' for pos, type in beam_data['supports']])}
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>3. Belastingen</h3>
+            <table>
+                <tr><th>Type</th><th>Waarde</th><th>Positie</th><th>Lengte</th></tr>
+                {chr(10).join([f'<tr><td>{load[2]}</td><td>{load[1]} N</td><td>{load[0]} mm</td><td>{load[3] if len(load) > 3 else "-"} mm</td></tr>' for load in beam_data['loads']])}
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>4. Resultaten</h3>
+            <table>
+                <tr><th>Parameter</th><th>Waarde</th></tr>
+                <tr><td>Maximaal moment</td><td>{results['max_moment']:.2f} Nmm</td></tr>
+                <tr><td>Maximale doorbuiging</td><td>{results['max_deflection']:.2f} mm</td></tr>
+                <tr><td>Maximale rotatie</td><td>{results['max_rotation']:.6f} rad</td></tr>
+            </table>
+        </div>
+
+        <div class="section">
+            <h3>5. Grafieken</h3>
+            <h4>5.1 Balkschema</h4>
+            <img src="{plot_images[0]}" alt="Balkschema">
+            
+            <h4>5.2 Analyse Grafieken</h4>
+            <img src="{plot_images[1]}" alt="Analyse">
+        </div>
+
+        <div class="footer">
+            <p>BeamSolve Professional {datetime.now().year}</p>
+        </div>
+    </body>
+    </html>
+    """
+    
+    return html
+
+def save_report(html_content, output_path):
+    """Sla het rapport op als HTML bestand"""
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(html_content)
+    return output_path
+
 # Initialize session state
 if 'loads' not in st.session_state:
     st.session_state.loads = []
@@ -252,532 +645,3 @@ def main():
                 
 if __name__ == "__main__":
     main()
-
-def calculate_I(profile_type, h, b, t_w, t_f=None):
-    """Bereken traagheidsmoment voor verschillende profieltypes"""
-    if profile_type == "Koker":
-        h_i = h - 2*t_w
-        b_i = b - 2*t_w
-        return (b*h**3)/12 - (b_i*h_i**3)/12
-    elif profile_type in ["I-profiel", "U-profiel"]:
-        # Flens bijdrage
-        I_f = 2 * (b*t_f**3/12 + b*t_f*(h/2 - t_f/2)**2)
-        # Lijf bijdrage
-        h_w = h - 2*t_f
-        I_w = t_w*h_w**3/12
-        return I_f + I_w
-    return 0
-
-def plot_results(x, M, rotation, deflection):
-    """Plot resultaten met Plotly"""
-    fig = go.Figure(data=[
-        go.Scatter(x=x, y=deflection, name="Doorbuiging"),
-        go.Scatter(x=x, y=M, name="Moment"),
-        go.Scatter(x=x, y=rotation, name="Rotatie")
-    ])
-    
-    fig.update_layout(
-        title="Analyse Resultaten",
-        xaxis_title="Positie (mm)",
-        yaxis_title="Waarde",
-        legend_title="Groep"
-    )
-    
-    return fig
-
-def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
-    """Plot een schematische weergave van de balk met steunpunten en belastingen"""
-    fig = go.Figure()
-    
-    # Teken de balk
-    if x is not None and deflection is not None:
-        # Teken vervormde balk
-        scale_factor = beam_length / (20 * max(abs(np.max(deflection)), abs(np.min(deflection))) if np.any(deflection != 0) else 1)
-        fig.add_trace(go.Scatter(
-            x=x,
-            y=deflection * scale_factor,
-            mode='lines',
-            name='Vervormde balk',
-            line=dict(color='#2c3e50', width=8),
-            hovertemplate="Doorbuiging: %{y:.2f} mm<br>x = %{x:.0f} mm"
-        ))
-        # Teken onvervormde balk gestippeld
-        fig.add_trace(go.Scatter(
-            x=[0, beam_length],
-            y=[0, 0],
-            mode='lines',
-            name='Onvervormde balk',
-            line=dict(color='#95a5a6', width=3, dash='dash'),
-            hoverinfo='skip'
-        ))
-    else:
-        # Teken alleen onvervormde balk
-        fig.add_trace(go.Scatter(
-            x=[0, beam_length],
-            y=[0, 0],
-            mode='lines',
-            name='Balk',
-            line=dict(color='#2c3e50', width=8),
-            hoverinfo='skip'
-        ))
-    
-    # Teken steunpunten
-    for pos, support_type in supports:
-        y_pos = deflection[np.abs(x - pos).argmin()] * scale_factor if x is not None and deflection is not None else 0
-        
-        if support_type == "Inklemming":
-            # Teken rechthoek voor inklemming
-            fig.add_trace(go.Scatter(
-                x=[pos-30, pos-30, pos+30, pos+30],
-                y=[y_pos-60, y_pos+60, y_pos+60, y_pos-60],
-                fill="toself",
-                mode='lines',
-                name='Inklemming',
-                line=dict(color='#2ecc71', width=3),
-                hovertemplate=f"Inklemming<br>x = {pos} mm"
-            ))
-            # Voeg arcering toe
-            for i in range(-50, 51, 20):
-                fig.add_trace(go.Scatter(
-                    x=[pos-30, pos+30],
-                    y=[y_pos+i, y_pos+i],
-                    mode='lines',
-                    line=dict(color='#2ecc71', width=2),
-                    showlegend=False,
-                    hoverinfo='skip'
-                ))
-        elif support_type == "Scharnier":
-            # Teken driehoek voor scharnier
-            fig.add_trace(go.Scatter(
-                x=[pos-30, pos, pos+30],
-                y=[y_pos-60, y_pos, y_pos-60],
-                fill="toself",
-                mode='lines',
-                name='Scharnier',
-                line=dict(color='#3498db', width=3),
-                hovertemplate=f"Scharnier<br>x = {pos} mm"
-            ))
-            # Voeg cirkels toe voor scharnier
-            theta = np.linspace(0, 2*np.pi, 50)
-            r = 8
-            x_circle = r * np.cos(theta) + pos
-            y_circle = r * np.sin(theta) + y_pos-60
-            fig.add_trace(go.Scatter(
-                x=x_circle,
-                y=y_circle,
-                mode='lines',
-                line=dict(color='#3498db', width=2),
-                fill='toself',
-                showlegend=False,
-                hoverinfo='skip'
-            ))
-        else:  # Rol
-            # Teken driehoek voor rol
-            fig.add_trace(go.Scatter(
-                x=[pos-30, pos, pos+30],
-                y=[y_pos-60, y_pos, y_pos-60],
-                fill="toself",
-                mode='lines',
-                name='Rol',
-                line=dict(color='#e74c3c', width=3),
-                hovertemplate=f"Rol<br>x = {pos} mm"
-            ))
-            # Teken cirkels voor rol
-            for offset in [-10, 0, 10]:
-                theta = np.linspace(0, 2*np.pi, 50)
-                r = 8
-                x_circle = r * np.cos(theta) + pos + offset
-                y_circle = r * np.sin(theta) + y_pos-70
-                fig.add_trace(go.Scatter(
-                    x=x_circle,
-                    y=y_circle,
-                    mode='lines',
-                    line=dict(color='#e74c3c', width=2),
-                    fill='toself',
-                    showlegend=False,
-                    hoverinfo='skip'
-                ))
-    
-    # Teken belastingen
-    for pos, F, load_type, *rest in loads:
-        y_pos = deflection[np.abs(x - pos).argmin()] * scale_factor if x is not None and deflection is not None else 0
-        
-        if load_type == "Puntlast":
-            # Teken pijl voor puntlast
-            arrow_length = 80 if F > 0 else -80
-            fig.add_trace(go.Scatter(
-                x=[pos, pos],
-                y=[y_pos, y_pos + arrow_length],
-                mode='lines',
-                name=f'Puntlast {F}N',
-                line=dict(color='#e67e22', width=3),
-                hovertemplate=f"Puntlast<br>F = {F} N<br>x = {pos} mm"
-            ))
-            # Teken pijlpunt
-            if F > 0:
-                fig.add_trace(go.Scatter(
-                    x=[pos-10, pos, pos+10],
-                    y=[y_pos + arrow_length+10, y_pos + arrow_length, y_pos + arrow_length+10],
-                    mode='lines',
-                    line=dict(color='#e67e22', width=3),
-                    showlegend=False,
-                    hoverinfo='skip'
-                ))
-            else:
-                fig.add_trace(go.Scatter(
-                    x=[pos-10, pos, pos+10],
-                    y=[y_pos + arrow_length-10, y_pos + arrow_length, y_pos + arrow_length-10],
-                    mode='lines',
-                    line=dict(color='#e67e22', width=3),
-                    showlegend=False,
-                    hoverinfo='skip'
-                ))
-        elif load_type == "Gelijkmatig verdeeld":
-            # Teken meerdere pijlen voor verdeelde belasting
-            length = float(rest[0])
-            q = F / length  # Last per lengte-eenheid
-            # Bereken reactiekrachten voor verdeelde belasting
-            start = pos
-            end = pos + length
-            if end > beam_length:  # Begrens tot einde van de balk
-                end = beam_length
-            if start < 0:  # Begin vanaf begin van de balk
-                start = 0
-                
-            load_length = end - start
-            load_center = start + load_length/2
-            total_load = q * load_length
-            
-            n_arrows = min(int(load_length/50) + 1, 15)
-            dx = load_length / (n_arrows - 1)
-            arrow_length = 60 if F > 0 else -60
-            
-            # Teken lijn boven de pijlen
-            x_load = np.linspace(start, end, n_arrows)
-            y_load = np.array([deflection[np.abs(x - xi).argmin()] * scale_factor for xi in x_load])
-            
-            fig.add_trace(go.Scatter(
-                x=x_load,
-                y=y_load + arrow_length,
-                mode='lines',
-                line=dict(color='#9b59b6', width=3),
-                name=f'q = {q:.1f} N/mm',
-                hovertemplate=f"Verdeelde last<br>q = {q:.1f} N/mm"
-            ))
-            
-            # Teken pijlen
-            for i in range(n_arrows):
-                x_pos = start + i * dx
-                if x_pos <= beam_length:
-                    y_pos = deflection[np.abs(x - x_pos).argmin()] * scale_factor
-                    fig.add_trace(go.Scatter(
-                        x=[x_pos, x_pos],
-                        y=[y_pos, y_pos + arrow_length],
-                        mode='lines',
-                        line=dict(color='#9b59b6', width=2),
-                        showlegend=False,
-                        hoverinfo='skip'
-                    ))
-                    # Teken pijlpunt
-                    if F > 0:
-                        fig.add_trace(go.Scatter(
-                            x=[x_pos-8, x_pos, x_pos+8],
-                            y=[y_pos + arrow_length+8, y_pos + arrow_length, y_pos + arrow_length+8],
-                            mode='lines',
-                            line=dict(color='#9b59b6', width=2),
-                            showlegend=False,
-                            hoverinfo='skip'
-                        ))
-                    else:
-                        fig.add_trace(go.Scatter(
-                            x=[x_pos-8, x_pos, x_pos+8],
-                            y=[y_pos + arrow_length-8, y_pos + arrow_length, y_pos + arrow_length-8],
-                            mode='lines',
-                            line=dict(color='#9b59b6', width=2),
-                            showlegend=False,
-                            hoverinfo='skip'
-                        ))
-    
-    # Update layout
-    fig.update_layout(
-        showlegend=True,
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01,
-            bgcolor='rgba(255,255,255,0.8)'
-        ),
-        margin=dict(l=20, r=20, t=50, b=20),
-        height=400,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        title=dict(
-            text="Balkschema",
-            x=0.5,
-            y=0.95,
-            xanchor='center',
-            yanchor='top',
-            font=dict(size=20, color='#2c3e50')
-        ),
-        xaxis=dict(
-            title="Positie (mm)",
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(0,0,0,0.1)',
-            zeroline=True,
-            zerolinewidth=2,
-            zerolinecolor='#2c3e50',
-            showline=True,
-            linewidth=2,
-            linecolor='#2c3e50',
-            mirror=True,
-            range=[-beam_length*0.1, beam_length*1.1]
-        ),
-        yaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            showline=False,
-            showticklabels=False,
-            range=[-150, 150]
-        )
-    )
-    
-    return fig
-
-def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
-    """Analyseer de balk en bereken momenten, dwarskrachten, rotaties en doorbuigingen"""
-    n_points = 200
-    x = np.linspace(0, beam_length, n_points)
-    dx = x[1] - x[0]
-    
-    # Initialiseer arrays
-    M = np.zeros_like(x)  # Moment
-    V = np.zeros_like(x)  # Dwarskracht
-    rotation = np.zeros_like(x)  # Rotatie
-    deflection = np.zeros_like(x)  # Doorbuiging
-    
-    # Bereken traagheidsmoment
-    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
-    
-    # Sorteer steunpunten op positie
-    supports = sorted(supports, key=lambda s: s[0])
-    
-    # Bereken reactiekrachten
-    R = np.zeros(len(supports))  # Reactiekrachten bij steunpunten
-    
-    # Matrix voor oplegreacties
-    A = np.zeros((len(supports), len(supports)))
-    b = np.zeros(len(supports))
-    
-    # Vul matrix A en vector b voor momentenvergelijkingen
-    for i, (pos_i, type_i) in enumerate(supports):
-        for j, (pos_j, type_j) in enumerate(supports):
-            # Coëfficiënt voor reactiekracht j in momentenvergelijking om steunpunt i
-            A[i,j] = pos_j - pos_i
-        
-        # Bereken moment van externe krachten om steunpunt i
-        for load in loads:
-            if len(load) == 3:  # Puntlast of moment
-                pos, value, load_type = load
-                if load_type == "Puntlast":
-                    b[i] -= value * (pos - pos_i)
-                elif load_type == "Moment":
-                    b[i] -= value
-            else:  # Verdeelde last
-                pos, value, load_type, length = load
-                # Resultante van verdeelde last werkt aan in midden van belaste lengte
-                center = pos + length/2
-                total_force = value * length
-                b[i] -= total_force * (center - pos_i)
-    
-    # Los reactiekrachten op
-    R = np.linalg.solve(A, b)
-    
-    # Bereken dwarskracht en moment
-    for i, xi in enumerate(x):
-        # Bijdrage van reactiekrachten
-        for j, (pos, _) in enumerate(supports):
-            if xi >= pos:
-                V[i] += R[j]
-                M[i] += R[j] * (xi - pos)
-        
-        # Bijdrage van belastingen
-        for load in loads:
-            if len(load) == 3:  # Puntlast of moment
-                pos, value, load_type = load
-                if xi >= pos:
-                    if load_type == "Puntlast":
-                        V[i] -= value
-                        M[i] -= value * (xi - pos)
-                    elif load_type == "Moment":
-                        M[i] -= value
-            else:  # Verdeelde last
-                pos, value, load_type, length = load
-                if xi >= pos:
-                    # Bereken totale last tot dit punt
-                    overlap = min(xi - pos, length)
-                    if overlap > 0:
-                        force = value * overlap
-                        center = pos + overlap/2
-                        V[i] -= force
-                        M[i] -= force * (xi - center)
-    
-    # Bereken rotatie en doorbuiging door dubbele integratie
-    for i in range(1, len(x)):
-        # Integreer M/EI voor rotatie
-        rotation[i] = rotation[i-1] + (M[i-1] / (E * I)) * dx
-        # Integreer rotatie voor doorbuiging
-        deflection[i] = deflection[i-1] + rotation[i-1] * dx
-    
-    # Corrigeer voor randvoorwaarden
-    # Vind vaste steunpunten
-    fixed_supports = [(i, pos) for i, (pos, type) in enumerate(supports) if type == "Vast"]
-    
-    if fixed_supports:
-        # Pas rotatie en doorbuiging aan voor vaste steunpunten
-        for idx, pos in fixed_supports:
-            # Vind dichtstbijzijnde x-waarde
-            support_idx = np.argmin(np.abs(x - pos))
-            rotation_correction = rotation[support_idx]
-            deflection_correction = deflection[support_idx]
-            
-            # Corrigeer alle waarden
-            rotation -= rotation_correction
-            deflection -= deflection_correction
-    
-    return x, M, rotation, deflection
-
-def generate_report_html(beam_data, results, plots):
-    """Genereer een HTML rapport"""
-    
-    # Converteer plots naar base64 images
-    plot_images = []
-    for plot in plots:
-        img_bytes = pio.to_image(plot, format="png")
-        img_base64 = base64.b64encode(img_bytes).decode()
-        plot_images.append(f"data:image/png;base64,{img_base64}")
-    
-    # HTML template
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-                max-width: 1200px;
-                margin: 0 auto;
-                padding: 20px;
-            }}
-            .header {{
-                text-align: center;
-                padding: 20px;
-                background: #f8f9fa;
-                margin-bottom: 30px;
-                border-radius: 8px;
-            }}
-            .section {{
-                margin-bottom: 30px;
-                padding: 20px;
-                background: white;
-                border-radius: 8px;
-                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            }}
-            table {{
-                width: 100%;
-                border-collapse: collapse;
-                margin: 15px 0;
-            }}
-            th, td {{
-                padding: 12px;
-                text-align: left;
-                border-bottom: 1px solid #ddd;
-            }}
-            th {{
-                background-color: #f8f9fa;
-            }}
-            img {{
-                max-width: 100%;
-                height: auto;
-                margin: 20px 0;
-            }}
-            .footer {{
-                text-align: center;
-                padding: 20px;
-                color: #666;
-                font-size: 0.9em;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>BeamSolve Professional</h1>
-            <h2>Technisch Rapport</h2>
-            <p>Gegenereerd op: {datetime.now().strftime('%d-%m-%Y %H:%M')}</p>
-        </div>
-
-        <div class="section">
-            <h3>1. Invoergegevens</h3>
-            <table>
-                <tr><th>Parameter</th><th>Waarde</th></tr>
-                <tr><td>Profieltype</td><td>{beam_data['profile_type']}</td></tr>
-                <tr><td>Hoogte</td><td>{beam_data['height']} mm</td></tr>
-                <tr><td>Breedte</td><td>{beam_data['width']} mm</td></tr>
-                <tr><td>Wanddikte</td><td>{beam_data['wall_thickness']} mm</td></tr>
-                <tr><td>Overspanning</td><td>{beam_data['length']} mm</td></tr>
-                <tr><td>E-modulus</td><td>{beam_data['E']} N/mm²</td></tr>
-            </table>
-        </div>
-
-        <div class="section">
-            <h3>2. Steunpunten</h3>
-            <table>
-                <tr><th>Positie</th><th>Type</th></tr>
-                {chr(10).join([f'<tr><td>{pos} mm</td><td>{type}</td></tr>' for pos, type in beam_data['supports']])}
-            </table>
-        </div>
-
-        <div class="section">
-            <h3>3. Belastingen</h3>
-            <table>
-                <tr><th>Type</th><th>Waarde</th><th>Positie</th><th>Lengte</th></tr>
-                {chr(10).join([f'<tr><td>{load[2]}</td><td>{load[1]} N</td><td>{load[0]} mm</td><td>{load[3] if len(load) > 3 else "-"} mm</td></tr>' for load in beam_data['loads']])}
-            </table>
-        </div>
-
-        <div class="section">
-            <h3>4. Resultaten</h3>
-            <table>
-                <tr><th>Parameter</th><th>Waarde</th></tr>
-                <tr><td>Maximaal moment</td><td>{results['max_moment']:.2f} Nmm</td></tr>
-                <tr><td>Maximale doorbuiging</td><td>{results['max_deflection']:.2f} mm</td></tr>
-                <tr><td>Maximale rotatie</td><td>{results['max_rotation']:.6f} rad</td></tr>
-            </table>
-        </div>
-
-        <div class="section">
-            <h3>5. Grafieken</h3>
-            <h4>5.1 Balkschema</h4>
-            <img src="{plot_images[0]}" alt="Balkschema">
-            
-            <h4>5.2 Analyse Grafieken</h4>
-            <img src="{plot_images[1]}" alt="Analyse">
-        </div>
-
-        <div class="footer">
-            <p>BeamSolve Professional {datetime.now().year}</p>
-        </div>
-    </body>
-    </html>
-    """
-    
-    return html
-
-def save_report(html_content, output_path):
-    """Sla het rapport op als HTML bestand"""
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write(html_content)
-    return output_path
