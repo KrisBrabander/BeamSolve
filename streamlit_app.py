@@ -340,32 +340,44 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda s: s[0])
-    
-    # Matrix voor oplegreacties (voor n steunpunten)
     n = len(supports)
+    
+    # Matrix voor oplegreacties (n+1 vergelijkingen voor n onbekenden)
+    # n-1 momentevenwichten + 1 verticaal evenwicht
     A = np.zeros((n, n))
     b = np.zeros(n)
     
-    # Vul matrix A en vector b
-    # Evenwichtsvergelijkingen: ΣF = 0 en ΣM = 0
-    for i in range(n):
-        # Momentevenwicht om steunpunt i
+    # Verticaal evenwicht (eerste rij)
+    A[0,:] = 1  # Coëfficiënten voor verticaal evenwicht zijn allemaal 1
+    
+    # Som van externe krachten voor verticaal evenwicht
+    for load in loads:
+        pos, value, type = load[:3]
+        if type == "Puntlast":
+            b[0] += value
+        elif type == "Verdeelde last":
+            length = load[3]
+            b[0] += value * length  # Totale kracht van verdeelde last
+    
+    # Momentevenwichten om elk steunpunt behalve laatste
+    for i in range(1, n):
+        # Momentarm voor reactiekrachten
         for j in range(n):
-            A[i,j] = supports[j][0] - supports[i][0]  # Arm voor reactiekracht j t.o.v. steunpunt i
+            A[i,j] = supports[j][0] - supports[0][0]  # Momentarm t.o.v. eerste steunpunt
         
-        # Externe belastingen
+        # Bijdrage van belastingen aan moment
         for load in loads:
             pos, value, type = load[:3]
             if type == "Puntlast":
-                b[i] -= value * (pos - supports[i][0])
+                b[i] += value * (pos - supports[0][0])
             elif type == "Verdeelde last":
                 length = load[3]
-                q = value  # Last per mm
+                q = value
                 center = pos + length/2
                 total_force = q * length
-                b[i] -= total_force * (center - supports[i][0])
+                b[i] += total_force * (center - supports[0][0])
             elif type == "Moment":
-                b[i] -= value
+                b[i] += value
     
     # Los reactiekrachten op
     try:
@@ -435,7 +447,7 @@ def generate_report_html(beam_data, results, plots):
     # Converteer plots naar base64 images
     plot_images = []
     for plot in plots:
-        img_bytes = pio.to_image(plot, format="png")
+        img_bytes = plot.to_image(format="png")
         img_base64 = base64.b64encode(img_bytes).decode()
         plot_images.append(f"data:image/png;base64,{img_base64}")
     
@@ -612,13 +624,9 @@ def main():
         E = st.number_input("E-modulus (N/mm²)", value=210000.0, step=1000.0)
         
         st.markdown("---")
-        st.markdown(" BeamSolve Professional")
-
-    # Hoofdgedeelte
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.header("Balk Configuratie")
+        
+        # Invoer sectie
+        st.header("Invoer")
         
         # Overspanning
         beam_length = st.number_input("Overspanning (mm)", value=3000.0, step=100.0)
@@ -656,44 +664,53 @@ def main():
             else:
                 loads.append((position, value, load_type))
     
-    with col2:
-        st.header("Analyse")
-        if st.button("Bereken"):
-            # Verzamel alle gegevens
-            beam_data = {
-                "profile_type": profile_type,
-                "profile_name": profile_name,
-                "height": height,
-                "width": width,
-                "wall_thickness": wall_thickness,
-                "flange_thickness": flange_thickness,
-                "length": beam_length,
-                "E": E,
-                "supports": supports,
-                "loads": loads
-            }
+    # Hoofdgedeelte - Visualisaties
+    if st.button("Bereken", type="primary"):
+        # Verzamel alle gegevens
+        beam_data = {
+            "profile_type": profile_type,
+            "profile_name": profile_name,
+            "height": height,
+            "width": width,
+            "wall_thickness": wall_thickness,
+            "flange_thickness": flange_thickness,
+            "length": beam_length,
+            "E": E,
+            "supports": supports,
+            "loads": loads
+        }
+        
+        # Voer analyse uit
+        x, M, rotation, deflection = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
+        
+        # Toon resultaten
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            # Balkschema en vervormingen
+            st.subheader("Balkschema en Vervormingen")
+            beam_plot = plot_beam_diagram(beam_length, supports, loads, x, deflection)
+            st.plotly_chart(beam_plot, use_container_width=True, height=500)
             
-            # Voer analyse uit
-            x, M, rotation, deflection = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
-            
-            # Toon resultaten
-            st.subheader("Resultaten")
+            # Analyse resultaten
+            st.subheader("Analyse Resultaten")
+            analysis_plot = plot_results(x, M, rotation, deflection)
+            st.plotly_chart(analysis_plot, use_container_width=True, height=500)
+        
+        with col2:
+            # Maximale waarden
+            st.subheader("Maximale Waarden")
             max_moment = max(abs(np.min(M)), abs(np.max(M)))
             max_deflection = max(abs(np.min(deflection)), abs(np.max(deflection)))
             max_rotation = max(abs(np.min(rotation)), abs(np.max(rotation)))
-            st.write(f"Maximaal moment: {max_moment:.2f} Nmm")
-            st.write(f"Maximale doorbuiging: {max_deflection:.2f} mm")
-            st.write(f"Maximale rotatie: {max_rotation:.6f} rad")
             
-            # Maak plots
-            beam_plot = plot_beam_diagram(beam_length, supports, loads, x, deflection)
-            analysis_plot = plot_results(x, M, rotation, deflection)
+            st.metric("Maximaal moment", f"{max_moment:.2f} Nmm")
+            st.metric("Maximale doorbuiging", f"{max_deflection:.2f} mm")
+            st.metric("Maximale rotatie", f"{max_rotation:.6f} rad")
             
-            st.plotly_chart(beam_plot, use_container_width=True)
-            st.plotly_chart(analysis_plot, use_container_width=True)
-            
-            # Genereer rapport
-            if st.button("Genereer Rapport"):
+            # Rapport genereren
+            st.markdown("---")
+            if st.button("Genereer Rapport", type="secondary"):
                 html_content = generate_report_html(beam_data, {
                     "max_moment": max_moment,
                     "max_deflection": max_deflection,
@@ -705,6 +722,6 @@ def main():
                 output_path = os.path.join(output_dir, f"beamsolve_report_{timestamp}.html")
                 save_report(html_content, output_path)
                 st.success(f"Rapport opgeslagen als: {output_path}")
-                
+
 if __name__ == "__main__":
     main()
