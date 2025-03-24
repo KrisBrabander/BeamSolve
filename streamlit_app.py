@@ -211,7 +211,6 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
     # Teken belastingen
     for load in loads:
         pos, value, type = load[:3]
-        y_pos = deflection[np.abs(x - pos).argmin()] * scale_factor if x is not None and deflection is not None else 0
         
         if type == "Puntlast":
             # Pijl voor puntlast
@@ -234,42 +233,6 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
                 showlegend=False
             ))
             
-        elif type == "Verdeelde last":
-            # Verdeelde last met meerdere pijlen
-            length = load[3]
-            num_arrows = int(length / 200) + 2
-            positions = np.linspace(pos, pos + length, num_arrows)
-            arrow_height = 60
-            
-            # Lijn boven pijlen
-            fig.add_trace(go.Scatter(
-                x=[pos, pos + length],
-                y=[y_pos + arrow_height, y_pos + arrow_height],
-                mode='lines',
-                name=f'q = {abs(value):.1f} N/mm',
-                line=dict(color='#3498db', width=3)
-            ))
-            
-            # Pijlen
-            for p in positions:
-                fig.add_trace(go.Scatter(
-                    x=[p, p],
-                    y=[y_pos + arrow_height, y_pos],
-                    mode='lines',
-                    line=dict(color='#3498db', width=2),
-                    showlegend=False
-                ))
-                
-                # Pijlpunt
-                head_size = 10
-                fig.add_trace(go.Scatter(
-                    x=[p-head_size/2, p, p+head_size/2],
-                    y=[y_pos + head_size, y_pos, y_pos + head_size],
-                    mode='lines',
-                    line=dict(color='#3498db', width=2),
-                    showlegend=False
-                ))
-                
         elif type == "Moment":
             # Gebogen pijl voor moment
             radius = 30
@@ -525,83 +488,64 @@ def calculate_reactions(beam_length, supports, loads):
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     """Bereken dwarskracht en moment op elke positie x"""
-    Va, Ha, Vb = reactions
-    x_A = supports[0][0]
-    x_B = supports[1][0]
+    V = np.zeros_like(x)  # Dwarskracht array
+    M = np.zeros_like(x)  # Moment array
     
-    V = np.zeros_like(x)  # Dwarskracht
-    M = np.zeros_like(x)  # Moment
+    # Verwerk reactiekrachten
+    for pos, reaction_force in reactions.items():
+        idx = np.searchsorted(x, pos)
+        if idx < len(x):
+            V[idx:] += reaction_force
     
-    # Voor elk punt x
-    for i, xi in enumerate(x):
-        # Initialiseer krachten op dit punt
-        V_x = 0
-        M_x = 0
+    # Verwerk belastingen
+    for load in loads:
+        pos = load[0]
+        value = load[1]
+        load_type = load[2]
         
-        # Bijdrage van steunpunten
-        if xi > x_A:
-            V_x += Va
-            M_x += Va * (xi - x_A)
-        if xi > x_B:
-            V_x += Vb
-            M_x += Vb * (xi - x_B)
+        if load_type == "Puntlast":
+            idx = np.searchsorted(x, pos)
+            if idx < len(x):
+                V[idx:] -= value
+                
+        elif load_type == "Moment":
+            idx = np.searchsorted(x, pos)
+            if idx < len(x):
+                M[idx:] -= value
+                
+        elif load_type in ["Verdeelde last", "Driehoekslast"]:
+            length = load[3]
+            start_idx = np.searchsorted(x, pos)
+            end_idx = np.searchsorted(x, pos + length)
             
-        # Bijdrage van belastingen
-        for load in loads:
-            pos, value, type = load[:3]
-            
-            if type == "Puntlast":
-                if xi > pos:
-                    V_x -= value
-                    M_x -= value * (xi - pos)
+            if load_type == "Verdeelde last":
+                # Verwerk uniforme belasting
+                for i in range(start_idx, min(end_idx + 1, len(x))):
+                    segment_length = min(x[i] + length - pos, length) if i == end_idx else x[i+1] - x[i]
+                    V[i:] -= value * segment_length
                     
-            elif type == "Moment":
-                if xi > pos:
-                    M_x -= value
-                    
-            elif type == "Verdeelde last":
-                length = load[3]
-                q = value
-                if xi > pos:
-                    if xi <= pos + length:
-                        # Binnen belast gebied
-                        l = xi - pos
-                        V_x -= q * l
-                        M_x -= q * l * l/2
-                    else:
-                        # Voorbij belast gebied
-                        V_x -= q * length
-                        M_x -= q * length * (xi - (pos + length/2))
-                        
-            elif type == "Driehoekslast":
-                length = load[3]
-                q_max = value
-                if xi > pos:
-                    if xi <= pos + length:
-                        # Binnen belast gebied
-                        l = xi - pos
-                        q_x = q_max * (l/length)
-                        V_x -= q_x * l/2
-                        M_x -= q_x * l * l/6
-                    else:
-                        # Voorbij belast gebied
-                        V_x -= q_max * length/2
-                        M_x -= q_max * length/2 * (xi - (pos + 2*length/3))
-        
-        V[i] = V_x
-        M[i] = M_x
+            else:  # Driehoekslast
+                # Verwerk driehoekige belasting
+                for i in range(start_idx, min(end_idx + 1, len(x))):
+                    local_x = x[i] - pos
+                    if 0 <= local_x <= length:
+                        local_value = value * (local_x / length)
+                        segment_length = min(x[i] + length - pos, length) if i == end_idx else x[i+1] - x[i]
+                        V[i:] -= local_value * segment_length
+    
+    # Bereken moment door dwarskracht te integreren
+    dx = x[1] - x[0]
+    M = np.zeros_like(x)
+    for i in range(1, len(x)):
+        M[i] = M[i-1] + V[i-1] * dx
     
     return V, M
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
-    """Analyseer de balk en bereken momenten, dwarskrachten, rotaties en doorbuigingen"""
-    # Discretisatie
-    n_points = 200
-    x = np.linspace(0, beam_length, n_points)
-    dx = x[1] - x[0]
-    
-    # Bereken traagheidsmoment
-    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+    """Analyseer de balk en bereken dwarskrachten, momenten, rotatie en doorbuiging"""
+    # Maak een array van x-posities voor de berekening
+    num_points = 101  # Aantal punten voor een vloeiende grafiek
+    x = np.linspace(0, beam_length, num_points)
     
     # Bereken reactiekrachten
     reactions = calculate_reactions(beam_length, supports, loads)
@@ -609,52 +553,48 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Bereken interne krachten
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Bereken rotatie en doorbuiging met numerieke integratie
-    EI = E * I
+    # Bereken doorbuiging en rotatie
+    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     
-    # Eerste integratie voor rotatie (θ = ∫M/EI dx)
-    theta = np.zeros_like(x)
-    for i in range(1, len(x)):
-        theta[i] = theta[i-1] + (M[i-1] / EI) * dx
-    
-    # Tweede integratie voor doorbuiging (w = ∫θ dx)
-    w = np.zeros_like(x)
-    for i in range(1, len(x)):
-        w[i] = w[i-1] + theta[i-1] * dx
-    
-    # Pas randvoorwaarden toe
-    support_indices = [np.abs(x - pos).argmin() for pos, _ in supports]
-    
-    # Los randvoorwaarden op met matrix methode
-    n_constraints = sum(2 if type == "Vast" else 1 for _, type in supports)
-    A_bc = np.zeros((n_constraints, 2))  # 2 onbekenden: C1 (rotatie) en C2 (verplaatsing)
-    b_bc = np.zeros(n_constraints)
-    
-    row = 0
-    for idx, (_, type) in zip(support_indices, supports):
-        if type == "Vast":
-            # w = 0 en θ = 0
-            A_bc[row] = [x[idx], 1]  # Voor w
-            b_bc[row] = -w[idx]
-            row += 1
-            A_bc[row] = [1, 0]  # Voor θ
-            b_bc[row] = -theta[idx]
-            row += 1
-        else:
-            # Alleen w = 0
-            A_bc[row] = [x[idx], 1]
-            b_bc[row] = -w[idx]
-            row += 1
-    
-    # Los correcties op
-    try:
-        C = np.linalg.solve(A_bc[:row], b_bc[:row])
-    except np.linalg.LinAlgError:
-        C = np.linalg.lstsq(A_bc[:row], b_bc[:row], rcond=None)[0]
-    
-    # Pas correcties toe
-    theta += C[0]  # Rotatie correctie
-    w += C[0] * x + C[1]  # Verplaatsing correctie
+    if I > 0 and E > 0:  # Voorkom delen door nul
+        dx = x[1] - x[0]
+        # Bereken rotatie door moment te integreren
+        theta = np.zeros_like(x)
+        for i in range(1, len(x)):
+            theta[i] = theta[i-1] + (M[i-1] / (E * I)) * dx
+        
+        # Bereken doorbuiging door rotatie te integreren
+        w = np.zeros_like(x)
+        for i in range(1, len(x)):
+            w[i] = w[i-1] + theta[i-1] * dx
+        
+        # Pas randvoorwaarden toe voor steunpunten
+        support_indices = []
+        for support in supports:
+            idx = np.searchsorted(x, support[0])
+            if idx < len(x):
+                support_indices.append(idx)
+        
+        if len(support_indices) >= 2:
+            # Los vergelijkingen op voor randvoorwaarden
+            A = np.array([[1, 1], [support_indices[1] - support_indices[0], 1]])
+            b = np.array([-w[support_indices[0]], -w[support_indices[1]]])
+            try:
+                solution = np.linalg.solve(A, b)
+                rotation_correction = solution[0]
+                displacement_correction = solution[1]
+                
+                # Pas correcties toe
+                for i in range(len(x)):
+                    w[i] += rotation_correction * (i - support_indices[0]) + displacement_correction
+            except np.linalg.LinAlgError:
+                # Als het stelsel niet oplosbaar is, zet alles op nul
+                w = np.zeros_like(x)
+                theta = np.zeros_like(x)
+    else:
+        # Als I of E ongeldig is, zet alles op nul
+        theta = np.zeros_like(x)
+        w = np.zeros_like(x)
     
     return x, V, M, theta, w
 
