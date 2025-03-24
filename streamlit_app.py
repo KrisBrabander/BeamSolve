@@ -466,64 +466,62 @@ def plot_results(x, V, M, rotation, deflection):
 def calculate_reactions(beam_length, supports, loads):
     """Bereken reactiekrachten voor alle belastingen"""
     # Sorteer steunpunten op positie
-    supports = sorted(supports, key=lambda s: s[0])
-    n = len(supports)
+    supports = sorted(supports, key=lambda x: x[0])
     
-    # Matrix voor reactiekrachten
-    A = np.zeros((3, 3))  # 3 vergelijkingen: ΣFy=0, ΣM_A=0, ΣM_B=0
-    b = np.zeros(3)
+    # We hebben minimaal 2 steunpunten nodig
+    if len(supports) < 2:
+        return {}
     
-    # Afstanden tot steunpunten
-    x_A = supports[0][0]  # Positie eerste steunpunt
-    x_B = supports[1][0]  # Positie tweede steunpunt
-    L_AB = x_B - x_A     # Afstand tussen steunpunten
+    # Maak matrix voor reactiekrachten
+    n_supports = len(supports)
+    A = np.zeros((2, n_supports))  # 2 vergelijkingen: som krachten en som momenten
+    b = np.zeros(2)
     
-    # Vul matrix A voor evenwichtsvergelijkingen
-    A[0] = [1, 0, 1]     # ΣFy=0: Va + Vb = F
-    A[1] = [0, 1, 0]     # ΣFx=0: Ha = 0
-    A[2] = [L_AB, 0, 0]  # ΣM_B=0: Va*L_AB = M_B
+    # Vul matrix voor som krachten (eerste rij)
+    A[0, :] = 1.0
     
-    # Bereken bijdrage van elke belasting
+    # Vul matrix voor som momenten t.o.v. eerste steunpunt (tweede rij)
+    for i in range(n_supports):
+        A[1, i] = supports[i][0]  # Afstand tot eerste steunpunt
+    
+    # Bereken belastingstermen
     for load in loads:
-        pos, value, type = load[:3]
-        x = pos - x_A  # Positie t.o.v. steunpunt A
+        pos = load[0]
+        value = load[1]
+        load_type = load[2]
         
-        if type == "Puntlast":
-            # Verticale kracht
-            b[0] -= value  # ΣFy
-            b[2] -= value * x  # ΣM_B
+        if load_type == "Puntlast":
+            b[0] += value  # Som krachten
+            b[1] += value * pos  # Som momenten
             
-        elif type == "Moment":
-            # Puntmoment
-            b[2] -= value  # ΣM_B
+        elif load_type == "Moment":
+            b[1] += value  # Alleen effect op momenten
             
-        elif type == "Verdeelde last":
-            # Gelijkmatig verdeelde belasting
+        elif load_type in ["Verdeelde last", "Driehoekslast"]:
             length = load[3]
-            q = value
-            F_total = q * length
-            x_c = pos + length/2  # Zwaartepunt belasting
-            
-            b[0] -= F_total  # ΣFy
-            b[2] -= F_total * (x_c - x_A)  # ΣM_B
-            
-        elif type == "Driehoekslast":
-            # Lineair variërende belasting
-            length = load[3]
-            q_max = value
-            F_total = 0.5 * q_max * length
-            x_c = pos + 2*length/3  # Zwaartepunt driehoekslast
-            
-            b[0] -= F_total  # ΣFy
-            b[2] -= F_total * (x_c - x_A)  # ΣM_B
+            if load_type == "Verdeelde last":
+                total_force = value * length
+                force_pos = pos + length/2
+            else:  # Driehoekslast
+                total_force = 0.5 * value * length
+                force_pos = pos + 2*length/3
+                
+            b[0] += total_force
+            b[1] += total_force * force_pos
     
-    # Los reactiekrachten op
     try:
+        # Los reactiekrachten op
         reactions = np.linalg.solve(A, b)
+        
+        # Maak dictionary met reactiekrachten
+        reaction_dict = {}
+        for i, support in enumerate(supports):
+            reaction_dict[support[0]] = reactions[i]
+        
+        return reaction_dict
     except np.linalg.LinAlgError:
-        reactions = np.linalg.lstsq(A, b, rcond=None)[0]
-    
-    return reactions[0], reactions[1], reactions[2]  # Va, Ha, Vb
+        # Als het stelsel niet oplosbaar is
+        return {support[0]: 0.0 for support in supports}
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     """Bereken dwarskracht en moment op elke positie x"""
@@ -807,6 +805,27 @@ if 'units' not in st.session_state:
 
 def main():
     st.set_page_config(page_title="BeamSolve Professional", layout="wide")
+    
+    # Test voorbeeld (zoals in de afbeelding)
+    if st.sidebar.button("Laad Testvoorbeeld", type="secondary"):
+        st.session_state.test_example = True
+        # Balk van 18m met 3 steunpunten
+        st.session_state.beam_length = 18000  # 18m in mm
+        st.session_state.supports = [
+            (3000, "Scharnier"),   # C op 3m
+            (9000, "Scharnier"),   # D op 9m
+            (15000, "Scharnier"),  # B op 15m
+        ]
+        st.session_state.loads = [
+            # Driehoekslast van 50 kN/m over 4m
+            (3000, 50, "Driehoekslast", 4000),
+            # Verdeelde last van 20 kN/m over rest
+            (9000, 20, "Verdeelde last", 6000),
+            # Puntlast van 100 kN
+            (9000, 100, "Puntlast")
+        ]
+        st.session_state.profile_type = "HEA"
+        st.session_state.profile_name = "HEA 300"
     
     # Sidebar voor invoer
     with st.sidebar:
