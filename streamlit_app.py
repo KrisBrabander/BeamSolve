@@ -143,63 +143,75 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
     """Plot een schematische weergave van de balk met steunpunten en belastingen"""
     fig = go.Figure()
     
+    # Bereken schalingsfactor voor doorbuiging
+    if x is not None and deflection is not None:
+        scale_factor = beam_length / (20 * max(abs(np.max(deflection)), abs(np.min(deflection))) if np.any(deflection != 0) else 1)
+    
     # Teken de balk
     if x is not None and deflection is not None:
         # Teken vervormde balk
-        scale_factor = beam_length / (20 * max(abs(np.max(deflection)), abs(np.min(deflection))) if np.any(deflection != 0) else 1)
         fig.add_trace(go.Scatter(
             x=x,
             y=deflection * scale_factor,
             mode='lines',
             name='Vervormde balk',
-            line=dict(color='#2c3e50', width=8),
-            hoverinfo='skip'
+            line=dict(color='#2c3e50', width=8)
+        ))
+        
+        # Teken onvervormde balk gestippeld
+        fig.add_trace(go.Scatter(
+            x=[0, beam_length],
+            y=[0, 0],
+            mode='lines',
+            name='Onvervormde balk',
+            line=dict(color='#95a5a6', width=3, dash='dash')
         ))
     else:
-        # Teken onvervormde balk
+        # Teken alleen onvervormde balk
         fig.add_trace(go.Scatter(
             x=[0, beam_length],
             y=[0, 0],
             mode='lines',
             name='Balk',
-            line=dict(color='#2c3e50', width=8),
-            hoverinfo='skip'
+            line=dict(color='#2c3e50', width=8)
         ))
     
     # Teken steunpunten
     for pos, type in supports:
+        y_pos = deflection[np.abs(x - pos).argmin()] * scale_factor if x is not None and deflection is not None else 0
+        
         if type == "Vast":
             # Driehoek voor vaste steunpunt
             fig.add_trace(go.Scatter(
                 x=[pos-30, pos, pos+30],
-                y=[-30, 0, -30],
-                fill="toself",
+                y=[y_pos-30, y_pos, y_pos-30],
                 mode='lines',
                 name='Vast steunpunt',
                 line=dict(color='#e74c3c'),
-                hoverinfo='skip'
+                fill='toself'
             ))
         else:
             # Cirkel voor rol steunpunt
             fig.add_trace(go.Scatter(
                 x=[pos-15, pos, pos+15, pos],
-                y=[-30, -15, -30, -30],
-                fill="toself",
+                y=[y_pos-30, y_pos-15, y_pos-30, y_pos-30],
                 mode='lines',
                 name='Rol steunpunt',
                 line=dict(color='#3498db'),
-                hoverinfo='skip'
+                fill='toself'
             ))
     
     # Teken belastingen
     for load in loads:
         pos, value, type = load[:3]
+        y_pos = deflection[np.abs(x - pos).argmin()] * scale_factor if x is not None and deflection is not None else 0
+        
         if type == "Puntlast":
             # Pijl voor puntlast
             arrow_height = 50 if value >= 0 else -50
             fig.add_trace(go.Scatter(
                 x=[pos, pos],
-                y=[arrow_height, 0],
+                y=[y_pos + arrow_height, y_pos],
                 mode='lines+markers',
                 name=f'Puntlast {value}N',
                 line=dict(color='#2ecc71'),
@@ -213,11 +225,12 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
             length = load[3]  # Lengte van de verdeelde last
             num_arrows = 5
             positions = np.linspace(pos, pos + length, num_arrows)
-            for p in positions:
+            for i, p in enumerate(positions):
+                y_load = deflection[np.abs(x - p).argmin()] * scale_factor if x is not None and deflection is not None else 0
                 arrow_height = 40 if value >= 0 else -40
                 fig.add_trace(go.Scatter(
                     x=[p, p],
-                    y=[arrow_height, 0],
+                    y=[y_load + arrow_height, y_load],
                     mode='lines+markers',
                     name=f'Verdeelde last {value}N/mm',
                     line=dict(color='#f1c40f'),
@@ -225,14 +238,25 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
                         size=8,
                         symbol='arrow-down' if value >= 0 else 'arrow-up'
                     ),
-                    showlegend=(p == positions[0])  # Toon legende alleen voor eerste pijl
+                    showlegend=(i == 0)  # Alleen eerste pijl in legende
                 ))
+            
+            # Lijn boven pijlen
+            y_loads = [deflection[np.abs(x - p).argmin()] * scale_factor if x is not None and deflection is not None else 0 for p in positions]
+            fig.add_trace(go.Scatter(
+                x=positions,
+                y=[y + arrow_height for y in y_loads],
+                mode='lines',
+                name=f'q = {value}N/mm',
+                line=dict(color='#f1c40f', width=2)
+            ))
+            
         elif type == "Moment":
             # Gebogen pijl voor moment
             radius = 30
             theta = np.linspace(0, 2*np.pi, 50)
             x_circle = pos + radius * np.cos(theta)
-            y_circle = radius * np.sin(theta)
+            y_circle = y_pos + radius * np.sin(theta)
             
             # Teken cirkel
             fig.add_trace(go.Scatter(
@@ -248,9 +272,10 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
             arrow_x = [pos + radius * np.cos(arrow_angle),
                       pos + (radius + 10) * np.cos(arrow_angle),
                       pos + radius * np.cos(arrow_angle + np.pi/6)]
-            arrow_y = [radius * np.sin(arrow_angle),
-                      (radius + 10) * np.sin(arrow_angle),
-                      radius * np.sin(arrow_angle + np.pi/6)]
+            arrow_y = [y_pos + radius * np.sin(arrow_angle),
+                      y_pos + (radius + 10) * np.sin(arrow_angle),
+                      y_pos + radius * np.sin(arrow_angle + np.pi/6)]
+            
             fig.add_trace(go.Scatter(
                 x=arrow_x,
                 y=arrow_y,
@@ -272,14 +297,27 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
         showlegend=True,
         xaxis=dict(
             range=[-margin, beam_length + margin],
-            title="Positie (mm)"
+            title="Positie (mm)",
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(0,0,0,0.1)',
+            zeroline=True,
+            zerolinewidth=2,
+            zerolinecolor='#2c3e50'
         ),
         yaxis=dict(
             range=y_range,
             scaleanchor="x",
-            scaleratio=1
+            scaleratio=1,
+            showgrid=True,
+            gridwidth=1,
+            gridcolor='rgba(0,0,0,0.1)',
+            zeroline=True,
+            zerolinewidth=2,
+            zerolinecolor='#2c3e50'
         ),
-        title="Balkschema"
+        title="Balkschema",
+        plot_bgcolor='white'
     )
     
     return fig
@@ -300,48 +338,73 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Bereken traagheidsmoment
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     
-    # Verwerk belastingen
-    for load in loads:
-        pos, value, type = load[:3]
-        if type == "Puntlast":
-            # Puntlast: stuksgewijs constante dwarskracht, lineair moment
-            V[x >= pos] += value
-            M[x >= pos] += value * (x[x >= pos] - pos)
-        elif type == "Verdeelde last":
-            # Verdeelde last: lineaire dwarskracht, kwadratisch moment
-            length = load[3]
-            q = value  # Last per mm
-            for i, xi in enumerate(x):
-                if xi >= pos and xi <= pos + length:
-                    V[i] += q * (xi - pos)
-                    M[i] += q * (xi - pos)**2 / 2
-                elif xi > pos + length:
-                    V[i] += q * length
-                    M[i] += q * length * (xi - (pos + length/2))
-        elif type == "Moment":
-            # Moment: geen dwarskracht, constante momentsprong
-            M[x >= pos] += value
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda s: s[0])
     
-    # Pas steunpuntreacties toe
-    support_positions = [s[0] for s in supports]
-    support_indices = [np.argmin(abs(x - pos)) for pos in support_positions]
+    # Matrix voor oplegreacties (voor n steunpunten)
+    n = len(supports)
+    A = np.zeros((n, n))
+    b = np.zeros(n)
     
-    # Los steunpuntreacties op (vereenvoudigd voor 2 steunpunten)
-    if len(supports) == 2:
-        L = beam_length
-        R1 = -M[-1] / L  # Reactiekracht links
-        R2 = M[0] / L  # Reactiekracht rechts
+    # Vul matrix A en vector b
+    # Evenwichtsvergelijkingen: ΣF = 0 en ΣM = 0
+    for i in range(n):
+        # Momentevenwicht om steunpunt i
+        for j in range(n):
+            A[i,j] = supports[j][0] - supports[i][0]  # Arm voor reactiekracht j t.o.v. steunpunt i
         
-        # Pas reactiekrachten toe
-        V[x >= support_positions[0]] += R1
-        V[x >= support_positions[1]] += R2
+        # Externe belastingen
+        for load in loads:
+            pos, value, type = load[:3]
+            if type == "Puntlast":
+                b[i] -= value * (pos - supports[i][0])
+            elif type == "Verdeelde last":
+                length = load[3]
+                q = value  # Last per mm
+                center = pos + length/2
+                total_force = q * length
+                b[i] -= total_force * (center - supports[i][0])
+            elif type == "Moment":
+                b[i] -= value
+    
+    # Los reactiekrachten op
+    try:
+        R = np.linalg.solve(A, b)
+    except np.linalg.LinAlgError:
+        # Als matrix singulier is, gebruik pseudo-inverse
+        R = np.linalg.lstsq(A, b, rcond=None)[0]
+    
+    # Bereken interne krachten
+    for i, xi in enumerate(x):
+        # Reactiekrachten
+        for j, (pos, _) in enumerate(supports):
+            if xi >= pos:
+                V[i] += R[j]
+                M[i] += R[j] * (xi - pos)
         
-        # Update momenten
-        for i, xi in enumerate(x):
-            if xi >= support_positions[0]:
-                M[i] += R1 * (xi - support_positions[0])
-            if xi >= support_positions[1]:
-                M[i] += R2 * (xi - support_positions[1])
+        # Externe belastingen
+        for load in loads:
+            pos, value, type = load[:3]
+            if type == "Puntlast":
+                if xi >= pos:
+                    V[i] -= value
+                    M[i] -= value * (xi - pos)
+            elif type == "Verdeelde last":
+                length = load[3]
+                q = value
+                if xi >= pos:
+                    if xi <= pos + length:
+                        # Binnen belaste gebied
+                        load_length = xi - pos
+                        V[i] -= q * load_length
+                        M[i] -= q * load_length * (xi - (pos + load_length/2))
+                    else:
+                        # Voorbij belaste gebied
+                        V[i] -= q * length
+                        M[i] -= q * length * (xi - (pos + length/2))
+            elif type == "Moment":
+                if xi >= pos:
+                    M[i] -= value
     
     # Bereken rotatie en doorbuiging door integratie
     # θ = ∫(M/EI)dx
