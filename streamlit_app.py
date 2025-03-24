@@ -438,63 +438,51 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     n = len(supports)
     
     # Matrix voor oplegreacties
-    # Voor n steunpunten hebben we n vergelijkingen nodig:
-    # 1 verticaal evenwicht
-    # n-1 momentevenwichten
     A = np.zeros((n, n))
     b = np.zeros(n)
     
-    # Verticaal evenwicht (eerste vergelijking)
-    A[0,:] = 1.0  # Som van alle reactiekrachten
+    # Verticaal evenwicht
+    A[0,:] = 1.0
     
-    # Som van alle externe krachten (negatief, want reactiekrachten moeten tegengesteld zijn)
+    # Som van externe krachten
+    F_ext = 0
+    M_ext = 0
     for load in loads:
         pos, value, type = load[:3]
         if type == "Puntlast":
-            b[0] -= value
+            F_ext += value
+            M_ext += value * pos
         elif type == "Verdeelde last":
             length = load[3]
-            b[0] -= value * length
+            F_ext += value * length
+            M_ext += value * length * (pos + length/2)
+        elif type == "Moment":
+            M_ext += value
     
-    # Momentevenwichten (overige n-1 vergelijkingen)
-    # Neem momenten om eerste steunpunt
-    ref_pos = supports[0][0]  # Referentiepunt voor momenten
+    b[0] = -F_ext  # Verticaal evenwicht
     
+    # Momentevenwichten
+    ref_pos = supports[0][0]
     for i in range(1, n):
-        # Momentarmen voor reactiekrachten
         for j in range(n):
             A[i,j] = supports[j][0] - ref_pos
-        
-        # Momenten van externe krachten
-        for load in loads:
-            pos, value, type = load[:3]
-            if type == "Puntlast":
-                b[i] -= value * (pos - ref_pos)
-            elif type == "Verdeelde last":
-                length = load[3]
-                q = value
-                center = pos + length/2
-                total_force = q * length
-                b[i] -= total_force * (center - ref_pos)
-            elif type == "Moment":
-                b[i] -= value
+        b[i] = -M_ext
     
     # Los reactiekrachten op
     try:
         R = np.linalg.solve(A, b)
     except np.linalg.LinAlgError:
-        # Als matrix singulier is, gebruik pseudo-inverse
         R = np.linalg.lstsq(A, b, rcond=None)[0]
     
     # Bereken interne krachten
     for i, xi in enumerate(x):
-        # Bijdrage van reactiekrachten
+        # Dwarskracht en moment door reactiekrachten
         for j, (pos, _) in enumerate(supports):
             if xi >= pos:
                 V[i] += R[j]
                 M[i] += R[j] * (xi - pos)
         
-        # Bijdrage van belastingen
+        # Dwarskracht en moment door belastingen
         for load in loads:
             pos, value, type = load[:3]
             if type == "Puntlast":
@@ -518,28 +506,56 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
                 if xi >= pos:
                     M[i] -= value
     
-    # Bereken rotatie en doorbuiging door integratie
-    # θ = ∫(M/EI)dx
-    # w = ∫θdx
+    # Bereken doorbuiging door dubbele integratie van moment
+    EI = E * I
+    
+    # Eerste integratie: M/EI -> θ (helling)
+    theta[0] = 0  # Beginwaarde
     for i in range(1, len(x)):
-        theta[i] = theta[i-1] + (M[i-1] / (E * I)) * dx
+        theta[i] = theta[i-1] + (M[i-1] / EI) * dx
+    
+    # Tweede integratie: θ -> w (doorbuiging)
+    w[0] = 0  # Beginwaarde
+    for i in range(1, len(x)):
         w[i] = w[i-1] + theta[i-1] * dx
     
     # Pas randvoorwaarden toe
-    # Voor vaste oplegging: w = 0, θ = 0
-    # Voor scharnier: w = 0
-    for pos, type in supports:
-        idx = np.argmin(abs(x - pos))
+    # Vind indices van steunpunten
+    support_indices = [np.abs(x - pos).argmin() for pos, _ in supports]
+    
+    # Matrix voor randvoorwaarden
+    n_constraints = len(supports) + 1  # Aantal steunpunten + 1 voor rotatie bij vaste inklemming
+    A_bc = np.zeros((n_constraints, 2))  # 2 onbekenden: C1 (rotatie) en C2 (verplaatsing)
+    b_bc = np.zeros(n_constraints)
+    
+    # Vul randvoorwaarden in
+    row = 0
+    for idx, (_, type) in zip(support_indices, supports):
         if type == "Vast":
-            # Bij vaste oplegging: geen rotatie en geen verplaatsing
-            theta_correction = theta[idx]
-            w_correction = w[idx]
-            theta -= theta_correction
-            w -= w_correction + theta_correction * (x - x[idx])
-        else:  # Scharnier/rol
-            # Bij scharnier: wel rotatie, geen verplaatsing
-            w_correction = w[idx]
-            w -= w_correction
+            # w = 0 en θ = 0
+            A_bc[row] = [x[idx], 1]  # Voor w
+            b_bc[row] = -w[idx]
+            row += 1
+            A_bc[row] = [1, 0]  # Voor θ
+            b_bc[row] = -theta[idx]
+            row += 1
+        else:
+            # Alleen w = 0
+            A_bc[row] = [x[idx], 1]
+            b_bc[row] = -w[idx]
+            row += 1
+    
+    # Los randvoorwaarden op
+    try:
+        C = np.linalg.solve(A_bc[:row], b_bc[:row])
+        # Pas correcties toe
+        theta += C[0]
+        w += C[0] * x + C[1]
+    except np.linalg.LinAlgError:
+        # Als er geen unieke oplossing is, gebruik de kleinste kwadraten methode
+        C = np.linalg.lstsq(A_bc[:row], b_bc[:row], rcond=None)[0]
+        theta += C[0]
+        w += C[0] * x + C[1]
     
     return x, M, theta, w
 
