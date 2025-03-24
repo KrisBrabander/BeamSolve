@@ -643,74 +643,67 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Bereken interne krachten
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Bereken rotatie en doorbuiging
+    # Initialiseer arrays
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Eerste integratie: M/EI -> θ
-    for i in range(1, len(x)):
-        rotation[i] = rotation[i-1] + (M[i-1] + M[i])/(2 * EI) * dx
-    
-    # Tweede integratie: θ -> v
-    for i in range(1, len(x)):
-        deflection[i] = deflection[i-1] + (rotation[i-1] + rotation[i])/2 * dx
-    
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda x: x[0])
-    support_types = {pos: type.lower() for pos, type in supports}
     support_indices = [np.abs(x - pos).argmin() for pos, _ in supports]
     
-    # Bepaal randvoorwaarden
-    n_supports = len(supports)
-    if n_supports > 0:
-        # Matrix voor randvoorwaarden
-        A = np.zeros((n_supports + 1, n_supports + 1))
-        b = np.zeros(n_supports + 1)
+    # Verdeel de balk in segmenten tussen steunpunten
+    segments = []
+    if len(support_indices) > 0:
+        # Voeg eerste segment toe (indien nodig)
+        if support_indices[0] > 0:
+            segments.append((0, support_indices[0]))
         
-        # Vergelijkingen voor steunpunten (w = 0)
-        for i, idx in enumerate(support_indices):
-            A[i, 0] = 1  # C1 term
-            A[i, 1] = x[idx]  # C2 term
-            b[i] = -deflection[idx]  # Tegengestelde van huidige doorbuiging
+        # Voeg middensegmenten toe
+        for i in range(len(support_indices)-1):
+            segments.append((support_indices[i], support_indices[i+1]))
         
-        # Extra vergelijking voor inklemming indien aanwezig
-        if any(type.lower() == "inklemming" for _, type in supports):
-            # Bij inklemming is de rotatie nul
-            first_fixed = next((i for i, (_, type) in enumerate(supports) 
-                              if type.lower() == "inklemming"), None)
-            if first_fixed is not None:
-                idx = support_indices[first_fixed]
-                A[-1, 1] = 1  # Rotatie is C2
-                b[-1] = -rotation[idx]  # Tegengestelde van huidige rotatie
-        else:
-            # Anders gebruiken we de voorwaarde dat M(0) = 0 of M(L) = 0
-            A[-1, 1] = 1
-            b[-1] = -rotation[0]  # Meestal is M(0) = 0 voor statisch bepaalde systemen
-        
-        try:
-            # Los het stelsel op
-            C = np.linalg.solve(A, b)
-            # Pas correcties toe
-            deflection += C[0] + C[1] * x
-            rotation += C[1]
-        except np.linalg.LinAlgError:
-            # Als het stelsel niet oplosbaar is, gebruik simpele correctie
-            if len(support_indices) > 0:
-                idx = support_indices[0]
-                deflection -= deflection[idx]
+        # Voeg laatste segment toe (indien nodig)
+        if support_indices[-1] < len(x)-1:
+            segments.append((support_indices[-1], len(x)-1))
+    else:
+        segments.append((0, len(x)-1))
     
-    # Extra correctie voor inklemming
-    for pos, type in supports:
-        if type.lower() == "inklemming":
-            idx = np.abs(x - pos).argmin()
-            if idx == 0:  # Inklemming aan begin
-                rotation -= rotation[0]
-                slope = rotation[0]
-                deflection -= x * slope
-            elif idx == len(x) - 1:  # Inklemming aan eind
-                rotation -= rotation[-1]
-                slope = rotation[-1]
-                deflection -= (x - x[-1]) * slope
+    # Bereken rotatie en doorbuiging per segment
+    for start_idx, end_idx in segments:
+        # Reset integratie voor dit segment
+        seg_rotation = np.zeros_like(x[start_idx:end_idx+1])
+        seg_deflection = np.zeros_like(x[start_idx:end_idx+1])
+        
+        # Integreer moment naar rotatie (θ = ∫M/EI dx)
+        for i in range(1, len(seg_rotation)):
+            seg_rotation[i] = seg_rotation[i-1] + (M[start_idx+i-1] + M[start_idx+i])/(2 * EI) * dx
+        
+        # Integreer rotatie naar doorbuiging (v = ∫θ dx)
+        for i in range(1, len(seg_deflection)):
+            seg_deflection[i] = seg_deflection[i-1] + (seg_rotation[i-1] + seg_rotation[i])/2 * dx
+        
+        # Pas randvoorwaarden toe voor dit segment
+        if start_idx in support_indices:
+            # Steunpunt aan begin: zet doorbuiging op nul
+            seg_deflection -= seg_deflection[0]
+            
+            # Check voor inklemming aan begin
+            if any(type.lower() == "inklemming" for pos, type in supports if np.abs(x[start_idx] - pos) < dx):
+                # Corrigeer rotatie voor inklemming
+                seg_rotation -= seg_rotation[0]
+                # Corrigeer doorbuiging voor rotatie
+                slope_correction = x[start_idx:end_idx+1] - x[start_idx]
+                seg_deflection -= slope_correction * seg_rotation[0]
+        
+        # Kopieer resultaten naar hoofdarrays
+        rotation[start_idx:end_idx+1] = seg_rotation
+        deflection[start_idx:end_idx+1] = seg_deflection
+    
+    # Zorg dat doorbuiging exact nul is bij steunpunten
+    for idx in support_indices:
+        deflection[idx] = 0.0
+        if any(type.lower() == "inklemming" for pos, type in supports if np.abs(x[idx] - pos) < dx):
+            rotation[idx] = 0.0
     
     return x, V, M, rotation, deflection
 
