@@ -152,9 +152,9 @@ def plot_beam_diagram(beam_length, supports, loads):
     # Teken steunpunten
     for pos, type in supports:
         x_pos = pos/1000  # Convert to meters
+        triangle_size = beam_length/50  # Move this line before the if statement
         if type == "vast":
             # Vaste oplegging (driehoek met arcering)
-            triangle_size = beam_length/50
             fig.add_trace(go.Scatter(
                 x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
                 y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
