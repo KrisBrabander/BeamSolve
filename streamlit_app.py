@@ -80,44 +80,6 @@ KOKER_PROFILES = {
     "Koker 90x90x4": (90, 90, 4.0),
 }
 
-# Rechthoekige koker profielen (h, b, t)
-RECHTHOEKIGE_KOKER_PROFILES = {
-    "Rechthoekige koker 40x20x3": (40, 20, 3.0),
-    "Rechthoekige koker 50x30x3": (50, 30, 3.0),
-    "Rechthoekige koker 60x40x3": (60, 40, 3.0),
-    "Rechthoekige koker 60x40x4": (60, 40, 4.0),
-    "Rechthoekige koker 70x50x3": (70, 50, 3.0),
-    "Rechthoekige koker 70x50x4": (70, 50, 4.0),
-    "Rechthoekige koker 80x60x3": (80, 60, 3.0),
-    "Rechthoekige koker 80x60x4": (80, 60, 4.0),
-    "Rechthoekige koker 80x60x5": (80, 60, 5.0),
-    "Rechthoekige koker 90x70x3": (90, 70, 3.0),
-    "Rechthoekige koker 90x70x4": (90, 70, 4.0),
-}
-
-# Vierkante koker profielen (h, b, t)
-VIERKANTE_KOKER_PROFILES = {
-    "Vierkante koker 40x40x3": (40, 40, 3.0),
-    "Vierkante koker 50x50x3": (50, 50, 3.0),
-    "Vierkante koker 60x60x3": (60, 60, 3.0),
-    "Vierkante koker 60x60x4": (60, 60, 4.0),
-    "Vierkante koker 70x70x3": (70, 70, 3.0),
-    "Vierkante koker 70x70x4": (70, 70, 4.0),
-    "Vierkante koker 80x80x3": (80, 80, 3.0),
-    "Vierkante koker 80x80x4": (80, 80, 4.0),
-    "Vierkante koker 80x80x5": (80, 80, 5.0),
-    "Vierkante koker 90x90x3": (90, 90, 3.0),
-    "Vierkante koker 90x90x4": (90, 90, 4.0),
-}
-
-# Materiaal eigenschappen
-MATERIALS = {
-    "Staal": {"E": 210000, "fy": 235, "description": "Staal met een E-modulus van 210000 N/mm² en een vloeigrens van 235 N/mm²"},
-    "RVS": {"E": 200000, "fy": 250, "description": "RVS met een E-modulus van 200000 N/mm² en een vloeigrens van 250 N/mm²"},
-    "Aluminium": {"E": 70000, "fy": 100, "description": "Aluminium met een E-modulus van 70000 N/mm² en een vloeigrens van 100 N/mm²"},
-}
-
-# Functies
 def get_profile_dimensions(profile_type, profile_name):
     """Haal de dimensies op voor een specifiek profiel"""
     if profile_type == "HEA":
@@ -130,10 +92,6 @@ def get_profile_dimensions(profile_type, profile_name):
         return UNP_PROFILES.get(profile_name)
     elif profile_type == "Koker":
         return KOKER_PROFILES.get(profile_name)
-    elif profile_type == "Rechthoekige koker":
-        return RECHTHOEKIGE_KOKER_PROFILES.get(profile_name)
-    elif profile_type == "Vierkante koker":
-        return VIERKANTE_KOKER_PROFILES.get(profile_name)
     return None
 
 def get_profile_list(profile_type):
@@ -148,10 +106,6 @@ def get_profile_list(profile_type):
         return list(UNP_PROFILES.keys())
     elif profile_type == "Koker":
         return list(KOKER_PROFILES.keys())
-    elif profile_type == "Rechthoekige koker":
-        return list(RECHTHOEKIGE_KOKER_PROFILES.keys())
-    elif profile_type == "Vierkante koker":
-        return list(VIERKANTE_KOKER_PROFILES.keys())
     return []
 
 def calculate_I(profile_type, h, b, t_w, t_f=None):
@@ -628,7 +582,7 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         V += reaction["force"] * (x >= pos)
         # Moment van reactiekracht
         M += reaction["force"] * np.maximum(0, x - pos)
-        # Directe momenten van inklemming
+        # Direct moment van inklemming
         M += reaction["moment"] * (x >= pos)
     
     # Verwerk belastingen
@@ -754,84 +708,15 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     return x, V, M, rotation, deflection
 
 @st.cache_data
-def calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness=None):
-    """Bereken profiel eigenschappen"""
-    # Check voor custom profiel
-    if profile_type == "Custom":
-        return A, I, W  # Direct ingevoerde waarden gebruiken
+def calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness):
+    """Cache profiel eigenschappen voor snellere berekeningen"""
+    # Map profile types to calculation types
+    calc_type = "Koker" if profile_type == "Koker" else ("U-profiel" if profile_type == "UNP" else "I-profiel")
     
-    # Check voor geldige input
-    if height is None or width is None or wall_thickness is None:
-        return 0.0, 0.0, 0.0
-    
-    # Bereken eigenschappen
-    A = calculate_A(profile_type, height, width, wall_thickness, flange_thickness)
-    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+    A = calculate_A(calc_type, height, width, wall_thickness, flange_thickness)
+    I = calculate_I(calc_type, height, width, wall_thickness, flange_thickness)
     W = I / (height/2) if height > 0 else 0
-    
     return A, I, W
-
-def calculate_A(profile_type, h, b, t_w, t_f=None):
-    """Bereken oppervlakte voor verschillende profieltypes"""
-    if h <= 0 or b <= 0 or t_w <= 0:
-        return 0.0
-        
-    if profile_type in ["Koker", "Rechthoekige koker", "Vierkante koker"]:
-        # Koker profiel: buitenoppervlak - binnenoppervlak
-        return (h * b) - ((h - 2*t_w) * (b - 2*t_w))
-        
-    elif profile_type in ["HEA", "HEB", "IPE", "UNP", "I-profiel", "U-profiel"]:
-        if t_f is None or t_f <= 0:
-            return 0.0
-        # I- of U-profiel
-        # Flens oppervlakte
-        A_f = 2 * (b * t_f)
-        # Lijf oppervlakte
-        h_w = h - 2*t_f
-        A_w = t_w * h_w
-        return A_f + A_w
-        
-    return 0.0
-
-def calculate_I(profile_type, h, b, t_w, t_f=None):
-    """Bereken traagheidsmoment voor verschillende profieltypes"""
-    if h <= 0 or b <= 0 or t_w <= 0:
-        return 0.0
-        
-    if profile_type in ["Koker", "Rechthoekige koker", "Vierkante koker"]:
-        # Koker profiel
-        # Buitenste rechthoek
-        I_outer = (b * h**3) / 12
-        # Binnenste rechthoek (hol gedeelte)
-        h_i = h - 2*t_w
-        b_i = b - 2*t_w
-        if h_i <= 0 or b_i <= 0:
-            return I_outer
-        I_inner = (b_i * h_i**3) / 12
-        return I_outer - I_inner
-        
-    elif profile_type in ["HEA", "HEB", "IPE", "UNP", "I-profiel", "U-profiel"]:
-        if t_f is None or t_f <= 0:
-            return 0.0
-        # I- of U-profiel
-        # Flens bijdrage
-        A_f = b * t_f
-        d = (h - t_f) / 2  # Afstand tot zwaartepunt
-        I_f = 2 * (A_f * d**2 + b * t_f**3 / 12)
-        # Lijf bijdrage
-        h_w = h - 2*t_f
-        if h_w <= 0:
-            return I_f
-        I_w = t_w * h_w**3 / 12
-        return I_f + I_w
-        
-    return 0.0
-
-def calculate_W(I, h):
-    """Bereken weerstandsmoment"""
-    if h <= 0:
-        return 0.0
-    return 2 * I / h
 
 def generate_pdf_report(beam_data, results_plot):
     """Genereer een PDF rapport"""
@@ -965,60 +850,260 @@ if 'units' not in st.session_state:
     }
 
 def main():
-    st.title("BuigingsCalculator")
+    st.set_page_config(page_title="BeamSolve Professional", layout="wide")
     
+    # Test voorbeeld (zoals in de afbeelding)
+    if st.sidebar.button("Laad Testvoorbeeld", type="secondary"):
+        st.session_state.test_example = True
+        # Balk van 18m met 3 steunpunten
+        st.session_state.beam_length = 18000  # 18m in mm
+        st.session_state.supports = [
+            (3000, "Scharnier"),   # C op 3m
+            (9000, "Scharnier"),   # D op 9m
+            (15000, "Scharnier"),  # B op 15m
+        ]
+        st.session_state.loads = [
+            # Driehoekslast van 50 kN/m over 4m
+            (3000, 50, "Driehoekslast", 4000),
+            # Verdeelde last van 20 kN/m over rest
+            (9000, 20, "Verdeelde last", 6000),
+            # Puntlast van 100 kN
+            (9000, 100, "Puntlast")
+        ]
+        st.session_state.profile_type = "HEA"
+        st.session_state.profile_name = "HEA 300"
+    
+    # Sidebar voor invoer
     with st.sidebar:
-        st.header("Invoer gegevens")
+        st.title("BeamSolve Professional")
+        st.markdown("---")
         
-        # Profiel sectie
+        # Profiel selectie
         st.subheader("1. Profiel")
-        profile_type = st.selectbox(
-            "Profieltype",
-            ["HEA", "HEB", "IPE", "UNP", "Koker", "Rechthoekige koker", "Vierkante koker", "Custom"]
-        )
+        col1, col2 = st.columns(2)
+        with col1:
+            profile_type = st.selectbox("Type", ["HEA", "HEB", "IPE", "UNP", "Koker"])
+        with col2:
+            profile_name = st.selectbox("Naam", get_profile_list(profile_type))
         
-        if profile_type == "Custom":
-            # Custom profiel eigenschappen
-            A = st.number_input("Oppervlakte (mm²)", min_value=0.0, value=1000.0, step=100.0)
-            I = st.number_input("Traagheidsmoment (mm⁴)", min_value=0.0, value=100000.0, step=10000.0)
-            W = st.number_input("Weerstandsmoment (mm³)", min_value=0.0, value=10000.0, step=1000.0)
-            height = None
-            width = None
-            wall_thickness = None
-            flange_thickness = None
-        else:
-            # Standaard profiel selectie
-            profile_name = st.selectbox("Profielnaam", get_profile_list(profile_type))
-            dimensions = get_profile_dimensions(profile_type, profile_name)
+        # Haal profiel dimensies op
+        dimensions = get_profile_dimensions(profile_type, profile_name)
+        if dimensions:
+            if profile_type == "Koker":
+                height, width, wall_thickness = dimensions
+                flange_thickness = wall_thickness
+            else:
+                height, width, wall_thickness, flange_thickness = dimensions
+        
+        # Toon dimensies
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Hoogte", f"{height} mm")
+            st.metric("Breedte", f"{width} mm")
+        with col2:
+            st.metric("Wanddikte", f"{wall_thickness} mm")
+            if profile_type != "Koker":
+                st.metric("Flensdikte", f"{flange_thickness} mm")
+        
+        # E-modulus
+        E = st.number_input("E-modulus", value=210000.0, step=1000.0, format="%.0f", help="N/mm²")
+        
+        st.markdown("---")
+        
+        # Overspanning
+        st.subheader("2. Overspanning")
+        beam_length = st.number_input("Lengte", value=3000.0, step=100.0, format="%.0f", help="mm")
+        
+        # Steunpunten
+        st.subheader("3. Steunpunten")
+        num_supports = st.number_input("Aantal", min_value=1, max_value=4, value=1)
+        
+        supports = []
+        for i in range(num_supports):
+            col1, col2 = st.columns(2)
+            with col1:
+                pos = st.number_input(
+                    f"Positie {i+1}",
+                    value=0.0 if i == 0 else beam_length if i == 1 else beam_length/2,
+                    min_value=0.0,
+                    max_value=beam_length,
+                    step=100.0,
+                    format="%.0f",
+                    help="mm"
+                )
+            with col2:
+                type = st.selectbox(
+                    f"Type {i+1}",
+                    ["Inklemming", "Scharnier", "Rol"],
+                    index=0 if i == 0 else 1
+                )
+            supports.append((pos, type))
+        
+        # Belastingen
+        st.subheader("4. Belastingen")
+        num_loads = st.number_input("Aantal", min_value=0, max_value=5, value=1)
+        
+        loads = []
+        for i in range(num_loads):
+            st.markdown(f"**Belasting {i+1}**")
             
-            if dimensions:
-                if profile_type in ["Koker", "Rechthoekige koker", "Vierkante koker"]:
-                    height, width, wall_thickness = dimensions
-                    flange_thickness = None
+            col1, col2 = st.columns(2)
+            with col1:
+                load_type = st.selectbox(
+                    "Type",
+                    ["Puntlast", "Verdeelde last", "Moment", "Driehoekslast"],
+                    key=f"load_type_{i}"
+                )
+            with col2:
+                if load_type == "Moment":
+                    unit = "Nmm"
+                elif load_type in ["Verdeelde last", "Driehoekslast"]:
+                    unit = "N/mm"
                 else:
-                    height, width, wall_thickness, flange_thickness = dimensions
-                
-                # Toon profiel eigenschappen
-                col1, col2 = st.columns(2)
-                with col1:
-                    st.metric("Hoogte", f"{height} mm")
-                    st.metric("Breedte", f"{width} mm")
+                    unit = "N"
+                    
+                value = st.number_input(
+                    f"Waarde ({unit})",
+                    value=1000.0,
+                    step=100.0,
+                    format="%.1f",
+                    key=f"load_value_{i}"
+                )
+            
+            col1, col2 = st.columns(2)
+            with col1:
+                position = st.number_input(
+                    "Positie",
+                    value=beam_length/2,
+                    min_value=0.0,
+                    max_value=beam_length,
+                    step=100.0,
+                    format="%.0f",
+                    help="mm",
+                    key=f"load_pos_{i}"
+                )
+            
+            if load_type in ["Verdeelde last", "Driehoekslast"]:
                 with col2:
-                    st.metric("Wanddikte", f"{wall_thickness} mm")
-                    if flange_thickness:
-                        st.metric("Flensdikte", f"{flange_thickness} mm")
+                    length = st.number_input(
+                        "Lengte",
+                        value=1000.0,
+                        min_value=0.0,
+                        max_value=beam_length - position,
+                        step=100.0,
+                        format="%.0f",
+                        help="mm",
+                        key=f"load_length_{i}"
+                    )
+                loads.append((position, value, load_type, length))
+            else:
+                loads.append((position, value, load_type))
+    
+    # Hoofdgedeelte
+    if st.sidebar.button("Bereken", type="primary", use_container_width=True):
+        # Voer analyse uit
+        x, V, M, rotation, deflection = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
         
-        # Materiaal sectie
-        st.subheader("2. Materiaal")
-        material = st.selectbox("Materiaal", list(MATERIALS.keys()))
+        # Teken balkschema
+        beam_fig = plot_beam_diagram(beam_length, supports, loads)
+        st.plotly_chart(beam_fig, use_container_width=True)
         
-        if material == "Custom":
-            E = st.number_input("E-modulus (N/mm²)", min_value=1000.0, value=210000.0, step=1000.0)
-            fy = st.number_input("Vloeigrens (N/mm²)", min_value=1.0, value=235.0, step=1.0)
-        else:
-            E = MATERIALS[material]["E"]
-            fy = MATERIALS[material]["fy"]
-            st.info(f"E-modulus: {E} N/mm²\nVloeigrens: {fy} N/mm²\n\n{MATERIALS[material]['description']}")
+        # Toon resultaten
+        col1, col2 = st.columns([2, 1])
         
-        # Rest van de code blijft hetzelfde
-        {{ ... }}
+        with col1:
+            st.subheader("Analyse Resultaten")
+            
+            # Plot alle resultaten
+            results_plot = plot_results(x, V, M, rotation, deflection)
+            st.plotly_chart(results_plot, use_container_width=True)
+            
+            # Maximale waarden
+            max_vals = {
+                "Dwarskracht": f"{max(abs(np.min(V)), abs(np.max(V))):.0f} N",
+                "Moment": f"{max(abs(np.min(M)), abs(np.max(M))):.0f} Nmm",
+                "Rotatie": f"{max(abs(np.min(rotation)), abs(np.max(rotation))):.6f} rad",
+                "Doorbuiging": f"{max(abs(np.min(deflection)), abs(np.max(deflection))):.2f} mm"
+            }
+            
+            st.subheader("Maximale Waarden")
+            cols = st.columns(4)
+            for i, (key, val) in enumerate(max_vals.items()):
+                cols[i].metric(key, val)
+        
+        with col2:
+            st.subheader("Profiel Details")
+            A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
+            
+            st.metric("Oppervlakte", f"{A:.0f} mm²")
+            st.metric("Traagheidsmoment", f"{I:.0f} mm⁴")
+            st.metric("Weerstandsmoment", f"{W:.0f} mm³")
+            
+            # Spanningen
+            st.subheader("Spanningen")
+            max_moment = max(abs(min(M)), abs(max(M)))
+            sigma = max_moment / W
+            st.metric("Max. buigspanning", f"{sigma:.1f} N/mm²")
+            
+            # Toetsing
+            st.subheader("Toetsing")
+            f_y = 235  # Vloeigrens S235
+            UC = sigma / f_y
+            st.metric("Unity Check", f"{UC:.2f}", help="UC ≤ 1.0")
+            
+            if UC > 1.0:
+                st.error("Profiel voldoet niet! Kies een zwaarder profiel.")
+            elif UC > 0.9:
+                st.warning("Profiel zwaar belast. Overweeg een zwaarder profiel.")
+            else:
+                st.success("Profiel voldoet ruim.")
+            
+            # Download rapport
+            st.markdown("---")
+            if st.button("Genereer Rapport", type="primary"):
+                # Genereer rapport
+                try:
+                    beam_data = {
+                        "profile_type": profile_type,
+                        "profile_name": profile_name,
+                        "dimensions": {
+                            "height": height,
+                            "width": width,
+                            "wall_thickness": wall_thickness,
+                            "flange_thickness": flange_thickness
+                        },
+                        "properties": {
+                            "A": A,
+                            "I": I,
+                            "W": W
+                        },
+                        "length": beam_length,
+                        "E": E,
+                        "supports": supports,
+                        "loads": loads,
+                        "results": {
+                            "max_V": max(abs(np.min(V)), abs(np.max(V))),
+                            "max_M": max(abs(np.min(M)), abs(np.max(M))),
+                            "max_deflection": max(abs(np.min(deflection)), abs(np.max(deflection))),
+                            "max_rotation": max(abs(np.min(rotation)), abs(np.max(rotation))),
+                            "max_stress": sigma,
+                            "unity_check": UC
+                        }
+                    }
+                    
+                    # Genereer PDF
+                    pdf_content = generate_pdf_report(beam_data, results_plot)
+                    
+                    # Sla op en toon download knop
+                    st.download_button(
+                        label="⬇️ Download Rapport (PDF)",
+                        data=pdf_content,
+                        file_name="beamsolve_report.pdf",
+                        mime="application/pdf",
+                        key="download_report"
+                    )
+                except Exception as e:
+                    st.error(f"Fout bij genereren rapport: {str(e)}")
+
+if __name__ == "__main__":
+    main()
