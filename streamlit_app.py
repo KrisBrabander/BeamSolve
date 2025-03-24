@@ -527,8 +527,8 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Bereken interne krachten
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Bereken doorbuiging en rotatie
-    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+    # Bereken doorbuiging en rotatie met juiste profiel eigenschappen
+    A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
     EI = E * I
     
     if EI > 0:
@@ -569,7 +569,7 @@ def calculate_profile_properties(profile_type, height, width, wall_thickness, fl
     A = calculate_A(calc_type, height, width, wall_thickness, flange_thickness)
     I = calculate_I(calc_type, height, width, wall_thickness, flange_thickness)
     W = I / (height/2) if height > 0 else 0
-    return I, A, W
+    return A, I, W
 
 def generate_report_html(beam_data, results_plot):
     """Genereer een HTML rapport"""
@@ -900,7 +900,7 @@ def main():
         
         with col2:
             st.subheader("Profiel Details")
-            I, A, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
+            A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
             
             st.metric("Oppervlakte", f"{A:.0f} mm²")
             st.metric("Traagheidsmoment", f"{I:.0f} mm⁴")
