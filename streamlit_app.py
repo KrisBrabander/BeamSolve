@@ -902,6 +902,7 @@ def main():
             
             # Spanningen
             st.subheader("Spanningen")
+            st.subheader("Spanningen")          
             max_moment = max(abs(min(M)), abs(max(M)))
             sigma = max_moment / W
             st.metric("Max. buigspanning", f"{sigma:.1f} N/mm²")
@@ -937,6 +938,10 @@ def main():
                         "I": I,
                         "W": W
                     },
+                    "length": beam_length,
+                    "E": E,
+                    "supports": supports,
+                    "loads": loads,
                     "results": {
                         "max_V": max(abs(np.min(V)), abs(np.max(V))),
                         "max_M": max_moment,
@@ -948,13 +953,16 @@ def main():
                 }
                 
                 # Genereer rapport
-                html_content = generate_report_html(beam_data, results_plot)
-                output_dir = "reports"
-                os.makedirs(output_dir, exist_ok=True)
-                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                output_path = os.path.join(output_dir, f"beamsolve_report_{timestamp}.html")
-                save_report(html_content, output_path)
-                st.success(f"Rapport opgeslagen als: {output_path}")
+                try:
+                    html_content = generate_report_html(beam_data, results_plot)
+                    output_dir = "reports"
+                    os.makedirs(output_dir, exist_ok=True)
+                    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    output_path = os.path.join(output_dir, f"beamsolve_report_{timestamp}.html")
+                    save_report(html_content, output_path)
+                    st.success(f"Rapport opgeslagen als: {output_path}")
+                except Exception as e:
+                    st.error(f"Fout bij genereren rapport: {str(e)}")
 
 if __name__ == "__main__":
     main()
