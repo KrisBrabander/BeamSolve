@@ -146,103 +146,71 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
     # Bereken schalingsfactor voor doorbuiging
     if x is not None and deflection is not None and np.any(deflection != 0):
         max_defl = max(abs(np.max(deflection)), abs(np.min(deflection)))
-        scale_factor = beam_length / (10 * max_defl)  # Maak doorbuiging duidelijker zichtbaar
+        scale_factor = beam_length / (20 * max_defl) if max_defl > 0 else 1
     else:
         scale_factor = 1
         deflection = np.zeros_like(x) if x is not None else None
 
     # Teken de balk
     if x is not None and deflection is not None:
-        # Teken vervormde balk (dikke lijn)
+        # Teken vervormde balk
         scaled_deflection = deflection * scale_factor
         fig.add_trace(go.Scatter(
             x=x,
             y=scaled_deflection,
             mode='lines',
-            name='Vervormde balk',
-            line=dict(color='#2c3e50', width=6),
+            name='Balk',
+            line=dict(color='#7f8c8d', width=10),  # Dikkere grijze lijn
             hovertemplate='Positie: %{x:.0f} mm<br>Doorbuiging: %{text:.2f} mm',
             text=deflection
         ))
-        
-        # Teken onvervormde balk (gestippelde lijn)
-        fig.add_trace(go.Scatter(
-            x=[0, beam_length],
-            y=[0, 0],
-            mode='lines',
-            name='Onvervormde balk',
-            line=dict(color='#95a5a6', width=2, dash='dash')
-        ))
     else:
-        # Teken alleen onvervormde balk
+        # Teken onvervormde balk
         fig.add_trace(go.Scatter(
             x=[0, beam_length],
             y=[0, 0],
             mode='lines',
             name='Balk',
-            line=dict(color='#2c3e50', width=6)
+            line=dict(color='#7f8c8d', width=10)  # Dikkere grijze lijn
         ))
-    
+
     # Teken steunpunten
     for pos, type in supports:
         y_pos = deflection[np.abs(x - pos).argmin()] * scale_factor if x is not None and deflection is not None else 0
         
         if type == "Vast":
-            # Driehoek voor vaste oplegging
-            triangle_x = [pos-40, pos, pos+40]
-            triangle_y = [y_pos-50, y_pos, y_pos-50]
+            # Rechthoek voor vaste inklemming
             fig.add_trace(go.Scatter(
-                x=triangle_x,
-                y=triangle_y,
+                x=[pos-5, pos-5, pos+5, pos+5, pos-5],
+                y=[y_pos-40, y_pos+40, y_pos+40, y_pos-40, y_pos-40],
                 fill="toself",
                 mode='lines',
-                name='Vaste oplegging',
+                name='Vaste inklemming',
                 line=dict(color='#e74c3c', width=2),
-                fillcolor='rgba(231, 76, 60, 0.3)',
-                hoverinfo='name+text',
-                text=f'<br>Positie: {pos:.0f} mm'
+                fillcolor='rgba(231, 76, 60, 0.3)'
             ))
             
             # Arcering voor inklemming
             for i in range(-35, 36, 10):
                 fig.add_trace(go.Scatter(
-                    x=[pos-40, pos+40],
-                    y=[y_pos-50+i, y_pos-50+i],
+                    x=[pos-15, pos-5],
+                    y=[y_pos+i, y_pos+i],
                     mode='lines',
                     line=dict(color='#e74c3c', width=1),
                     showlegend=False
                 ))
         else:
             # Driehoek voor scharnier
-            triangle_x = [pos-40, pos, pos+40]
-            triangle_y = [y_pos-50, y_pos, y_pos-50]
             fig.add_trace(go.Scatter(
-                x=triangle_x,
-                y=triangle_y,
+                x=[pos-20, pos, pos+20],
+                y=[y_pos-20, y_pos, y_pos-20],
                 fill="toself",
                 mode='lines',
-                name='Scharnieroplegging',
-                line=dict(color='#3498db', width=2),
-                fillcolor='rgba(52, 152, 219, 0.3)',
-                hoverinfo='name+text',
-                text=f'<br>Positie: {pos:.0f} mm'
+                name='Scharnier',
+                line=dict(color='#e74c3c', width=2),
+                fillcolor='rgba(231, 76, 60, 0.3)'
             ))
-            
-            # Cirkels voor rol
-            for dx in [-20, 0, 20]:
-                theta = np.linspace(0, 2*np.pi, 50)
-                circle_x = pos + dx + 8 * np.cos(theta)
-                circle_y = y_pos-58 + 8 * np.sin(theta)
-                fig.add_trace(go.Scatter(
-                    x=circle_x,
-                    y=circle_y,
-                    mode='lines',
-                    line=dict(color='#3498db', width=1),
-                    fill='toself',
-                    fillcolor='rgba(52, 152, 219, 0.3)',
-                    showlegend=False
-                ))
-    
+
     # Teken belastingen
     for load in loads:
         pos, value, type = load[:3]
@@ -250,89 +218,65 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
         
         if type == "Puntlast":
             # Pijl voor puntlast
-            arrow_height = 80 if value >= 0 else -80
+            arrow_height = 60
             fig.add_trace(go.Scatter(
                 x=[pos, pos],
                 y=[y_pos + arrow_height, y_pos],
                 mode='lines',
-                name=f'Puntlast {abs(value):.0f} N',
-                line=dict(color='#2ecc71', width=3),
-                hovertemplate='Puntlast<br>Waarde: %{text:.0f} N<br>Positie: %{x:.0f} mm',
-                text=[abs(value), abs(value)]
+                name=f'F = {abs(value):.0f} N',
+                line=dict(color='#3498db', width=3)
             ))
             
             # Pijlpunt
-            head_size = 20
-            if value >= 0:
-                fig.add_trace(go.Scatter(
-                    x=[pos-head_size/2, pos, pos+head_size/2],
-                    y=[y_pos + arrow_height - head_size, y_pos + arrow_height, y_pos + arrow_height - head_size],
-                    mode='lines',
-                    line=dict(color='#2ecc71', width=3),
-                    showlegend=False
-                ))
-            else:
-                fig.add_trace(go.Scatter(
-                    x=[pos-head_size/2, pos, pos+head_size/2],
-                    y=[y_pos + arrow_height + head_size, y_pos + arrow_height, y_pos + arrow_height + head_size],
-                    mode='lines',
-                    line=dict(color='#2ecc71', width=3),
-                    showlegend=False
-                ))
-        
+            head_size = 15
+            fig.add_trace(go.Scatter(
+                x=[pos-head_size/2, pos, pos+head_size/2],
+                y=[y_pos + head_size, y_pos, y_pos + head_size],
+                mode='lines',
+                line=dict(color='#3498db', width=3),
+                showlegend=False
+            ))
+            
         elif type == "Verdeelde last":
             # Verdeelde last met meerdere pijlen
             length = load[3]
-            num_arrows = int(length / 200) + 2  # Aantal pijlen afhankelijk van lengte
+            num_arrows = int(length / 200) + 2
             positions = np.linspace(pos, pos + length, num_arrows)
-            arrow_height = 60 if value >= 0 else -60
+            arrow_height = 60
             
             # Lijn boven pijlen
-            y_loads = [deflection[np.abs(x - p).argmin()] * scale_factor if x is not None and deflection is not None else 0 for p in positions]
             fig.add_trace(go.Scatter(
                 x=[pos, pos + length],
                 y=[y_pos + arrow_height, y_pos + arrow_height],
                 mode='lines',
                 name=f'q = {abs(value):.1f} N/mm',
-                line=dict(color='#f1c40f', width=3),
-                hovertemplate='Verdeelde last<br>q = %{text:.1f} N/mm<br>Lengte: ' + f'{length:.0f} mm',
-                text=[abs(value), abs(value)]
+                line=dict(color='#3498db', width=3)
             ))
             
             # Pijlen
             for p in positions:
-                y_load = deflection[np.abs(x - p).argmin()] * scale_factor if x is not None and deflection is not None else 0
                 fig.add_trace(go.Scatter(
                     x=[p, p],
-                    y=[y_load + arrow_height, y_load],
+                    y=[y_pos + arrow_height, y_pos],
                     mode='lines',
-                    line=dict(color='#f1c40f', width=2),
+                    line=dict(color='#3498db', width=2),
                     showlegend=False
                 ))
                 
                 # Pijlpunt
-                head_size = 15
-                if value >= 0:
-                    fig.add_trace(go.Scatter(
-                        x=[p-head_size/2, p, p+head_size/2],
-                        y=[y_load + head_size, y_load, y_load + head_size],
-                        mode='lines',
-                        line=dict(color='#f1c40f', width=2),
-                        showlegend=False
-                    ))
-                else:
-                    fig.add_trace(go.Scatter(
-                        x=[p-head_size/2, p, p+head_size/2],
-                        y=[y_load - head_size, y_load, y_load - head_size],
-                        mode='lines',
-                        line=dict(color='#f1c40f', width=2),
-                        showlegend=False
-                    ))
-        
+                head_size = 10
+                fig.add_trace(go.Scatter(
+                    x=[p-head_size/2, p, p+head_size/2],
+                    y=[y_pos + head_size, y_pos, y_pos + head_size],
+                    mode='lines',
+                    line=dict(color='#3498db', width=2),
+                    showlegend=False
+                ))
+                
         elif type == "Moment":
             # Gebogen pijl voor moment
-            radius = 40
-            theta = np.linspace(-np.pi, np.pi, 50)
+            radius = 30
+            theta = np.linspace(-np.pi/2, np.pi, 50)
             x_circle = pos + radius * np.cos(theta)
             y_circle = y_pos + radius * np.sin(theta)
             
@@ -340,24 +284,17 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
                 x=x_circle,
                 y=y_circle,
                 mode='lines',
-                name=f'Moment {abs(value):.0f} Nmm',
-                line=dict(color='#9b59b6', width=3),
-                hovertemplate='Moment<br>Waarde: %{text:.0f} Nmm<br>Positie: ' + f'{pos:.0f} mm',
-                text=[abs(value)]
+                name=f'M = {abs(value):.0f} Nmm',
+                line=dict(color='#9b59b6', width=3)
             ))
             
             # Pijlpunt
-            arrow_angle = 0 if value >= 0 else np.pi
-            arrow_x = [
-                pos + radius * np.cos(arrow_angle),
-                pos + (radius + 15) * np.cos(arrow_angle),
-                pos + radius * np.cos(arrow_angle + np.pi/6)
-            ]
-            arrow_y = [
-                y_pos + radius * np.sin(arrow_angle),
-                y_pos + (radius + 15) * np.sin(arrow_angle),
-                y_pos + radius * np.sin(arrow_angle + np.pi/6)
-            ]
+            arrow_x = [pos + radius * np.cos(np.pi),
+                      pos + (radius + 10) * np.cos(np.pi),
+                      pos + radius * np.cos(np.pi + np.pi/6)]
+            arrow_y = [y_pos + radius * np.sin(np.pi),
+                      y_pos + (radius + 10) * np.sin(np.pi),
+                      y_pos + radius * np.sin(np.pi + np.pi/6)]
             fig.add_trace(go.Scatter(
                 x=arrow_x,
                 y=arrow_y,
@@ -367,52 +304,35 @@ def plot_beam_diagram(beam_length, supports, loads, x=None, deflection=None):
             ))
     
     # Update layout
-    margin = 150  # Grotere marge voor belastingen en steunpunten
-    y_range = [-150, 150]
+    margin = 100
+    y_range = [-100, 100]
     if x is not None and deflection is not None:
-        y_min = min(-150, np.min(scaled_deflection) * 1.2)
-        y_max = max(150, np.max(scaled_deflection) * 1.2)
+        y_min = min(-100, np.min(scaled_deflection) - 50)
+        y_max = max(100, np.max(scaled_deflection) + 50)
         y_range = [y_min, y_max]
     
     fig.update_layout(
         showlegend=True,
-        legend=dict(
-            x=0,
-            y=1,
-            bgcolor='rgba(255, 255, 255, 0.8)',
-            bordercolor='rgba(0, 0, 0, 0.3)',
-            borderwidth=1
-        ),
         xaxis=dict(
             range=[-margin, beam_length + margin],
-            title="Positie (mm)",
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(0, 0, 0, 0.1)',
-            zeroline=True,
-            zerolinewidth=2,
-            zerolinecolor='rgba(0, 0, 0, 0.5)'
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            showticklabels=False
         ),
         yaxis=dict(
             range=y_range,
-            title="Doorbuiging (mm)",
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(0, 0, 0, 0.1)',
-            zeroline=True,
-            zerolinewidth=2,
-            zerolinecolor='rgba(0, 0, 0, 0.5)',
+            showgrid=False,
+            zeroline=False,
+            showline=False,
+            showticklabels=False,
             scaleanchor="x",
             scaleratio=1
         ),
-        title=dict(
-            text="Balkschema met Vervormingen",
-            x=0.5,
-            y=0.95
-        ),
-        plot_bgcolor='white',
-        height=600,  # Grotere hoogte voor betere visualisatie
-        margin=dict(t=100, b=100)
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        margin=dict(l=50, r=50, t=50, b=50),
+        height=400
     )
     
     return fig
