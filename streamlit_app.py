@@ -152,10 +152,10 @@ def plot_beam_diagram(beam_length, supports, loads):
     # Teken steunpunten
     for pos, type in supports:
         x_pos = pos/1000  # Convert to meters
-        triangle_size = beam_length/50  # Move this line before the if statement
+        triangle_size = beam_length/50
         type = type.lower()  # Convert to lowercase for consistent comparison
-        if type == "vast":
-            # Vaste oplegging (driehoek met arcering)
+        if type == "inklemming":
+            # Inklemming (driehoek met arcering)
             fig.add_trace(go.Scatter(
                 x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
                 y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
@@ -163,7 +163,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 mode='lines',
                 line=dict(color='black', width=2),
                 fillcolor='lightgray',
-                name='Vast'
+                name='Inklemming'
             ))
             # Arcering lijnen
             for offset in np.linspace(-triangle_size/1000, triangle_size/1000, 5):
@@ -812,7 +812,7 @@ def main():
             with col2:
                 type = st.selectbox(
                     f"Type {i+1}",
-                    ["Vast", "Scharnier", "Rol"],
+                    ["Inklemming", "Scharnier", "Rol"],
                     index=0 if i == 0 else 1
                 )
             supports.append((pos, type))
