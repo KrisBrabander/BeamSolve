@@ -628,7 +628,7 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk en bereken dwarskrachten, momenten, rotatie en doorbuiging"""
-    # Aantal punten voor berekening (meer punten voor betere nauwkeurigheid)
+    # Aantal punten voor berekening
     n_points = 2001
     x = np.linspace(0, beam_length, n_points)
     dx = x[1] - x[0]
@@ -684,25 +684,45 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
         
         # Pas randvoorwaarden toe voor dit segment
         if start_idx in support_indices:
-            # Steunpunt aan begin: zet doorbuiging op nul
+            # Vind het type steunpunt aan het begin van dit segment
+            support_pos = x[start_idx]
+            support_type = next(type.lower() for pos, type in supports if abs(pos - support_pos) < dx)
+            
+            # Zet doorbuiging op nul bij steunpunt
             seg_deflection -= seg_deflection[0]
             
-            # Check voor inklemming aan begin
-            if any(type.lower() == "inklemming" for pos, type in supports if np.abs(x[start_idx] - pos) < dx):
-                # Corrigeer rotatie voor inklemming
+            if support_type == "inklemming":
+                # Bij inklemming: rotatie = 0
                 seg_rotation -= seg_rotation[0]
                 # Corrigeer doorbuiging voor rotatie
                 slope_correction = x[start_idx:end_idx+1] - x[start_idx]
                 seg_deflection -= slope_correction * seg_rotation[0]
         
+        # Pas eindvoorwaarden toe als dit het laatste segment is
+        if end_idx == len(x)-1 or end_idx in support_indices:
+            # Vind het type steunpunt aan het einde
+            end_pos = x[end_idx]
+            if end_idx in support_indices:
+                end_type = next(type.lower() for pos, type in supports if abs(pos - end_pos) < dx)
+                if end_type == "inklemming":
+                    # Bij inklemming aan eind: rotatie = 0
+                    rotation_correction = seg_rotation[-1]
+                    seg_rotation -= rotation_correction
+                    # Corrigeer doorbuiging
+                    slope_correction = x[start_idx:end_idx+1] - x[end_idx]
+                    seg_deflection -= slope_correction * rotation_correction
+                # Bij scharnier: doorbuiging = 0 (al gedaan bij volgende segment)
+        
         # Kopieer resultaten naar hoofdarrays
         rotation[start_idx:end_idx+1] = seg_rotation
         deflection[start_idx:end_idx+1] = seg_deflection
     
-    # Zorg dat doorbuiging exact nul is bij steunpunten
+    # Zorg dat doorbuiging exact nul is bij alle steunpunten
     for idx in support_indices:
         deflection[idx] = 0.0
-        if any(type.lower() == "inklemming" for pos, type in supports if np.abs(x[idx] - pos) < dx):
+        support_pos = x[idx]
+        support_type = next(type.lower() for pos, type in supports if abs(pos - support_pos) < dx)
+        if support_type == "inklemming":
             rotation[idx] = 0.0
     
     return x, V, M, rotation, deflection
