@@ -490,62 +490,49 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     """Bereken dwarskracht en moment op elke positie x"""
     V = np.zeros_like(x)  # Dwarskracht array
     M = np.zeros_like(x)  # Moment array
+    dx = x[1] - x[0]
     
-    # Verwerk reactiekrachten
-    for pos, reaction_force in reactions.items():
-        idx = np.searchsorted(x, pos)
-        if idx < len(x):
-            V[idx:] += reaction_force
+    # Verwerk alle krachten in één keer met numpy operaties
+    for pos, force in reactions.items():
+        V += force * (x >= pos)
     
-    # Verwerk belastingen
     for load in loads:
-        pos = load[0]
-        value = load[1]
-        load_type = load[2]
+        pos, value, load_type = load[:3]
         
         if load_type == "Puntlast":
-            idx = np.searchsorted(x, pos)
-            if idx < len(x):
-                V[idx:] -= value
-                
+            V -= value * (x >= pos)
+            
         elif load_type == "Moment":
-            idx = np.searchsorted(x, pos)
-            if idx < len(x):
-                M[idx:] -= value
-                
+            M -= value * (x >= pos)
+            
         elif load_type in ["Verdeelde last", "Driehoekslast"]:
             length = load[3]
-            start_idx = np.searchsorted(x, pos)
-            end_idx = np.searchsorted(x, pos + length)
+            end_pos = pos + length
+            load_region = (x >= pos) & (x <= end_pos)
+            beyond_region = x > end_pos
             
             if load_type == "Verdeelde last":
-                # Verwerk uniforme belasting
-                for i in range(start_idx, min(end_idx + 1, len(x))):
-                    segment_length = min(x[i] + length - pos, length) if i == end_idx else x[i+1] - x[i]
-                    V[i:] -= value * segment_length
-                    
+                # Vectorized calculation
+                V[load_region] -= value * (x[load_region] - pos)
+                V[beyond_region] -= value * length
             else:  # Driehoekslast
-                # Verwerk driehoekige belasting
-                for i in range(start_idx, min(end_idx + 1, len(x))):
-                    local_x = x[i] - pos
-                    if 0 <= local_x <= length:
-                        local_value = value * (local_x / length)
-                        segment_length = min(x[i] + length - pos, length) if i == end_idx else x[i+1] - x[i]
-                        V[i:] -= local_value * segment_length
+                # Vectorized triangle load
+                local_x = np.where(load_region, x - pos, 0)
+                local_q = value * (local_x / length)
+                V[load_region] -= 0.5 * local_q[load_region] * local_x[load_region]
+                V[beyond_region] -= 0.5 * value * length
     
-    # Bereken moment door dwarskracht te integreren
-    dx = x[1] - x[0]
-    M = np.zeros_like(x)
-    for i in range(1, len(x)):
-        M[i] = M[i-1] + V[i-1] * dx
+    # Bereken moment met cumsum
+    M += np.cumsum(V) * dx
     
     return V, M
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk en bereken dwarskrachten, momenten, rotatie en doorbuiging"""
-    # Maak een array van x-posities voor de berekening
-    num_points = 101  # Aantal punten voor een vloeiende grafiek
+    # Optimaal aantal punten voor goede nauwkeurigheid en snelheid
+    num_points = 201
     x = np.linspace(0, beam_length, num_points)
+    dx = x[1] - x[0]
     
     # Bereken reactiekrachten
     reactions = calculate_reactions(beam_length, supports, loads)
@@ -555,48 +542,44 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     
     # Bereken doorbuiging en rotatie
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+    EI = E * I
     
-    if I > 0 and E > 0:  # Voorkom delen door nul
-        dx = x[1] - x[0]
-        # Bereken rotatie door moment te integreren
-        theta = np.zeros_like(x)
-        for i in range(1, len(x)):
-            theta[i] = theta[i-1] + (M[i-1] / (E * I)) * dx
+    if EI > 0:
+        # Vectorized berekeningen voor rotatie en doorbuiging
+        theta = np.cumsum(M / EI) * dx
+        w = np.cumsum(theta) * dx
         
-        # Bereken doorbuiging door rotatie te integreren
-        w = np.zeros_like(x)
-        for i in range(1, len(x)):
-            w[i] = w[i-1] + theta[i-1] * dx
-        
-        # Pas randvoorwaarden toe voor steunpunten
-        support_indices = []
-        for support in supports:
-            idx = np.searchsorted(x, support[0])
-            if idx < len(x):
-                support_indices.append(idx)
+        # Pas randvoorwaarden toe
+        support_positions = np.array([s[0] for s in supports])
+        support_indices = np.array([np.abs(x - pos).argmin() for pos in support_positions])
         
         if len(support_indices) >= 2:
-            # Los vergelijkingen op voor randvoorwaarden
-            A = np.array([[1, 1], [support_indices[1] - support_indices[0], 1]])
-            b = np.array([-w[support_indices[0]], -w[support_indices[1]]])
+            # Matrix oplossing voor randvoorwaarden
+            idx1, idx2 = support_indices[:2]
+            A = np.array([[1, 1], [idx2 - idx1, 1]])
+            b = np.array([-w[idx1], -w[idx2]])
+            
             try:
-                solution = np.linalg.solve(A, b)
-                rotation_correction = solution[0]
-                displacement_correction = solution[1]
-                
-                # Pas correcties toe
-                for i in range(len(x)):
-                    w[i] += rotation_correction * (i - support_indices[0]) + displacement_correction
+                c1, c2 = np.linalg.solve(A, b)
+                # Vectorized correctie
+                w += c1 * np.arange(len(x)) + c2
+                theta += c1
             except np.linalg.LinAlgError:
-                # Als het stelsel niet oplosbaar is, zet alles op nul
-                w = np.zeros_like(x)
-                theta = np.zeros_like(x)
+                w.fill(0)
+                theta.fill(0)
     else:
-        # Als I of E ongeldig is, zet alles op nul
-        theta = np.zeros_like(x)
         w = np.zeros_like(x)
+        theta = np.zeros_like(x)
     
     return x, V, M, theta, w
+
+@st.cache_data
+def calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness):
+    """Cache profiel eigenschappen voor snellere berekeningen"""
+    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+    A = calculate_A(profile_type, height, width, wall_thickness, flange_thickness)
+    W = I / (height/2) if height > 0 else 0
+    return I, A, W
 
 def generate_report_html(beam_data, results_plot):
     """Genereer een HTML rapport"""
@@ -923,9 +906,7 @@ def main():
         
         with col2:
             st.subheader("Profiel Details")
-            I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
-            W = I / (height/2)
-            A = calculate_A(profile_type, height, width, wall_thickness, flange_thickness)
+            I, A, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
             
             st.metric("Oppervlakte", f"{A:.0f} mm²")
             st.metric("Traagheidsmoment", f"{I:.0f} mm⁴")
