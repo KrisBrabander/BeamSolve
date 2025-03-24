@@ -153,6 +153,7 @@ def plot_beam_diagram(beam_length, supports, loads):
     for pos, type in supports:
         x_pos = pos/1000  # Convert to meters
         triangle_size = beam_length/50  # Move this line before the if statement
+        type = type.lower()  # Convert to lowercase for consistent comparison
         if type == "vast":
             # Vaste oplegging (driehoek met arcering)
             fig.add_trace(go.Scatter(
@@ -161,12 +162,11 @@ def plot_beam_diagram(beam_length, supports, loads):
                 fill="toself",
                 mode='lines',
                 line=dict(color='black', width=2),
-                fillcolor='rgb(200,200,200)',
-                name='Vast steunpunt'
+                fillcolor='lightgray',
+                name='Vast'
             ))
-            # Arcering
-            for i in range(3):
-                offset = (i-1) * triangle_size/3000
+            # Arcering lijnen
+            for offset in np.linspace(-triangle_size/1000, triangle_size/1000, 5):
                 fig.add_trace(go.Scatter(
                     x=[x_pos+offset-triangle_size/2000, x_pos+offset+triangle_size/2000],
                     y=[-triangle_size/1000, -triangle_size/2000],
@@ -174,7 +174,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     line=dict(color='black', width=1),
                     showlegend=False
                 ))
-        else:
+        elif type == "scharnier":
             # Scharnier (driehoek)
             fig.add_trace(go.Scatter(
                 x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
@@ -185,12 +185,29 @@ def plot_beam_diagram(beam_length, supports, loads):
                 fillcolor='white',
                 name='Scharnier'
             ))
-            # Rol (cirkel)
+        elif type == "rol":
+            # Scharnier (driehoek)
             fig.add_trace(go.Scatter(
-                x=[x_pos-triangle_size/2000, x_pos+triangle_size/2000],
-                y=[-triangle_size/1000-triangle_size/2000]*2,
+                x=[x_pos-triangle_size/1000, x_pos+triangle_size/1000, x_pos, x_pos-triangle_size/1000],
+                y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
+                fill="toself",
+                mode='lines',
+                line=dict(color='black', width=2),
+                fillcolor='white',
+                name='Rol'
+            ))
+            # Rol (cirkel)
+            circle_radius = triangle_size/2000
+            theta = np.linspace(0, 2*np.pi, 50)
+            circle_x = x_pos + circle_radius * np.cos(theta)
+            circle_y = -triangle_size/1000 - circle_radius + circle_radius * np.sin(theta)
+            fig.add_trace(go.Scatter(
+                x=circle_x,
+                y=circle_y,
                 mode='lines',
                 line=dict(color='black', width=1),
+                fill='toself',
+                fillcolor='white',
                 showlegend=False
             ))
     
@@ -795,7 +812,7 @@ def main():
             with col2:
                 type = st.selectbox(
                     f"Type {i+1}",
-                    ["Vast", "Scharnier"],
+                    ["Vast", "Scharnier", "Rol"],
                     index=0 if i == 0 else 1
                 )
             supports.append((pos, type))
