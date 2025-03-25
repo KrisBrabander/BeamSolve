@@ -6,6 +6,7 @@ numpy
 
 # Visualisatie
 plotly
+kaleido
 
 # Rapportage
 reportlab
