@@ -231,10 +231,10 @@ def plot_beam_diagram(beam_length, supports, loads):
         x_pos = load[0]/1000
         value = load[1]
         load_type = load[2]
-        arrow_height = beam_length/40
         
         if load_type == "Puntlast":
-            # Moderne pijl voor puntlast
+            # Maak puntlast pijlen 1.5x langer dan verdeelde last pijlen
+            arrow_height = beam_length/25  # Was /40, nu langer
             # Label boven de pijl
             fig.add_trace(go.Scatter(
                 x=[x_pos],
@@ -263,6 +263,8 @@ def plot_beam_diagram(beam_length, supports, loads):
             )
             
         elif load_type == "Verdeelde last":
+            # Standaard hoogte voor verdeelde last
+            arrow_height = beam_length/40
             length = load[3]/1000 if len(load) > 3 else (beam_length - load[0])/1000
             # Label boven de verdeelde last
             fig.add_trace(go.Scatter(
@@ -310,7 +312,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             # Label boven het hoogste punt
             fig.add_trace(go.Scatter(
                 x=[x_pos + length],
-                y=[arrow_height/1000 + arrow_height/4000],
+                y=[beam_length/40/1000 + beam_length/40/4000],
                 mode='text',
                 text=[f'{value/1000:.1f} kN/m'],
                 textposition='top center',
@@ -321,7 +323,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             # Schuine lijn bovenaan
             fig.add_trace(go.Scatter(
                 x=[x_pos, x_pos+length],
-                y=[0, arrow_height/1000],
+                y=[0, beam_length/40/1000],
                 mode='lines',
                 line=dict(color=colors['load'], width=3),
                 showlegend=True,
@@ -333,7 +335,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             for i in range(num_arrows):
                 rel_pos = i/(num_arrows-1)
                 arrow_x = x_pos + length * rel_pos
-                current_height = (arrow_height/1000) * rel_pos  # Hoogte op basis van positie
+                current_height = (beam_length/40/1000) * rel_pos  # Hoogte op basis van positie
                 
                 # Pijlsteel
                 fig.add_trace(go.Scatter(
@@ -344,7 +346,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     showlegend=False
                 ))
                 # Pijlpunt (driehoek)
-                arrow_size = (arrow_height/4000) * rel_pos  # Pijlgrootte schaalt mee
+                arrow_size = (beam_length/40/4000) * rel_pos  # Pijlgrootte schaalt mee
                 if rel_pos > 0:  # Alleen pijlpunten tekenen als er een steel is
                     fig.add_shape(
                         type="path",
@@ -357,7 +359,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             # Label bij het moment
             fig.add_trace(go.Scatter(
                 x=[x_pos],
-                y=[arrow_height/1000 + arrow_height/4000],
+                y=[beam_length/40/1000 + beam_length/40/4000],
                 mode='text',
                 text=[f'{value/1e6:.1f} kNm'],
                 textposition='top center',
@@ -366,7 +368,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             ))
             
             # Moment cirkel met pijl
-            radius = arrow_height/2000
+            radius = beam_length/40/2000
             theta = np.linspace(-np.pi/2, 3*np.pi/2, 50)
             fig.add_trace(go.Scatter(
                 x=x_pos + radius*np.cos(theta),
