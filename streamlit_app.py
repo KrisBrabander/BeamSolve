@@ -154,14 +154,14 @@ def plot_beam_diagram(beam_length, supports, loads):
         x=[0, beam_length/1000],
         y=[0, 0],
         mode='lines',
-        line=dict(color=colors['beam'], width=8),  
+        line=dict(color=colors['beam'], width=6),
         name='Balk'
     ))
     
     # Teken steunpunten
     for pos, type in supports:
         x_pos = pos/1000  # Convert to meters
-        triangle_size = beam_length/40  
+        triangle_size = beam_length/50
         type = type.lower()
         
         if type == "inklemming":
@@ -171,20 +171,20 @@ def plot_beam_diagram(beam_length, supports, loads):
                 y=[-triangle_size/1000, triangle_size/1000, triangle_size/1000, -triangle_size/1000, -triangle_size/1000],
                 fill="toself",
                 mode='lines',
-                line=dict(color=colors['support'], width=3),  
+                line=dict(color=colors['support'], width=2),
                 fillcolor=colors['support'],
                 opacity=0.3,
                 name='Inklemming',
                 showlegend=True if type == "inklemming" else False
             ))
-            # Moderne arcering met dikkere lijnen
+            # Moderne arcering met dunnere lijnen
             for i in range(5):
                 offset = -triangle_size/1000 + i * triangle_size/500
                 fig.add_trace(go.Scatter(
                     x=[x_pos, x_pos+triangle_size/1000],
                     y=[offset, offset],
                     mode='lines',
-                    line=dict(color=colors['support'], width=2),  
+                    line=dict(color=colors['support'], width=1),
                     showlegend=False
                 ))
                 
@@ -195,7 +195,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
                 fill="toself",
                 mode='lines',
-                line=dict(color=colors['support'], width=3),  
+                line=dict(color=colors['support'], width=2),
                 fillcolor=colors['support'],
                 opacity=0.3,
                 name='Scharnier',
@@ -209,7 +209,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 y=[-triangle_size/1000, -triangle_size/1000, 0, -triangle_size/1000],
                 fill="toself",
                 mode='lines',
-                line=dict(color=colors['support'], width=3),  
+                line=dict(color=colors['support'], width=2),
                 fillcolor=colors['support'],
                 opacity=0.3,
                 name='Rol',
@@ -222,7 +222,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     x=[x_pos + i*circle_size*2],
                     y=[-triangle_size/1000 - circle_size],
                     mode='markers',
-                    marker=dict(size=10, color=colors['support']),  
+                    marker=dict(size=8, color=colors['support']),
                     showlegend=False
                 ))
     
@@ -231,7 +231,7 @@ def plot_beam_diagram(beam_length, supports, loads):
         x_pos = load[0]/1000
         value = load[1]
         load_type = load[2]
-        arrow_height = beam_length/35  
+        arrow_height = beam_length/40
         
         if load_type == "Puntlast":
             # Moderne pijl voor puntlast
@@ -239,7 +239,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 x=[x_pos, x_pos],
                 y=[arrow_height/1000, 0],
                 mode='lines',
-                line=dict(color=colors['load'], width=3),  
+                line=dict(color=colors['load'], width=2),
                 name=f'{value/1000:.1f} kN'
             ))
             # Pijlpunt
@@ -247,7 +247,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 x=[x_pos-arrow_height/2000, x_pos, x_pos+arrow_height/2000],
                 y=[arrow_height/2000, 0, arrow_height/2000],
                 mode='lines',
-                line=dict(color=colors['load'], width=3),  
+                line=dict(color=colors['load'], width=2),
                 showlegend=False
             ))
             
@@ -261,7 +261,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 x=[x_pos, x_pos+length],
                 y=[arrow_height/1000, arrow_height/1000],
                 mode='lines',
-                line=dict(color=colors['load'], width=3),  
+                line=dict(color=colors['load'], width=2),
                 showlegend=False
             ))
             
@@ -273,7 +273,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     x=[arrow_x, arrow_x],
                     y=[arrow_height/1000, 0],
                     mode='lines',
-                    line=dict(color=colors['load'], width=3),  
+                    line=dict(color=colors['load'], width=2),
                     showlegend=(i==0),
                     name=f'{value/1000:.1f} kN/m'
                 ))
@@ -282,7 +282,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     x=[arrow_x-arrow_height/4000, arrow_x, arrow_x+arrow_height/4000],
                     y=[arrow_height/4000, 0, arrow_height/4000],
                     mode='lines',
-                    line=dict(color=colors['load'], width=3),  
+                    line=dict(color=colors['load'], width=2),
                     showlegend=False
                 ))
             
@@ -292,11 +292,13 @@ def plot_beam_diagram(beam_length, supports, loads):
             num_arrows = min(max(int(length*5), 3), 10)
             
             # Verbindingslijn met gradient
+            x_gradient = np.linspace(x_pos, x_pos+length, 100)
+            y_gradient = np.linspace(0, arrow_height/1000, 100)
             fig.add_trace(go.Scatter(
                 x=[x_pos, x_pos+length],
                 y=[0, arrow_height/1000],
                 mode='lines',
-                line=dict(color=colors['load'], width=3),  
+                line=dict(color=colors['load'], width=2),
                 showlegend=False
             ))
             
@@ -311,7 +313,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     x=[arrow_x, arrow_x],
                     y=[arrow_height_scaled/1000, 0],
                     mode='lines',
-                    line=dict(color=colors['load'], width=3),  
+                    line=dict(color=colors['load'], width=2),
                     showlegend=(i==num_arrows-1),
                     name=f'{value/1000:.1f} kN/m'
                 ))
@@ -320,7 +322,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     x=[arrow_x-arrow_height/4000, arrow_x, arrow_x+arrow_height/4000],
                     y=[arrow_height_scaled/4000, 0, arrow_height_scaled/4000],
                     mode='lines',
-                    line=dict(color=colors['load'], width=3),  
+                    line=dict(color=colors['load'], width=2),
                     showlegend=False
                 ))
             
@@ -333,7 +335,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 x=x_pos + radius*np.cos(theta),
                 y=radius*np.sin(theta),
                 mode='lines',
-                line=dict(color=colors['load'], width=3),  
+                line=dict(color=colors['load'], width=2),
                 name=f'{value/1e6:.1f} kNm'
             ))
             # Pijlpunt op cirkel
@@ -346,7 +348,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                    radius*np.sin(arrow_angle-np.pi/6),
                    radius*np.sin(arrow_angle+np.pi/6)],
                 mode='lines',
-                line=dict(color=colors['load'], width=3),  
+                line=dict(color=colors['load'], width=2),
                 showlegend=False
             ))
     
@@ -365,7 +367,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             scaleratio=1,
             range=[-beam_length/20/1000, beam_length/20/1000],
             zeroline=True,
-            zerolinewidth=2,  
+            zerolinewidth=1,
             zerolinecolor=colors['beam'],
             showgrid=True,
             gridcolor=colors['grid'],
@@ -374,7 +376,7 @@ def plot_beam_diagram(beam_length, supports, loads):
         xaxis=dict(
             range=[-beam_length/20/1000, beam_length*1.1/1000],
             zeroline=True,
-            zerolinewidth=2,  
+            zerolinewidth=1,
             zerolinecolor=colors['beam'],
             showgrid=True,
             gridcolor=colors['grid'],
