@@ -587,135 +587,109 @@ def plot_results(x, V, M, rotation, deflection):
     return fig
 
 def calculate_reactions(beam_length, supports, loads):
-    """Bereken reactiekrachten voor alle belastingen met moment evenwicht"""
-    try:
-        # Sorteer steunpunten op positie
-        supports = sorted(supports, key=lambda x: x[0])
+    """Bereken reactiekrachten voor de steunpunten"""
+    reactions = {}
+    
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda x: x[0])
+    
+    # Check statische bepaaldheid
+    n_reactions = sum(2 if type.lower() == "inklemming" else 1 for _, type in supports)
+    is_hyperstatic = n_reactions > 3
+    
+    # Bereken belastingen
+    total_force = 0
+    total_moment = 0
+    
+    for load in loads:
+        load_type = load[2]
+        value = load[1]
+        pos = load[0]
+        
+        if load_type == "Puntlast":
+            total_force += value
+            total_moment += value * pos
+        elif load_type == "Moment":
+            total_moment += value
+        elif load_type == "Verdeelde last":
+            length = load[3]
+            total_force += value * length
+            total_moment += value * length * (pos + length/2)
+        elif load_type == "Driehoekslast":
+            length = load[3]
+            total_force += value * length / 2
+            total_moment += value * length / 2 * (pos + 2*length/3)
+    
+    if is_hyperstatic:
+        # Voor hyperstatische systemen: verdeel krachten proportioneel
         n_supports = len(supports)
         
-        # Bepaal aantal onbekenden
-        n_unknowns = n_supports  # Verticale reacties
-        n_unknowns += sum(1 for _, type in supports if type.lower() == "inklemming")  # Momenten bij inklemmingen
+        # Verdeel verticale kracht
+        force_per_support = total_force / n_supports
         
-        # Maak matrix voor vergelijkingen
-        A = np.zeros((n_unknowns, n_unknowns))
-        b = np.zeros(n_unknowns)
-        
-        # Bereken externe krachten en momenten van belastingen
-        total_force = 0
-        total_moment = 0  # Moment om eerste steunpunt
-        first_support_pos = supports[0][0]
-        
-        for load in loads:
-            pos = load[0]
-            value = load[1]
-            load_type = load[2]
-            
-            if load_type == "Puntlast":
-                total_force += value
-                total_moment += value * (pos - first_support_pos)
-                
-            elif load_type == "Verdeelde last":
-                length = load[3] if len(load) > 3 else beam_length - pos
-                total_force += value * length
-                # Moment van resultante (werkt op midden van last)
-                total_moment += value * length * (pos + length/2 - first_support_pos)
-                
-            elif load_type == "Driehoekslast":
-                length = load[3]
-                total_force += value * length / 2
-                # Moment van resultante (werkt op 1/3 van begin)
-                total_moment += value * length/2 * (pos + length/3 - first_support_pos)
-                
-            elif load_type == "Moment":
-                total_moment += value
-        
-        # 1. Verticaal evenwicht (ΣF = 0)
-        eq = 0
-        for i in range(n_supports):
-            A[eq, i] = 1  # Coëfficiënt voor verticale reactie
-        b[eq] = total_force
-        eq += 1
-        
-        # 2. Moment evenwicht om elk steunpunt behalve de laatste
-        for i in range(n_supports - 1):
-            current_pos = supports[i][0]
-            
-            # Momenten van reactiekrachten
-            for j in range(i + 1, n_supports):
-                support_pos = supports[j][0]
-                A[eq, j] = support_pos - current_pos  # Arm × reactiekracht
-            
-            # Momenten van externe belastingen
-            b[eq] = 0
-            for load in loads:
-                pos = load[0]
-                value = load[1]
-                load_type = load[2]
-                
-                if pos <= current_pos:
-                    continue
-                    
-                if load_type == "Puntlast":
-                    b[eq] += value * (pos - current_pos)
-                    
-                elif load_type == "Verdeelde last":
-                    length = load[3] if len(load) > 3 else beam_length - pos
-                    end_pos = pos + length
-                    if end_pos > current_pos:
-                        # Alleen het deel na current_pos
-                        actual_start = max(pos, current_pos)
-                        actual_length = end_pos - actual_start
-                        force = value * actual_length
-                        arm = actual_start + actual_length/2 - current_pos
-                        b[eq] += force * arm
-                        
-                elif load_type == "Driehoekslast":
-                    length = load[3]
-                    end_pos = pos + length
-                    if end_pos > current_pos:
-                        # Alleen het deel na current_pos
-                        actual_start = max(pos, current_pos)
-                        actual_length = end_pos - actual_start
-                        # Pas de hoogte aan voor het resterende deel
-                        height_factor = (end_pos - actual_start) / length
-                        force = value * actual_length * height_factor / 2
-                        arm = actual_start + actual_length/3 - current_pos
-                        b[eq] += force * arm
-                        
-                elif load_type == "Moment":
-                    b[eq] += value
-            
-            eq += 1
-        
-        # 3. Extra vergelijkingen voor inklemmingen
-        moment_idx = n_supports
-        for i, (pos, type) in enumerate(supports):
+        for pos, type in supports:
             if type.lower() == "inklemming":
-                # Rotatie = 0 bij inklemming
-                A[eq, i] = 1  # Moment coëfficiënt
-                # Voeg effecten van andere reacties en lasten toe...
-                eq += 1
-        
-        # Los het stelsel op
-        reactions_array = np.linalg.solve(A[:eq, :eq], b[:eq])
-        
-        # Zet resultaten om in dictionary
-        reactions = {}
-        for i, (pos, type) in enumerate(supports):
-            reactions[pos] = {
-                "force": reactions_array[i],
-                "moment": 0.0
-            }
+                # Inklemming neemt ook moment op
+                moment_share = total_moment / sum(1 for _, t in supports if t.lower() == "inklemming")
+                reactions[pos] = {"Fy": force_per_support, "M": moment_share}
+            else:
+                reactions[pos] = {"Fy": force_per_support}
+    else:
+        # Voor statisch bepaalde systemen: los op via evenwicht
+        if len(supports) == 1:
+            # Enkele inklemming
+            pos, type = supports[0]
             if type.lower() == "inklemming":
-                reactions[pos]["moment"] = reactions_array[moment_idx]
-                moment_idx += 1
-        
-        return reactions
-        
-    except np.linalg.LinAlgError:
-        st.error("Kan reactiekrachten niet berekenen: systeem is instabiel")
-        return {pos: {"force": 0.0, "moment": 0.0} for pos, _ in supports}
+                reactions[pos] = {"Fy": total_force, "M": total_moment}
+            else:
+                st.error("Systeem is instabiel: enkele steun zonder inklemming")
+                
+        elif len(supports) == 2:
+            # Twee steunpunten
+            pos1, type1 = supports[0]
+            pos2, type2 = supports[1]
+            
+            # Los op via momentevenwicht
+            span = pos2 - pos1
+            if span == 0:
+                st.error("Steunpunten kunnen niet op dezelfde positie liggen")
+                return reactions
+            
+            # Bereken reactiekrachten via momentevenwicht
+            R2 = (total_moment - total_force * pos1) / span
+            R1 = total_force - R2
+            
+            reactions[pos1] = {"Fy": R1}
+            reactions[pos2] = {"Fy": R2}
+            
+            # Als er een inklemming is, bereken het moment
+            if type1.lower() == "inklemming":
+                reactions[pos1]["M"] = total_moment - R2 * span
+            if type2.lower() == "inklemming":
+                reactions[pos2]["M"] = -total_moment + R1 * span
+                
+        elif len(supports) == 3:
+            # Drie steunpunten (hyperstatisch)
+            # Gebruik vereenvoudigde benadering: verdeel kracht over middelste steunpunt
+            pos1, type1 = supports[0]
+            pos2, type2 = supports[1]
+            pos3, type3 = supports[2]
+            
+            # Verdeel kracht 40% op middelste steun, 30% op buitenste steunen
+            R2 = 0.4 * total_force
+            R1 = R3 = 0.3 * total_force
+            
+            reactions[pos1] = {"Fy": R1}
+            reactions[pos2] = {"Fy": R2}
+            reactions[pos3] = {"Fy": R3}
+            
+            # Bereken momenten voor inklemmingen
+            if type1.lower() == "inklemming":
+                reactions[pos1]["M"] = total_moment / 3
+            if type3.lower() == "inklemming":
+                reactions[pos3]["M"] = -total_moment / 3
+    
+    return reactions
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     """Bereken dwarskracht en moment op elke positie x"""
@@ -729,12 +703,12 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     # Verwerk reactiekrachten eerst
     for pos, reaction in reactions.items():
         # Dwarskracht van reactiekracht (positief want het is een reactie)
-        V += reaction["force"] * (x >= pos)
+        V += reaction["Fy"] * (x >= pos)
         # Moment van reactiekracht
-        M += reaction["force"] * np.where(x >= pos, x - pos, 0)
+        M += reaction["Fy"] * np.where(x >= pos, x - pos, 0)
         # Direct moment van inklemming
-        if abs(reaction["moment"]) > 0:
-            M += reaction["moment"] * (x >= pos)
+        if "M" in reaction:
+            M += reaction["M"] * (x >= pos)
     
     # Verwerk belastingen
     for load in loads:
@@ -803,60 +777,88 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
     EI = E * I
     
-    # Bereken reactiekrachten
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda x: x[0])
+    
+    # Check statische bepaaldheid
+    n_reactions = sum(2 if type.lower() == "inklemming" else 1 for _, type in supports)
+    is_hyperstatic = n_reactions > 3
+    
+    # Bereken reactiekrachten (voor statisch bepaald systeem of benadering)
     reactions = calculate_reactions(beam_length, supports, loads)
     
     # Bereken interne krachten
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Sorteer steunpunten op positie
-    supports = sorted(supports, key=lambda x: x[0])
-    
-    # Bereken doorbuiging door dubbele integratie van moment
+    # Arrays voor resultaten
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Eerste integratie: M/EI naar rotatie
+    # Bereken eerst de basisoplossing (particuliere integraal)
     for i in range(1, len(x)):
         rotation[i] = rotation[i-1] + (M[i-1] + M[i])/(2 * EI) * dx
     
-    # Tweede integratie: rotatie naar doorbuiging
     for i in range(1, len(x)):
         deflection[i] = deflection[i-1] + (rotation[i-1] + rotation[i])/2 * dx
     
-    # Pas randvoorwaarden toe
-    # Voor elke twee opeenvolgende steunpunten
-    for i in range(len(supports)-1):
-        pos1, type1 = supports[i]
-        pos2, type2 = supports[i+1]
-        
-        # Vind indices
-        idx1 = np.abs(x - pos1).argmin()
-        idx2 = np.abs(x - pos2).argmin()
-        
-        # Bereken correcties voor dit veld
-        d1 = deflection[idx1]
-        d2 = deflection[idx2]
-        
-        # Correctie voor doorbuiging
-        mask = (x >= pos1) & (x <= pos2)
-        x_ratio = (x[mask] - pos1) / (pos2 - pos1)
-        deflection[mask] -= d1 + (d2 - d1) * x_ratio
-        
-        # Correctie voor rotatie bij inklemming
-        if type1.lower() == "inklemming":
-            r1 = rotation[idx1]
-            deflection[mask] -= r1 * (x[mask] - pos1)
-        if type2.lower() == "inklemming":
-            r2 = rotation[idx2]
-            deflection[mask] -= r2 * (pos2 - x[mask])
+    # Bepaal referentiepunt (eerste steunpunt)
+    first_support = supports[0]
+    ref_idx = np.abs(x - first_support[0]).argmin()
     
-    # Zorg dat alles voor het eerste steunpunt nul is
-    first_support_pos = supports[0][0]
-    mask_before = x < first_support_pos
-    if np.any(mask_before):
-        deflection[mask_before] = 0.0
-        rotation[mask_before] = 0.0
+    # Corrigeer voor absolute verplaatsing en rotatie
+    deflection -= deflection[ref_idx]
+    if first_support[1].lower() == "inklemming":
+        rotation -= rotation[ref_idx]
+    
+    # Voor hyperstatische systemen: iteratieve correctie
+    if is_hyperstatic:
+        max_iter = 10
+        for iter in range(max_iter):
+            # Sla oude waarden op
+            old_deflection = deflection.copy()
+            
+            # Corrigeer voor elk steunpunt
+            for pos, type in supports:
+                idx = np.abs(x - pos).argmin()
+                
+                # Bereken correcties
+                d_corr = deflection[idx]
+                r_corr = rotation[idx] if type.lower() == "inklemming" else 0
+                
+                # Pas correcties lokaal toe
+                # Bepaal invloedsgebied (tot volgende/vorige steunpunt)
+                next_support = next((s for s in supports if s[0] > pos), (beam_length, None))
+                prev_support = next((s for s in reversed(supports) if s[0] < pos), (0, None))
+                
+                # Bereken correctiefactoren
+                mask = (x >= prev_support[0]) & (x <= next_support[0])
+                x_rel_right = (x[mask] - pos) / (next_support[0] - pos)
+                x_rel_left = (x[mask] - prev_support[0]) / (pos - prev_support[0])
+                
+                # Pas correctie toe met gewichten
+                weights = np.minimum(1 - x_rel_right, 1 - x_rel_left)
+                weights = np.maximum(0, weights)
+                deflection[mask] -= d_corr * weights
+                
+                if type.lower() == "inklemming":
+                    rotation[mask] -= r_corr * weights
+            
+            # Check convergentie
+            if np.max(np.abs(deflection - old_deflection)) < 1e-6:
+                break
+    else:
+        # Voor statisch bepaalde systemen: directe correctie
+        for pos, type in supports[1:]:
+            idx = np.abs(x - pos).argmin()
+            
+            # Bereken correcties
+            d_corr = deflection[idx]
+            r_corr = rotation[idx] if type.lower() == "inklemming" else 0
+            
+            # Pas correcties toe over hele balk
+            deflection -= d_corr
+            if type.lower() == "inklemming":
+                rotation -= r_corr
     
     # Forceer exacte waarden bij steunpunten
     for pos, type in supports:
