@@ -812,122 +812,58 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda x: x[0])
     
-    # Bereken velden tussen steunpunten
-    field_starts = [0] + [pos for pos, _ in supports]
-    field_ends = [pos for pos, _ in supports] + [beam_length]
-    n_fields = len(field_starts)
-    
-    # Arrays voor resultaten
+    # Bereken doorbuiging door dubbele integratie van moment
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Bereken particuliere oplossingen voor alle velden
-    field_rotations = []
-    field_deflections = []
-    field_indices = []
+    # Eerste integratie: M/EI naar rotatie
+    for i in range(1, len(x)):
+        rotation[i] = rotation[i-1] + (M[i-1] + M[i])/(2 * EI) * dx
     
-    for i in range(n_fields):
-        # Grenzen van dit veld
-        start_pos = field_starts[i]
-        end_pos = field_ends[i]
-        field_mask = (x >= start_pos) & (x <= end_pos)
-        field_indices.append(np.where(field_mask)[0])
-        
-        # Bereken particuliere oplossing voor dit veld
-        field_x = x[field_mask]
-        field_M = M[field_mask]
-        
-        if len(field_x) < 2:
-            continue
-            
-        # Integreer M/EI naar rotatie
-        field_rotation = np.zeros_like(field_x)
-        for j in range(1, len(field_x)):
-            field_rotation[j] = field_rotation[j-1] + (field_M[j-1] + field_M[j])/(2 * EI) * dx
-            
-        # Integreer rotatie naar doorbuiging
-        field_deflection = np.zeros_like(field_x)
-        for j in range(1, len(field_x)):
-            field_deflection[j] = field_deflection[j-1] + (field_rotation[j-1] + field_rotation[j])/2 * dx
-            
-        field_rotations.append(field_rotation)
-        field_deflections.append(field_deflection)
+    # Tweede integratie: rotatie naar doorbuiging
+    for i in range(1, len(x)):
+        deflection[i] = deflection[i-1] + (rotation[i-1] + rotation[i])/2 * dx
     
-    # Stel globaal stelsel op voor alle velden
-    n_unknowns = 2 * n_fields  # 2 constanten per veld
-    n_equations = 0
-    
-    # Tel vergelijkingen:
-    # 1. Doorbuiging = 0 bij elk steunpunt (n_fields - 1)
-    # 2. Continuïteit van doorbuiging tussen velden (n_fields - 1)
-    # 3. Continuïteit van rotatie tussen velden (n_fields - 1)
-    # 4. Extra randvoorwaarden voor eerste en laatste veld
-    n_equations = (n_fields - 1) * 3 + 2
-    
-    A = np.zeros((n_equations, n_unknowns))
-    b = np.zeros(n_equations)
-    eq = 0
-    
-    # 1. Eerste randvoorwaarde: v(0) = 0
-    A[eq, 0] = 1  # C1 van eerste veld
-    b[eq] = 0
-    eq += 1
-    
-    # 2. Laatste randvoorwaarde: v(L) = 0
-    x_rel = beam_length - field_starts[-1]
-    A[eq, -2] = 1  # C1 van laatste veld
-    A[eq, -1] = x_rel  # C2 van laatste veld
-    b[eq] = -field_deflections[-1][-1]
-    eq += 1
-    
-    # 3. Voor elk steunpunt (behalve eerste en laatste):
-    for i in range(n_fields - 1):
-        # Positie van het steunpunt
-        pos = field_ends[i]
-        x_rel = pos - field_starts[i]
+    # Pas randvoorwaarden toe
+    # Voor elke twee opeenvolgende steunpunten
+    for i in range(len(supports)-1):
+        pos1, type1 = supports[i]
+        pos2, type2 = supports[i+1]
         
-        # a) Doorbuiging continuïteit
-        A[eq, 2*i] = 1  # C1 links
-        A[eq, 2*i + 1] = x_rel  # C2 links
-        A[eq, 2*(i+1)] = -1  # C1 rechts
-        b[eq] = field_deflections[i+1][0] - field_deflections[i][-1]
-        eq += 1
+        # Vind indices
+        idx1 = np.abs(x - pos1).argmin()
+        idx2 = np.abs(x - pos2).argmin()
         
-        # b) Rotatie continuïteit
-        A[eq, 2*i + 1] = 1  # C2 links
-        A[eq, 2*(i+1) + 1] = -1  # C2 rechts
-        b[eq] = field_rotations[i+1][0] - field_rotations[i][-1]
-        eq += 1
+        # Bereken correcties voor dit veld
+        d1 = deflection[idx1]
+        d2 = deflection[idx2]
         
-        # c) Doorbuiging = 0 bij steunpunt
-        A[eq, 2*i] = 1  # C1
-        A[eq, 2*i + 1] = x_rel  # C2
-        b[eq] = -field_deflections[i][-1]
-        eq += 1
+        # Correctie voor doorbuiging
+        mask = (x >= pos1) & (x <= pos2)
+        x_ratio = (x[mask] - pos1) / (pos2 - pos1)
+        deflection[mask] -= d1 + (d2 - d1) * x_ratio
+        
+        # Correctie voor rotatie bij inklemming
+        if type1.lower() == "inklemming":
+            r1 = rotation[idx1]
+            deflection[mask] -= r1 * (x[mask] - pos1)
+        if type2.lower() == "inklemming":
+            r2 = rotation[idx2]
+            deflection[mask] -= r2 * (pos2 - x[mask])
     
-    try:
-        # Los het stelsel op
-        constants = np.linalg.solve(A, b)
-        
-        # Pas de constanten toe per veld
-        for i in range(n_fields):
-            field_mask = (x >= field_starts[i]) & (x <= field_ends[i])
-            x_rel = x[field_mask] - field_starts[i]
-            
-            # Pas constanten toe
-            C1, C2 = constants[2*i:2*i+2]
-            deflection[field_mask] = field_deflections[i] + C1 + C2 * x_rel
-            rotation[field_mask] = field_rotations[i] + C2
-        
-        # Forceer exacte waarden bij steunpunten
-        for pos, type in supports:
-            idx = np.abs(x - pos).argmin()
-            deflection[idx] = 0.0
-            if type.lower() == "inklemming":
-                rotation[idx] = 0.0
-        
-    except np.linalg.LinAlgError:
-        st.error("Fout bij het oplossen van de randvoorwaarden")
+    # Zorg dat alles voor het eerste steunpunt nul is
+    first_support_pos = supports[0][0]
+    mask_before = x < first_support_pos
+    if np.any(mask_before):
+        deflection[mask_before] = 0.0
+        rotation[mask_before] = 0.0
+    
+    # Forceer exacte waarden bij steunpunten
+    for pos, type in supports:
+        idx = np.abs(x - pos).argmin()
+        deflection[idx] = 0.0
+        if type.lower() == "inklemming":
+            rotation[idx] = 0.0
     
     return x, V, M, rotation, deflection
 
