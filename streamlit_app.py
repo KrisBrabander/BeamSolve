@@ -1112,6 +1112,7 @@ def main():
                     key=f"load_pos_{i}"
                 )
             
+            # Alleen lengte vragen bij verdeelde en driehoekslasten
             if load_type in ["Verdeelde last", "Driehoekslast"]:
                 with col2:
                     # Bereken maximale lengte op basis van positie
@@ -1131,8 +1132,10 @@ def main():
                         help="mm",
                         key=f"load_length_{i}"
                     )
-                loads.append((position, value, load_type, length))
+                    # Voeg belasting toe met lengte
+                    loads.append((position, value, load_type, length))
             else:
+                # Voeg puntlast of moment toe zonder lengte
                 loads.append((position, value, load_type))
     
     # Hoofdgedeelte
