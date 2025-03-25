@@ -6,80 +6,6 @@ import os
 import base64
 from plotly.subplots import make_subplots
 
-# Profiel bibliotheken
-# HEA profielen (h, b, tw, tf)
-HEA_PROFILES = {
-    "HEA 100": (96, 100, 5.0, 8.0),
-    "HEA 120": (114, 120, 5.0, 8.0),
-    "HEA 140": (133, 140, 5.5, 8.5),
-    "HEA 160": (152, 160, 6.0, 9.0),
-    "HEA 180": (171, 180, 6.0, 9.5),
-    "HEA 200": (190, 200, 6.5, 10.0),
-    "HEA 220": (210, 220, 7.0, 11.0),
-    "HEA 240": (230, 240, 7.5, 12.0),
-    "HEA 260": (250, 260, 7.5, 12.5),
-    "HEA 280": (270, 280, 8.0, 13.0),
-    "HEA 300": (290, 300, 8.5, 14.0),
-}
-
-# HEB profielen (h, b, tw, tf)
-HEB_PROFILES = {
-    "HEB 100": (100, 100, 6.0, 10.0),
-    "HEB 120": (120, 120, 6.5, 11.0),
-    "HEB 140": (140, 140, 7.0, 12.0),
-    "HEB 160": (160, 160, 8.0, 13.0),
-    "HEB 180": (180, 180, 8.5, 14.0),
-    "HEB 200": (200, 200, 9.0, 15.0),
-    "HEB 220": (220, 220, 9.5, 16.0),
-    "HEB 240": (240, 240, 10.0, 17.0),
-    "HEB 260": (260, 260, 10.0, 17.5),
-    "HEB 280": (280, 280, 10.5, 18.0),
-    "HEB 300": (300, 300, 11.0, 19.0),
-}
-
-# IPE profielen (h, b, tw, tf)
-IPE_PROFILES = {
-    "IPE 80": (80, 46, 3.8, 5.2),
-    "IPE 100": (100, 55, 4.1, 5.7),
-    "IPE 120": (120, 64, 4.4, 6.3),
-    "IPE 140": (140, 73, 4.7, 6.9),
-    "IPE 160": (160, 82, 5.0, 7.4),
-    "IPE 180": (180, 91, 5.3, 8.0),
-    "IPE 200": (200, 100, 5.6, 8.5),
-    "IPE 220": (220, 110, 5.9, 9.2),
-    "IPE 240": (240, 120, 6.2, 9.8),
-    "IPE 270": (270, 135, 6.6, 10.2),
-    "IPE 300": (300, 150, 7.1, 10.7),
-}
-
-# UNP profielen (h, b, tw, tf)
-UNP_PROFILES = {
-    "UNP 80": (80, 45, 6.0, 8.0),
-    "UNP 100": (100, 50, 6.0, 8.5),
-    "UNP 120": (120, 55, 7.0, 9.0),
-    "UNP 140": (140, 60, 7.0, 10.0),
-    "UNP 160": (160, 65, 7.5, 10.5),
-    "UNP 180": (180, 70, 8.0, 11.0),
-    "UNP 200": (200, 75, 8.5, 11.5),
-    "UNP 220": (220, 80, 9.0, 12.5),
-    "UNP 240": (240, 85, 9.5, 13.0),
-}
-
-# Koker profielen (h, b, t)
-KOKER_PROFILES = {
-    "Koker 40x40x3": (40, 40, 3.0),
-    "Koker 50x50x3": (50, 50, 3.0),
-    "Koker 60x60x3": (60, 60, 3.0),
-    "Koker 60x60x4": (60, 60, 4.0),
-    "Koker 70x70x3": (70, 70, 3.0),
-    "Koker 70x70x4": (70, 70, 4.0),
-    "Koker 80x80x3": (80, 80, 3.0),
-    "Koker 80x80x4": (80, 80, 4.0),
-    "Koker 80x80x5": (80, 80, 5.0),
-    "Koker 90x90x3": (90, 90, 3.0),
-    "Koker 90x90x4": (90, 90, 4.0),
-}
-
 def get_profile_dimensions(profile_type, profile_name):
     """Haal de dimensies op voor een specifiek profiel"""
     if profile_type == "HEA":
@@ -777,7 +703,7 @@ def calculate_deflection(x, beam_length, supports, loads, reactions):
                             deflection[i] -= value * a * (L-x_local) * (L+a-x_local) / (6*EI*L)
                     
                     elif load_type.lower() == "q":
-                        length = rest[0] if rest else 0
+                        length = rest[0]
                         q = value
                         end_load = min(pos + length, end) - start
                         
@@ -1056,6 +982,80 @@ def save_report(report_content, output_path):
     with open(output_path, 'wb') as f:
         f.write(report_content)
 
+# Profiel bibliotheken
+# HEA profielen (h, b, tw, tf)
+HEA_PROFILES = {
+    "HEA 100": (96, 100, 5.0, 8.0),
+    "HEA 120": (114, 120, 5.0, 8.0),
+    "HEA 140": (133, 140, 5.5, 8.5),
+    "HEA 160": (152, 160, 6.0, 9.0),
+    "HEA 180": (171, 180, 6.0, 9.5),
+    "HEA 200": (190, 200, 6.5, 10.0),
+    "HEA 220": (210, 220, 7.0, 11.0),
+    "HEA 240": (230, 240, 7.5, 12.0),
+    "HEA 260": (250, 260, 7.5, 12.5),
+    "HEA 280": (270, 280, 8.0, 13.0),
+    "HEA 300": (290, 300, 8.5, 14.0),
+}
+
+# HEB profielen (h, b, tw, tf)
+HEB_PROFILES = {
+    "HEB 100": (100, 100, 6.0, 10.0),
+    "HEB 120": (120, 120, 6.5, 11.0),
+    "HEB 140": (140, 140, 7.0, 12.0),
+    "HEB 160": (160, 160, 8.0, 13.0),
+    "HEB 180": (180, 180, 8.5, 14.0),
+    "HEB 200": (200, 200, 9.0, 15.0),
+    "HEB 220": (220, 220, 9.5, 16.0),
+    "HEB 240": (240, 240, 10.0, 17.0),
+    "HEB 260": (260, 260, 10.0, 17.5),
+    "HEB 280": (280, 280, 10.5, 18.0),
+    "HEB 300": (300, 300, 11.0, 19.0),
+}
+
+# IPE profielen (h, b, tw, tf)
+IPE_PROFILES = {
+    "IPE 80": (80, 46, 3.8, 5.2),
+    "IPE 100": (100, 55, 4.1, 5.7),
+    "IPE 120": (120, 64, 4.4, 6.3),
+    "IPE 140": (140, 73, 4.7, 6.9),
+    "IPE 160": (160, 82, 5.0, 7.4),
+    "IPE 180": (180, 91, 5.3, 8.0),
+    "IPE 200": (200, 100, 5.6, 8.5),
+    "IPE 220": (220, 110, 5.9, 9.2),
+    "IPE 240": (240, 120, 6.2, 9.8),
+    "IPE 270": (270, 135, 6.6, 10.2),
+    "IPE 300": (300, 150, 7.1, 10.7),
+}
+
+# UNP profielen (h, b, tw, tf)
+UNP_PROFILES = {
+    "UNP 80": (80, 45, 6.0, 8.0),
+    "UNP 100": (100, 50, 6.0, 8.5),
+    "UNP 120": (120, 55, 7.0, 9.0),
+    "UNP 140": (140, 60, 7.0, 10.0),
+    "UNP 160": (160, 65, 7.5, 10.5),
+    "UNP 180": (180, 70, 8.0, 11.0),
+    "UNP 200": (200, 75, 8.5, 11.5),
+    "UNP 220": (220, 80, 9.0, 12.5),
+    "UNP 240": (240, 85, 9.5, 13.0),
+}
+
+# Koker profielen (h, b, t)
+KOKER_PROFILES = {
+    "Koker 40x40x3": (40, 40, 3.0),
+    "Koker 50x50x3": (50, 50, 3.0),
+    "Koker 60x60x3": (60, 60, 3.0),
+    "Koker 60x60x4": (60, 60, 4.0),
+    "Koker 70x70x3": (70, 70, 3.0),
+    "Koker 70x70x4": (70, 70, 4.0),
+    "Koker 80x80x3": (80, 80, 3.0),
+    "Koker 80x80x4": (80, 80, 4.0),
+    "Koker 80x80x5": (80, 80, 5.0),
+    "Koker 90x90x3": (90, 90, 3.0),
+    "Koker 90x90x4": (90, 90, 4.0),
+}
+
 # Initialize session state
 if 'loads' not in st.session_state:
     st.session_state.loads = []
@@ -1098,10 +1098,6 @@ def main():
         """, unsafe_allow_html=True)
     
     st.divider()
-    
-    # Initialisatie sessie variabelen
-    if 'export_count' not in st.session_state:
-        st.session_state.export_count = 0
     
     # Test voorbeeld (zoals in de afbeelding)
     if st.sidebar.button("Laad Testvoorbeeld", type="secondary"):
@@ -1395,139 +1391,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-def calculate_reactions(beam_length, supports, loads):
-    """Bereken reactiekrachten voor verschillende steunpuntconfiguraties"""
-    if not supports or not loads:
-        return {}
-        
-    # Sorteer steunpunten
-    supports = sorted(supports, key=lambda x: x[0])
-    n = len(supports)
-    
-    if n == 0:
-        return {}
-        
-    # Bereken totale belasting
-    total_load = 0
-    for load in loads:
-        pos, value, load_type, *rest = load
-        if load_type == "Puntlast":
-            total_load += value
-        elif load_type in ["Verdeelde last", "Driehoekslast"]:
-            length = rest[0]
-            if load_type == "Verdeelde last":
-                total_load += value * length
-            else:  # Driehoekslast
-                total_load += value * length / 2
-
-    # Bereken moment t.o.v. eerste steunpunt
-    x0 = supports[0][0]
-    moment = 0
-    for load in loads:
-        pos, value, load_type, *rest = load
-        if load_type == "Puntlast":
-            moment += value * (pos - x0)
-        elif load_type in ["Verdeelde last", "Driehoekslast"]:
-            length = rest[0]
-            if load_type == "Verdeelde last":
-                moment += value * length * (pos + length/2 - x0)
-            else:  # Driehoekslast
-                moment += value * length/2 * (pos + 2*length/3 - x0)
-        elif load_type == "Moment":
-            moment += value
-
-    # Bereken reactiekrachten
-    reactions = {}
-    
-    try:
-        if n == 1:
-            # Enkel steunpunt (moet inklemming zijn)
-            pos, type = supports[0]
-            if type.lower() != "inklemming":
-                st.error("❌ Systeem met één steunpunt moet een inklemming zijn")
-                return None
-            reactions[pos] = total_load
-            
-        elif n == 2:
-            # Twee steunpunten - statisch bepaald
-            x1, _ = supports[0]
-            x2, _ = supports[1]
-            L = x2 - x1
-            
-            if L == 0:
-                st.error("❌ Steunpunten mogen niet op dezelfde positie liggen")
-                return None
-                
-            R2 = moment / L
-            R1 = total_load - R2
-            
-            reactions[x1] = R1
-            reactions[x2] = R2
-            
-        else:
-            # Drie of meer steunpunten - vereenvoudigde methode
-            # Verdeel de last gelijkmatig over de steunpunten
-            R = total_load / n
-            for pos, _ in supports:
-                reactions[pos] = R
-                
-    except Exception as e:
-        st.error(f"❌ Fout bij berekenen reactiekrachten: {str(e)}")
-        return None
-            
-    return reactions
-
-def calculate_internal_forces(x, beam_length, supports, loads, reactions):
-    """Bereken interne krachten (dwarskracht en moment)"""
-    V = np.zeros_like(x)
-    M = np.zeros_like(x)
-    
-    # Sorteer steunpunten en belastingen
-    supports = sorted(supports, key=lambda s: s[0])
-    loads = sorted(loads, key=lambda l: l[0])
-    
-    # Voor elke x-positie
-    for i, xi in enumerate(x):
-        # Tel reactiekrachten op
-        for pos, force in reactions.items():
-            if pos <= xi:
-                V[i] += force
-                M[i] += force * (xi - pos)
-        
-        # Trek belastingen af
-        for load in loads:
-            pos, value, load_type, *rest = load
-            if pos <= xi:
-                if load_type == "Puntlast":
-                    V[i] -= value
-                    M[i] -= value * (xi - pos)
-                elif load_type == "Verdeelde last":
-                    length = rest[0]
-                    end_load = min(pos + length, beam_length) - pos
-                    if xi <= end_load + pos:
-                        # Gedeeltelijke last
-                        dx = xi - pos
-                        V[i] -= value * dx
-                        M[i] -= value * dx * dx/2
-                    else:
-                        # Volledige last
-                        V[i] -= value * length
-                        M[i] -= value * length * (xi - pos - length/2)
-                elif load_type == "Driehoekslast":
-                    length = rest[0]
-                    end_load = min(pos + length, beam_length) - pos
-                    if xi <= end_load + pos:
-                        # Gedeeltelijke last
-                        dx = xi - pos
-                        q = value * dx/length
-                        V[i] -= q * dx/2
-                        M[i] -= q * dx * dx/6
-                    else:
-                        # Volledige last
-                        V[i] -= value * length/2
-                        M[i] -= value * length/2 * (xi - pos - 2*length/3)
-                elif load_type == "Moment":
-                    M[i] -= value
-    
-    return V, M
