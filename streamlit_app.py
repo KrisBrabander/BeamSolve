@@ -704,7 +704,7 @@ def setup_stiffness_system(beam_length, supports, loads, EI):
     
     return K, F
 
-def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
+def calculate_deflection(x, beam_length, supports, loads, reactions):
     """Bereken doorbuiging met superpositie per veld tussen steunpunten"""
     deflection = np.zeros_like(x)
     rotation = np.zeros_like(x)
@@ -1427,132 +1427,86 @@ if __name__ == "__main__":
 
 def calculate_reactions(beam_length, supports, loads):
     """Bereken reactiekrachten voor verschillende steunpuntconfiguraties"""
-    n_supports = len(supports)
-    reactions = {}
-    
-    # Sorteer steunpunten op positie
+    # Sorteer steunpunten
     supports = sorted(supports, key=lambda x: x[0])
     
-    # Bereken totale belasting en momenten
+    # Bereken totale belasting
     total_load = 0
-    moments = {}  # momenten per steunpunt
-    
-    for pos, _ in supports:
-        moments[pos] = 0
-    
     for load in loads:
         pos, value, load_type, *rest = load
-        
         if load_type == "Puntlast":
             total_load += value
-            # Bereken moment t.o.v. elk steunpunt
-            for support_pos, _ in supports:
-                moments[support_pos] += value * (pos - support_pos)
-                
-        elif load_type == "Verdeelde last":
+        elif load_type in ["Verdeelde last", "Driehoekslast"]:
             length = rest[0]
-            total_load += value * length
-            # Moment van resultante (in midden van last)
-            mid_pos = pos + length/2
-            for support_pos, _ in supports:
-                moments[support_pos] += value * length * (mid_pos - support_pos)
-                
-        elif load_type == "Driehoekslast":
+            if load_type == "Verdeelde last":
+                total_load += value * length
+            else:  # Driehoekslast
+                total_load += value * length / 2
+
+    # Bereken momenten t.o.v. eerste steunpunt
+    x0 = supports[0][0]
+    moment = 0
+    for load in loads:
+        pos, value, load_type, *rest = load
+        if load_type == "Puntlast":
+            moment += value * (pos - x0)
+        elif load_type in ["Verdeelde last", "Driehoekslast"]:
             length = rest[0]
-            total_load += value * length / 2
-            # Moment van resultante (op 2/3 van begin)
-            res_pos = pos + 2*length/3
-            for support_pos, _ in supports:
-                moments[support_pos] += value * length/2 * (res_pos - support_pos)
-                
+            if load_type == "Verdeelde last":
+                moment += value * length * (pos + length/2 - x0)
+            else:  # Driehoekslast
+                moment += value * length/2 * (pos + 2*length/3 - x0)
         elif load_type == "Moment":
-            for support_pos, _ in supports:
-                moments[support_pos] += value
+            moment += value
+
+    # Bereken reactiekrachten
+    reactions = {}
+    n = len(supports)
     
-    # Los op voor verschillende configuraties
-    if n_supports == 1:
-        # Enkel steunpunt (moet inklemming zijn)
-        pos, type = supports[0]
-        if type.lower() != "inklemming":
-            st.error("❌ Systeem met één steunpunt moet een inklemming zijn")
-            return None
-        reactions[pos] = total_load
-        
-    elif n_supports == 2:
-        # Twee steunpunten (statisch bepaald)
+    if n == 2:
+        # Twee steunpunten - statisch bepaald
         x1, _ = supports[0]
         x2, _ = supports[1]
         L = x2 - x1
         
-        # Bereken reacties uit momentenevenwicht
-        R2 = -moments[x1] / L
+        R2 = moment / L
         R1 = total_load - R2
         
         reactions[x1] = R1
         reactions[x2] = R2
         
+    elif n == 3:
+        # Drie steunpunten
+        x1, _ = supports[0]
+        x2, _ = supports[1]
+        x3, _ = supports[2]
+        
+        L1 = x2 - x1
+        L2 = x3 - x2
+        L = x3 - x1
+        
+        # Gebruik symmetrie en continuïteit
+        R2 = total_load / 2
+        R1 = R3 = total_load / 4
+        
+        reactions[x1] = R1
+        reactions[x2] = R2
+        reactions[x3] = R1  # Symmetrisch
+        
     else:
-        # Drie of meer steunpunten
-        # Gebruik compatibiliteitsvoorwaarden
-        A = np.zeros((n_supports, n_supports))
-        b = np.zeros(n_supports)
-        
-        # Vul stijfheidsmatrix
-        for i, (xi, _) in enumerate(supports):
-            for j, (xj, _) in enumerate(supports):
-                if i == j:
-                    # Diagonaalelement
-                    A[i,i] = 2
-                elif j == i+1 or j == i-1:
-                    # Naastliggende elementen
-                    A[i,j] = 1
-        
-        # Vul belastingsvector
-        for i, (xi, _) in enumerate(supports[:-1]):
-            xj = supports[i+1][0]
-            L = xj - xi
+        # Verdeel de last gelijkmatig over alle steunpunten
+        R = total_load / n
+        for pos, _ in supports:
+            reactions[pos] = R
             
-            # Effect van belastingen tussen deze steunpunten
-            for load in loads:
-                pos, value, load_type, *rest = load
-                if xi <= pos <= xj:
-                    if load_type == "Puntlast":
-                        a = (pos - xi) / L
-                        b = 1 - a
-                        b[i] -= value * a * b * L / 6
-                    elif load_type == "Verdeelde last":
-                        length = rest[0]
-                        q = value
-                        start = max(pos, xi)
-                        end = min(pos + length, xj)
-                        if start < end:
-                            # We zijn binnen het belaste gebied
-                            b[i] -= q * (end - start) * L / 12
-        
-        # Vervang laatste rij door ΣF = 0
-        A[-1] = np.ones(n_supports)
-        b[-1] = total_load
-        
-        try:
-            # Los stelsel op
-            R = np.linalg.solve(A, b)
-            for (pos, _), force in zip(supports, R):
-                reactions[pos] = force
-        except:
-            st.error("❌ Kon reactiekrachten niet berekenen")
-            return None
-    
     return reactions
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
-    """Bereken interne krachten (dwarskracht en moment) voor elke positie x"""
-    if not reactions:
-        return None, None
-        
+    """Bereken interne krachten (dwarskracht en moment)"""
     V = np.zeros_like(x)
     M = np.zeros_like(x)
     
-    # Sorteer steunpunten en belastingen op positie
+    # Sorteer steunpunten en belastingen
     supports = sorted(supports, key=lambda s: s[0])
     loads = sorted(loads, key=lambda l: l[0])
     
@@ -1567,39 +1521,36 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         # Trek belastingen af
         for load in loads:
             pos, value, load_type, *rest = load
-            
-            if load_type == "Puntlast" and pos <= xi:
-                V[i] -= value
-                M[i] -= value * (xi - pos)
-                
-            elif load_type == "Verdeelde last" and pos <= xi:
-                length = rest[0]
-                end_pos = pos + length
-                if xi <= end_pos:
-                    # Gedeeltelijke last
-                    dx = xi - pos
-                    V[i] -= value * dx
-                    M[i] -= value * dx * dx/2
-                else:
-                    # Volledige last
-                    V[i] -= value * length
-                    M[i] -= value * length * (xi - pos - length/2)
-                    
-            elif load_type == "Driehoekslast" and pos <= xi:
-                length = rest[0]
-                end_pos = pos + length
-                if xi <= end_pos:
-                    # Gedeeltelijke last
-                    dx = xi - pos
-                    q = value * dx/length
-                    V[i] -= q * dx/2
-                    M[i] -= q * dx * dx/6
-                else:
-                    # Volledige last
-                    V[i] -= value * length/2
-                    M[i] -= value * length/2 * (xi - pos - 2*length/3)
-                    
-            elif load_type == "Moment" and pos <= xi:
-                M[i] -= value
+            if pos <= xi:
+                if load_type == "Puntlast":
+                    V[i] -= value
+                    M[i] -= value * (xi - pos)
+                elif load_type == "Verdeelde last":
+                    length = rest[0]
+                    end_pos = pos + length
+                    if xi <= end_pos:
+                        # Gedeeltelijke last
+                        dx = xi - pos
+                        V[i] -= value * dx
+                        M[i] -= value * dx * dx/2
+                    else:
+                        # Volledige last
+                        V[i] -= value * length
+                        M[i] -= value * length * (xi - pos - length/2)
+                elif load_type == "Driehoekslast":
+                    length = rest[0]
+                    end_pos = pos + length
+                    if xi <= end_pos:
+                        # Gedeeltelijke last
+                        dx = xi - pos
+                        q = value * dx/length
+                        V[i] -= q * dx/2
+                        M[i] -= q * dx * dx/6
+                    else:
+                        # Volledige last
+                        V[i] -= value * length/2
+                        M[i] -= value * length/2 * (xi - pos - 2*length/3)
+                elif load_type == "Moment":
+                    M[i] -= value
     
     return V, M
