@@ -850,114 +850,187 @@ def calculate_profile_properties(profile_type, height, width, wall_thickness, fl
     return A, I, W
 
 def generate_pdf_report(beam_data, results_plot):
-    """Genereer een PDF rapport"""
+    """Genereer een professioneel PDF rapport"""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.units import mm
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
     from io import BytesIO
-    import base64
+    import plotly.io as pio
+    from datetime import datetime
     
-    # Converteer plot naar afbeelding
-    img_bytes = results_plot.to_image(format="png", width=800, height=600)
-    plot_img = BytesIO(img_bytes)
+    # Converteer plotly figuur naar afbeelding
+    img_bytes = pio.to_image(results_plot, format="png", width=800, height=600, scale=2)
     
-    # Maak PDF document
+    # Maak PDF buffer
     buffer = BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20*mm, leftMargin=20*mm, topMargin=20*mm, bottomMargin=20*mm)
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=A4,
+        rightMargin=20*mm,
+        leftMargin=20*mm,
+        topMargin=20*mm,
+        bottomMargin=20*mm
+    )
     
-    # Opmaakstijlen
+    # Definieer stijlen
     styles = getSampleStyleSheet()
-    title_style = styles['Heading1']
-    heading_style = styles['Heading2']
-    normal_style = styles['Normal']
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        spaceAfter=30,
+        textColor=colors.HexColor('#2c3e50')
+    )
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=14,
+        spaceBefore=20,
+        spaceAfter=10,
+        textColor=colors.HexColor('#34495e')
+    )
+    body_style = ParagraphStyle(
+        'CustomBody',
+        parent=styles['Normal'],
+        fontSize=10,
+        textColor=colors.HexColor('#2c3e50')
+    )
     
-    # Document elementen
+    # Start document opbouw
     elements = []
     
-    # Titel
-    elements.append(Paragraph("BeamSolve Professional - Berekeningsrapport", title_style))
-    elements.append(Spacer(1, 12))
+    # Header met logo en titel
+    elements.append(Paragraph("BeamSolve Professional", title_style))
+    elements.append(Paragraph(f"Rapport gegenereerd op {datetime.now().strftime('%d-%m-%Y %H:%M')}", body_style))
+    elements.append(Spacer(1, 20))
     
     # Profiel informatie
-    elements.append(Paragraph("Profiel Gegevens", heading_style))
+    elements.append(Paragraph("1. Profiel Specificaties", heading_style))
     profile_data = [
-        ["Profiel Type", beam_data["profile_type"]],
-        ["Hoogte", f"{beam_data['dimensions']['height']} mm"],
-        ["Breedte", f"{beam_data['dimensions']['width']} mm"],
-        ["Wanddikte", f"{beam_data['dimensions']['wall_thickness']} mm"]
+        ["Type", beam_data["profile_type"]],
+        ["Naam", beam_data.get("profile_name", "Custom")],
+        ["Hoogte", f"{beam_data['height']} mm"],
+        ["Breedte", f"{beam_data['width']} mm"],
+        ["Wanddikte", f"{beam_data['wall_thickness']} mm"]
     ]
-    if "flange_thickness" in beam_data["dimensions"]:
-        profile_data.append(["Flensdikte", f"{beam_data['dimensions']['flange_thickness']} mm"])
-    
+    if "flange_thickness" in beam_data:
+        profile_data.append(["Flensdikte", f"{beam_data['flange_thickness']} mm"])
+        
     profile_table = Table(profile_data, colWidths=[100, 200])
     profile_table.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
-        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-        ('PADDING', (0, 0), (-1, -1), 6)
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#dee2e6'))
     ]))
     elements.append(profile_table)
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 20))
     
-    # Profiel eigenschappen
-    elements.append(Paragraph("Profiel Eigenschappen", heading_style))
-    properties_data = [
-        ["Oppervlakte", f"{beam_data['properties']['A']:.0f} mm²"],
-        ["Traagheidsmoment", f"{beam_data['properties']['I']:.0f} mm⁴"],
-        ["Weerstandsmoment", f"{beam_data['properties']['W']:.0f} mm³"]
+    # Overspanning en steunpunten
+    elements.append(Paragraph("2. Overspanning en Steunpunten", heading_style))
+    support_data = [
+        ["Overspanning", f"{beam_data['beam_length']} mm"],
+        ["Aantal steunpunten", str(len(beam_data['supports']))]
     ]
-    properties_table = Table(properties_data, colWidths=[100, 200])
-    properties_table.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
-        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-        ('PADDING', (0, 0), (-1, -1), 6)
+    for i, (pos, type) in enumerate(beam_data['supports'], 1):
+        support_data.append([f"Steunpunt {i}", f"{type} op {pos} mm"])
+        
+    support_table = Table(support_data, colWidths=[100, 200])
+    support_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#dee2e6'))
     ]))
-    elements.append(properties_table)
-    elements.append(Spacer(1, 12))
+    elements.append(support_table)
+    elements.append(Spacer(1, 20))
     
-    # Algemene gegevens
-    elements.append(Paragraph("Algemene Gegevens", heading_style))
-    general_data = [
-        ["Lengte", f"{beam_data['length']:.0f} mm"],
-        ["E-modulus", f"{beam_data['E']:.0f} N/mm²"]
-    ]
-    general_table = Table(general_data, colWidths=[100, 200])
-    general_table.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
-        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-        ('PADDING', (0, 0), (-1, -1), 6)
+    # Belastingen
+    elements.append(Paragraph("3. Belastingen", heading_style))
+    load_data = [["Type", "Waarde", "Positie", "Lengte"]]
+    for load in beam_data['loads']:
+        if len(load) == 4:  # Verdeelde of driehoekslast
+            pos, val, type, length = load
+            if type == "Verdeelde last":
+                load_data.append([type, f"{val/1000:.1f} kN/m", f"{pos} mm", f"{length} mm"])
+            elif type == "Driehoekslast":
+                load_data.append([type, f"{val/1000:.1f} kN/m", f"{pos} mm", f"{length} mm"])
+        else:  # Puntlast of moment
+            pos, val, type = load
+            if type == "Moment":
+                load_data.append([type, f"{val/1e6:.1f} kNm", f"{pos} mm", "-"])
+            else:
+                load_data.append([type, f"{val/1000:.1f} kN", f"{pos} mm", "-"])
+    
+    load_table = Table(load_data, colWidths=[80, 80, 80, 80])
+    load_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#dee2e6'))
     ]))
-    elements.append(general_table)
-    elements.append(Spacer(1, 12))
+    elements.append(load_table)
+    elements.append(Spacer(1, 20))
     
     # Resultaten
-    elements.append(Paragraph("Resultaten", heading_style))
-    results_data = [
-        ["Max. Dwarskracht", f"{beam_data['results']['max_V']:.1f} kN"],
-        ["Max. Moment", f"{beam_data['results']['max_M']:.1f} kNm"],
-        ["Max. Doorbuiging", f"{beam_data['results']['max_deflection']:.2f} mm"],
-        ["Max. Rotatie", f"{beam_data['results']['max_rotation']:.4f} rad"],
-        ["Max. Spanning", f"{beam_data['results']['max_stress']:.1f} N/mm²"],
-        ["Unity Check", f"{beam_data['results']['unity_check']:.2f}"]
-    ]
-    results_table = Table(results_data, colWidths=[100, 200])
-    results_table.setStyle(TableStyle([
-        ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
-        ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
-        ('PADDING', (0, 0), (-1, -1), 6)
-    ]))
-    elements.append(results_table)
-    elements.append(Spacer(1, 12))
+    elements.append(Paragraph("4. Analyse Resultaten", heading_style))
     
-    # Grafieken
-    elements.append(Paragraph("Grafieken", heading_style))
-    img = Image(plot_img, width=160*mm, height=120*mm)
+    # Voeg plotly figuur toe
+    img_stream = BytesIO(img_bytes)
+    img = Image(img_stream, width=160*mm, height=120*mm)
     elements.append(img)
+    elements.append(Spacer(1, 10))
     
-    # Genereer PDF
+    # Maximale waarden tabel
+    elements.append(Paragraph("Maximale Waarden:", heading_style))
+    max_data = [
+        ["Parameter", "Waarde", "Eenheid"],
+        ["Max. Doorbuiging", f"{beam_data['max_deflection']:.2f}", "mm"],
+        ["Max. Rotatie", f"{beam_data['max_rotation']:.4f}", "rad"],
+        ["Max. Dwarskracht", f"{beam_data['max_shear']/1000:.1f}", "kN"],
+        ["Max. Moment", f"{beam_data['max_moment']/1000000:.1f}", "kNm"]
+    ]
+    
+    max_table = Table(max_data, colWidths=[100, 100, 100])
+    max_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#dee2e6'))
+    ]))
+    elements.append(max_table)
+    
+    # Footer
+    elements.append(Spacer(1, 30))
+    footer_text = "Berekend met BeamSolve Professional 2025"
+    elements.append(Paragraph(footer_text, body_style))
+    
+    # Build PDF
     doc.build(elements)
-    return buffer.getvalue()
+    pdf = buffer.getvalue()
+    buffer.close()
+    
+    return pdf
 
 def save_report(report_content, output_path):
     """Sla het rapport op"""
@@ -979,9 +1052,37 @@ if 'units' not in st.session_state:
         'force': 'N',
         'stress': 'MPa'
     }
+if 'export_count' not in st.session_state:
+    st.session_state.export_count = 0
 
 def main():
-    st.set_page_config(page_title="BeamSolve Professional", layout="wide")
+    st.set_page_config(
+        page_title="BeamSolve Professional",
+        page_icon="🏗️",
+        layout="wide"
+    )
+    
+    # Header
+    col1, col2 = st.columns([3,1])
+    with col1:
+        st.title("🏗️ BeamSolve Professional")
+        st.markdown("Geavanceerde balkberekeningen voor constructeurs")
+    with col2:
+        st.markdown("### 📊 Versie")
+        st.markdown("""
+        <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>
+        <small>
+        ⭐ Free Edition<br>
+        <span style='color: #6c757d;'>2/2 Exports Beschikbaar</span>
+        </small>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.divider()
+    
+    # Initialisatie sessie variabelen
+    if 'export_count' not in st.session_state:
+        st.session_state.export_count = 0
     
     # Test voorbeeld (zoals in de afbeelding)
     if st.sidebar.button("Laad Testvoorbeeld", type="secondary"):
@@ -1245,6 +1346,80 @@ def main():
                     )
                 except Exception as e:
                     st.error(f"Fout bij genereren rapport: {str(e)}")
+                    
+        # PDF Export sectie
+        st.divider()
+        col1, col2 = st.columns([2,1])
+        with col1:
+            st.markdown("### 📊 Exporteer Rapport")
+            st.markdown("""
+            Exporteer een professioneel rapport met:
+            - Gedetailleerde profielspecificaties
+            - Belastingconfiguraties
+            - Grafische resultaten
+            - Maximale waarden analyse
+            """)
+        with col2:
+            st.markdown("### 💎 Premium Functie")
+            st.info("Upgrade naar BeamSolve Professional voor onbeperkt gebruik van de export functie.")
+                
+        # Maak een dictionary met alle beam data
+        beam_data = {
+            "profile_type": profile_type,
+            "height": height,
+            "width": width,
+            "wall_thickness": wall_thickness,
+            "flange_thickness": flange_thickness,
+            "beam_length": beam_length,
+            "supports": supports,
+            "loads": loads,
+            "max_deflection": max(abs(np.min(deflection)), abs(np.max(deflection))),
+            "max_rotation": max(abs(np.min(rotation)), abs(np.max(rotation))),
+            "max_shear": max(abs(np.min(V)), abs(np.max(V))),
+            "max_moment": max(abs(np.min(M)), abs(np.max(M)))
+        }
+        
+        # Demo export knop (beperkt tot 2 exports)
+        remaining_exports = 2 - st.session_state.export_count
+        if remaining_exports > 0:
+            try:
+                pdf_content = generate_pdf_report(beam_data, results_plot)
+                col1, col2 = st.columns([3,1])
+                with col1:
+                    if st.download_button(
+                        label=f"⬇️ Download Rapport (PDF) - {remaining_exports} export(s) over",
+                        data=pdf_content,
+                        file_name="beamsolve_report.pdf",
+                        mime="application/pdf",
+                        key="download_report"
+                    ):
+                        st.session_state.export_count += 1
+                with col2:
+                    st.markdown(f"<small>💡 Tip: Sla dit rapport op voor later gebruik</small>", unsafe_allow_html=True)
+                        
+                if remaining_exports == 1:
+                    st.warning("⚠️ Dit is je laatste gratis export. Upgrade naar Professional voor onbeperkt gebruik!")
+            except Exception as e:
+                st.error(f"Fout bij genereren rapport: {str(e)}")
+        else:
+            st.error("🔒 Je hebt je gratis exports gebruikt. Upgrade naar Professional voor onbeperkt gebruik!")
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("💎 Upgrade naar Professional", type="primary"):
+                    st.markdown("### Contact voor Professional Licentie")
+                    st.info("Neem contact op via info@beamsolve.nl voor een Professional licentie.")
+            with col2:
+                st.markdown("""
+                <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px;'>
+                <h4>💎 Professional Voordelen</h4>
+                <ul>
+                <li>Onbeperkt PDF exports</li>
+                <li>Geavanceerde belastingcombinaties</li>
+                <li>Excel/CAD export</li>
+                <li>Email support</li>
+                </ul>
+                </div>
+                """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
