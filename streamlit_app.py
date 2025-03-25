@@ -734,7 +734,17 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     supports = sorted(supports, key=lambda x: x[0])
     first_support_pos = supports[0][0] if supports else 0
     
-    # Verwerk belastingen eerst
+    # Verwerk reactiekrachten eerst
+    for pos, reaction in reactions.items():
+        # Dwarskracht van reactiekracht (positief want het is een reactie)
+        V += reaction["force"] * (x >= pos)
+        # Moment van reactiekracht
+        M += reaction["force"] * np.where(x >= pos, x - pos, 0)
+        # Direct moment van inklemming
+        if abs(reaction["moment"]) > 0:
+            M += reaction["moment"] * (x >= pos)
+    
+    # Verwerk belastingen
     for load in loads:
         pos = load[0]
         value = load[1]
@@ -744,7 +754,7 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             # Dwarskracht: stap bij puntlast
             V -= value * (x >= pos)
             # Moment: alleen na het aangrijpingspunt
-            M -= value * np.where(x > pos, x - pos, 0)
+            M -= value * np.where(x >= pos, x - pos, 0)
             
         elif load_type == "Verdeelde last":
             length = load[3] if len(load) > 3 else beam_length - pos
@@ -782,20 +792,11 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             
         elif load_type == "Moment":
             # Direct moment alleen na het aangrijpingspunt
-            M -= value * (x > pos)
-    
-    # Verwerk reactiekrachten
-    for pos, reaction in reactions.items():
-        # Dwarskracht van reactiekracht
-        V += reaction["force"] * (x >= pos)
-        # Moment van reactiekracht (alleen na het punt)
-        M += reaction["force"] * np.where(x > pos, x - pos, 0)
-        # Direct moment van inklemming (alleen bij inklemming)
-        if abs(reaction["moment"]) > 0:  # Alleen als er echt een moment is
-            M += reaction["moment"] * (x > pos)
+            M -= value * (x >= pos)
     
     # Zorg dat er geen moment is voor het eerste steunpunt
     M = np.where(x < first_support_pos, 0, M)
+    V = np.where(x < first_support_pos, 0, V)
     
     return V, M
 
@@ -820,42 +821,76 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     supports = sorted(supports, key=lambda x: x[0])
     support_indices = [np.abs(x - pos).argmin() for pos, _ in supports]
     
-    # Bereken rotatie en doorbuiging per veld tussen steunpunten
+    # Bereken rotatie en doorbuiging
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Integreer moment naar rotatie
-    for i in range(1, len(x)):
-        rotation[i] = rotation[i-1] + (M[i-1] + M[i])/(2 * EI) * dx
+    # Bereken per veld tussen steunpunten
+    field_starts = [0] + [pos for pos, _ in supports]
+    field_ends = [pos for pos, _ in supports] + [beam_length]
     
-    # Integreer rotatie naar doorbuiging
-    for i in range(1, len(x)):
-        deflection[i] = deflection[i-1] + (rotation[i-1] + rotation[i])/2 * dx
+    # Voor elk veld
+    for i in range(len(field_starts)):
+        # Indices voor dit veld
+        field_mask = (x >= field_starts[i]) & (x <= field_ends[i])
+        field_x = x[field_mask]
+        
+        if len(field_x) < 2:
+            continue
+            
+        # Integreer moment naar rotatie voor dit veld
+        field_rotation = np.zeros_like(field_x)
+        for j in range(1, len(field_x)):
+            field_rotation[j] = field_rotation[j-1] + (M[field_mask][j-1] + M[field_mask][j])/(2 * EI) * dx
+            
+        # Integreer rotatie naar doorbuiging voor dit veld
+        field_deflection = np.zeros_like(field_x)
+        for j in range(1, len(field_x)):
+            field_deflection[j] = field_deflection[j-1] + (field_rotation[j-1] + field_rotation[j])/2 * dx
+            
+        # Sla resultaten op in hoofdarrays
+        rotation[field_mask] = field_rotation
+        deflection[field_mask] = field_deflection
     
-    # Pas randvoorwaarden toe voor doorbuiging bij steunpunten
-    # We hebben 2 onbekenden (C1 en C2) voor de complete balk
-    A = np.zeros((len(supports), 2))
-    b = np.zeros(len(supports))
+    # Pas randvoorwaarden toe
+    # We hebben 2 onbekenden per veld (integratieconstanten)
+    n_fields = len(field_starts)
+    n_equations = len(supports)  # Doorbuiging = 0 bij steunpunten
+    
+    # Maak matrix voor randvoorwaarden
+    A = np.zeros((n_equations, 2 * n_fields))
+    b = np.zeros(n_equations)
     
     # Vergelijkingen voor doorbuiging = 0 bij steunpunten
     for i, (pos, _) in enumerate(supports):
-        idx = np.abs(x - pos).argmin()
-        A[i, 0] = 1  # C1 term
-        A[i, 1] = x[idx]  # C2 term
-        b[i] = -deflection[idx]  # Tegengestelde van huidige doorbuiging
+        field_idx = next(j for j, end in enumerate(field_ends) if end >= pos)
+        x_rel = pos - field_starts[field_idx]
+        
+        # Coefficienten voor dit veld
+        A[i, 2*field_idx] = 1  # C1 term
+        A[i, 2*field_idx + 1] = x_rel  # C2 term
+        b[i] = -deflection[np.abs(x - pos).argmin()]
     
     try:
         # Los het stelsel op met SVD voor betere numerieke stabiliteit
         constants = np.linalg.lstsq(A, b, rcond=None)[0]
         
-        # Pas de integratieconstanten toe op de hele balk
-        deflection += constants[0] + constants[1] * x
-        rotation += constants[1]
+        # Pas de integratieconstanten toe per veld
+        for i in range(n_fields):
+            field_mask = (x >= field_starts[i]) & (x <= field_ends[i])
+            x_rel = x[field_mask] - field_starts[i]
+            deflection[field_mask] += constants[2*i] + constants[2*i + 1] * x_rel
+            rotation[field_mask] += constants[2*i + 1]
         
         # Zorg dat er geen doorbuiging is voor het eerste steunpunt
         first_support_pos = supports[0][0]
         deflection[x < first_support_pos] = 0
         rotation[x < first_support_pos] = 0
+        
+        # Forceer exacte nul bij steunpunten
+        for pos, _ in supports:
+            idx = np.abs(x - pos).argmin()
+            deflection[idx] = 0
         
     except np.linalg.LinAlgError:
         st.error("Fout bij het oplossen van de randvoorwaarden")
