@@ -912,14 +912,13 @@ def generate_pdf_report(beam_data, results_plot):
     elements.append(Paragraph("1. Profiel Specificaties", heading_style))
     profile_data = [
         ["Type", beam_data["profile_type"]],
-        ["Naam", beam_data.get("profile_name", "Custom")],
         ["Hoogte", f"{beam_data['height']} mm"],
         ["Breedte", f"{beam_data['width']} mm"],
         ["Wanddikte", f"{beam_data['wall_thickness']} mm"]
     ]
-    if "flange_thickness" in beam_data:
+    if "flange_thickness" in beam_data and beam_data["flange_thickness"]:
         profile_data.append(["Flensdikte", f"{beam_data['flange_thickness']} mm"])
-        
+    
     profile_table = Table(profile_data, colWidths=[100, 200])
     profile_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
@@ -934,18 +933,39 @@ def generate_pdf_report(beam_data, results_plot):
     elements.append(profile_table)
     elements.append(Spacer(1, 20))
     
-    # Overspanning en steunpunten
-    elements.append(Paragraph("2. Overspanning en Steunpunten", heading_style))
-    support_data = [
-        ["Overspanning", f"{beam_data['beam_length']} mm"],
-        ["Aantal steunpunten", str(len(beam_data['supports']))]
+    # Profiel eigenschappen
+    elements.append(Paragraph("2. Profiel Eigenschappen", heading_style))
+    properties_data = [
+        ["Parameter", "Waarde", "Eenheid"],
+        ["Oppervlakte", f"{beam_data['area']:.0f}", "mm²"],
+        ["Traagheidsmoment", f"{beam_data['moment_of_inertia']:.0f}", "mm⁴"],
+        ["Weerstandsmoment", f"{beam_data['section_modulus']:.0f}", "mm³"],
+        ["Max. buigspanning", f"{beam_data['max_stress']:.1f}", "N/mm²"]
     ]
+    
+    properties_table = Table(properties_data, colWidths=[100, 100, 100])
+    properties_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
+        ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 0), (-1, -1), 10),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 12),
+        ('TOPPADDING', (0, 0), (-1, -1), 12),
+        ('GRID', (0, 0), (-1, -1), 1, colors.HexColor('#dee2e6'))
+    ]))
+    elements.append(properties_table)
+    elements.append(Spacer(1, 20))
+    
+    # Steunpunten
+    elements.append(Paragraph("3. Steunpunten", heading_style))
+    support_data = [["#", "Type", "Positie"]]
     for i, (pos, type) in enumerate(beam_data['supports'], 1):
-        support_data.append([f"Steunpunt {i}", f"{type} op {pos} mm"])
-        
-    support_table = Table(support_data, colWidths=[100, 200])
+        support_data.append([str(i), type, f"{pos} mm"])
+    
+    support_table = Table(support_data, colWidths=[50, 150, 100])
     support_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (0, -1), colors.HexColor('#f8f9fa')),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
         ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
         ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
@@ -958,23 +978,23 @@ def generate_pdf_report(beam_data, results_plot):
     elements.append(Spacer(1, 20))
     
     # Belastingen
-    elements.append(Paragraph("3. Belastingen", heading_style))
-    load_data = [["Type", "Waarde", "Positie", "Lengte"]]
-    for load in beam_data['loads']:
+    elements.append(Paragraph("4. Belastingen", heading_style))
+    load_data = [["#", "Type", "Waarde", "Positie", "Lengte"]]
+    for i, load in enumerate(beam_data['loads'], 1):
         if len(load) == 4:  # Verdeelde of driehoekslast
             pos, val, type, length = load
             if type == "Verdeelde last":
-                load_data.append([type, f"{val/1000:.1f} kN/m", f"{pos} mm", f"{length} mm"])
+                load_data.append([str(i), type, f"{val/1000:.1f} kN/m", f"{pos} mm", f"{length} mm"])
             elif type == "Driehoekslast":
-                load_data.append([type, f"{val/1000:.1f} kN/m", f"{pos} mm", f"{length} mm"])
+                load_data.append([str(i), type, f"{val/1000:.1f} kN/m", f"{pos} mm", f"{length} mm"])
         else:  # Puntlast of moment
             pos, val, type = load
             if type == "Moment":
-                load_data.append([type, f"{val/1e6:.1f} kNm", f"{pos} mm", "-"])
+                load_data.append([str(i), type, f"{val/1e6:.1f} kNm", f"{pos} mm", "-"])
             else:
-                load_data.append([type, f"{val/1000:.1f} kN", f"{pos} mm", "-"])
+                load_data.append([str(i), type, f"{val/1000:.1f} kN", f"{pos} mm", "-"])
     
-    load_table = Table(load_data, colWidths=[80, 80, 80, 80])
+    load_table = Table(load_data, colWidths=[30, 100, 80, 80, 80])
     load_table.setStyle(TableStyle([
         ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#f8f9fa')),
         ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2c3e50')),
@@ -989,15 +1009,15 @@ def generate_pdf_report(beam_data, results_plot):
     elements.append(Spacer(1, 20))
     
     # Resultaten
-    elements.append(Paragraph("4. Analyse Resultaten", heading_style))
+    elements.append(Paragraph("5. Resultaten", heading_style))
     
-    # Voeg plotly figuur toe
+    # Grafieken
     img_stream = BytesIO(img_bytes)
     img = Image(img_stream, width=160*mm, height=120*mm)
     elements.append(img)
     elements.append(Spacer(1, 10))
     
-    # Maximale waarden tabel
+    # Maximale waarden
     elements.append(Paragraph("Maximale Waarden:", heading_style))
     max_data = [
         ["Parameter", "Waarde", "Eenheid"],
@@ -1250,119 +1270,87 @@ def main():
         beam_fig = plot_beam_diagram(beam_length, supports, loads)
         st.plotly_chart(beam_fig, use_container_width=True)
         
-        # Toon resultaten
-        col1, col2 = st.columns([2, 1])
+        # Resultaten header
+        st.markdown("""
+        <style>
+        .results-header {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .results-section {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            border: 1px solid #e9ecef;
+            margin-bottom: 20px;
+        }
+        </style>
+        <div class="results-header">
+        <h2>📊 Berekeningsresultaten</h2>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Grafieken sectie
+        st.markdown("""
+        <div class="results-section">
+        <h3>📈 Grafieken</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        results_plot = plot_results(x, V, M, rotation, deflection)
+        st.plotly_chart(results_plot, use_container_width=True)
+        
+        # Maximale waarden en profiel eigenschappen
+        col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("Analyse Resultaten")
+            st.markdown("""
+            <div class="results-section">
+            <h3>📏 Maximale Waarden</h3>
+            </div>
+            """, unsafe_allow_html=True)
             
-            # Plot alle resultaten
-            results_plot = plot_results(x, V, M, rotation, deflection)
-            st.plotly_chart(results_plot, use_container_width=True)
-            
-            # Maximale waarden
             max_vals = {
-                "Dwarskracht": f"{max(abs(np.min(V)), abs(np.max(V))):.0f} N",
-                "Moment": f"{max(abs(np.min(M)), abs(np.max(M))):.0f} Nmm",
-                "Rotatie": f"{max(abs(np.min(rotation)), abs(np.max(rotation))):.6f} rad",
-                "Doorbuiging": f"{max(abs(np.min(deflection)), abs(np.max(deflection))):.2f} mm"
+                "Dwarskracht": [f"{max(abs(np.min(V)), abs(np.max(V)))/1000:.1f}", "kN"],
+                "Moment": [f"{max(abs(np.min(M)), abs(np.max(M)))/1e6:.1f}", "kNm"],
+                "Rotatie": [f"{max(abs(np.min(rotation)), abs(np.max(rotation))):.4f}", "rad"],
+                "Doorbuiging": [f"{max(abs(np.min(deflection)), abs(np.max(deflection))):.2f}", "mm"]
             }
             
-            st.subheader("Maximale Waarden")
-            cols = st.columns(4)
-            for i, (key, val) in enumerate(max_vals.items()):
-                cols[i].metric(key, val)
+            for key, (val, unit) in max_vals.items():
+                st.metric(key, f"{val} {unit}")
         
         with col2:
-            st.subheader("Profiel Details")
-            A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
+            st.markdown("""
+            <div class="results-section">
+            <h3>🔧 Profiel Eigenschappen</h3>
+            </div>
+            """, unsafe_allow_html=True)
             
-            st.metric("Oppervlakte", f"{A:.0f} mm²")
-            st.metric("Traagheidsmoment", f"{I:.0f} mm⁴")
-            st.metric("Weerstandsmoment", f"{W:.0f} mm³")
+            A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
+            properties = {
+                "Oppervlakte": [f"{A:.0f}", "mm²"],
+                "Traagheidsmoment": [f"{I:.0f}", "mm⁴"],
+                "Weerstandsmoment": [f"{W:.0f}", "mm³"]
+            }
+            
+            for key, (val, unit) in properties.items():
+                st.metric(key, f"{val} {unit}")
             
             # Spanningen
-            st.subheader("Spanningen")
-            max_moment = max(abs(min(M)), abs(max(M)))
+            max_moment = max(abs(np.min(M)), abs(np.max(M)))
             sigma = max_moment / W
             st.metric("Max. buigspanning", f"{sigma:.1f} N/mm²")
-            
-            # Toetsing
-            st.subheader("Toetsing")
-            f_y = 235  # Vloeigrens S235
-            UC = sigma / f_y
-            st.metric("Unity Check", f"{UC:.2f}", help="UC ≤ 1.0")
-            
-            if UC > 1.0:
-                st.error("Profiel voldoet niet! Kies een zwaarder profiel.")
-            elif UC > 0.9:
-                st.warning("Profiel zwaar belast. Overweeg een zwaarder profiel.")
-            else:
-                st.success("Profiel voldoet ruim.")
-            
-            # Download rapport
-            st.markdown("---")
-            if st.button("Genereer Rapport", type="primary"):
-                # Genereer rapport
-                try:
-                    beam_data = {
-                        "profile_type": profile_type,
-                        "profile_name": profile_name,
-                        "dimensions": {
-                            "height": height,
-                            "width": width,
-                            "wall_thickness": wall_thickness,
-                            "flange_thickness": flange_thickness
-                        },
-                        "properties": {
-                            "A": A,
-                            "I": I,
-                            "W": W
-                        },
-                        "length": beam_length,
-                        "E": E,
-                        "supports": supports,
-                        "loads": loads,
-                        "results": {
-                            "max_V": max(abs(np.min(V)), abs(np.max(V))),
-                            "max_M": max(abs(np.min(M)), abs(np.max(M))),
-                            "max_deflection": max(abs(np.min(deflection)), abs(np.max(deflection))),
-                            "max_rotation": max(abs(np.min(rotation)), abs(np.max(rotation))),
-                            "max_stress": sigma,
-                            "unity_check": UC
-                        }
-                    }
-                    
-                    # Genereer PDF
-                    pdf_content = generate_pdf_report(beam_data, results_plot)
-                    
-                    # Sla op en toon download knop
-                    st.download_button(
-                        label="⬇️ Download Rapport (PDF)",
-                        data=pdf_content,
-                        file_name="beamsolve_report.pdf",
-                        mime="application/pdf",
-                        key="download_report"
-                    )
-                except Exception as e:
-                    st.error(f"Fout bij genereren rapport: {str(e)}")
-                    
+        
         # PDF Export sectie
-        st.divider()
-        col1, col2 = st.columns([2,1])
-        with col1:
-            st.markdown("### 📊 Exporteer Rapport")
-            st.markdown("""
-            Exporteer een professioneel rapport met:
-            - Gedetailleerde profielspecificaties
-            - Belastingconfiguraties
-            - Grafische resultaten
-            - Maximale waarden analyse
-            """)
-        with col2:
-            st.markdown("### 💎 Premium Functie")
-            st.info("Upgrade naar BeamSolve Professional voor onbeperkt gebruik van de export functie.")
-                
+        st.markdown("""
+        <div class="results-section">
+        <h3>📑 Rapport Exporteren</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
         # Maak een dictionary met alle beam data
         beam_data = {
             "profile_type": profile_type,
