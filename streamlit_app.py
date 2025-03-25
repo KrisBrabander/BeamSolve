@@ -812,74 +812,96 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda x: x[0])
     
-    # Bereken rotatie en doorbuiging
+    # Bereken velden tussen steunpunten
+    field_starts = [0] + [pos for pos, _ in supports]
+    field_ends = [pos for pos, _ in supports] + [beam_length]
+    n_fields = len(field_starts)
+    
+    # Arrays voor resultaten
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Bereken eerst de basisoplossing
-    for i in range(1, len(x)):
-        rotation[i] = rotation[i-1] + (M[i-1] + M[i])/(2 * EI) * dx
-    
-    for i in range(1, len(x)):
-        deflection[i] = deflection[i-1] + (rotation[i-1] + rotation[i])/2 * dx
-    
-    # Pas randvoorwaarden toe
-    # We hebben 2 onbekenden (C1 en C2) voor de complete balk
-    n_equations = len(supports)  # Aantal vergelijkingen = aantal steunpunten
-    A = np.zeros((n_equations, 2))
-    b = np.zeros(n_equations)
-    
-    # Vergelijkingen voor doorbuiging = 0 bij steunpunten
-    for i, (pos, type) in enumerate(supports):
-        idx = np.abs(x - pos).argmin()
-        A[i, 0] = 1  # C1 term
-        A[i, 1] = x[idx]  # C2 term
-        b[i] = -deflection[idx]  # Tegengestelde van huidige doorbuiging
-    
-    try:
-        # Los het stelsel op met SVD voor betere numerieke stabiliteit
-        constants = np.linalg.lstsq(A, b, rcond=None)[0]
+    # Bereken per veld
+    for i in range(n_fields):
+        # Grenzen van dit veld
+        start_pos = field_starts[i]
+        end_pos = field_ends[i]
+        field_mask = (x >= start_pos) & (x <= end_pos)
         
-        # Pas de integratieconstanten toe
-        C1, C2 = constants
-        deflection += C1 + C2 * x
-        rotation += C2
+        # Bereken particuliere oplossing voor dit veld
+        field_x = x[field_mask]
+        field_M = M[field_mask]
         
-        # Forceer exacte nul bij steunpunten
-        for pos, type in supports:
-            idx = np.abs(x - pos).argmin()
-            # Zorg voor exacte nul bij steunpunt
-            deflection[idx] = 0.0
-            # Bij inklemming is ook de rotatie nul
-            if type.lower() == "inklemming":
-                rotation[idx] = 0.0
-        
-        # Zorg dat alles voor het eerste steunpunt nul is
-        first_support_pos = supports[0][0]
-        deflection[x < first_support_pos] = 0.0
-        rotation[x < first_support_pos] = 0.0
-        
-        # Extra controle: geen negatieve doorbuiging bij steunpunten
-        for pos, _ in supports:
-            idx = np.abs(x - pos).argmin()
-            if deflection[idx] < 0:
-                deflection[idx] = 0.0
-                
-        # Extra controle: interpoleer tussen steunpunten als er vreemde waarden zijn
-        for i in range(len(supports) - 1):
-            pos1 = supports[i][0]
-            pos2 = supports[i+1][0]
-            idx1 = np.abs(x - pos1).argmin()
-            idx2 = np.abs(x - pos2).argmin()
+        if len(field_x) < 2:
+            continue
             
-            # Als er vreemde waarden zijn tussen de steunpunten, interpoleer
-            mask = (x > pos1) & (x < pos2)
-            if np.any(deflection[mask] < 0):
-                x_rel = (x[mask] - pos1) / (pos2 - pos1)
-                deflection[mask] = np.maximum(0, deflection[mask])
+        # Integreer M/EI naar rotatie
+        field_rotation = np.zeros_like(field_x)
+        for j in range(1, len(field_x)):
+            field_rotation[j] = field_rotation[j-1] + (field_M[j-1] + field_M[j])/(2 * EI) * dx
+            
+        # Integreer rotatie naar doorbuiging
+        field_deflection = np.zeros_like(field_x)
+        for j in range(1, len(field_x)):
+            field_deflection[j] = field_deflection[j-1] + (field_rotation[j-1] + field_rotation[j])/2 * dx
+            
+        # Bepaal randvoorwaarden voor dit veld
+        A = np.zeros((2, 2))
+        b = np.zeros(2)
         
-    except np.linalg.LinAlgError:
-        st.error("Fout bij het oplossen van de randvoorwaarden")
+        # Begin van het veld
+        if i == 0:
+            # Eerste veld: doorbuiging = 0 aan begin
+            A[0, 0] = 1  # C1
+            b[0] = 0
+            # Als eerste steunpunt inklemming is, rotatie = 0
+            if supports[0][1].lower() == "inklemming":
+                A[1, 1] = 1  # C2
+                b[1] = 0
+            else:
+                # Anders: doorbuiging = 0 bij eerste steunpunt
+                x_rel = field_ends[i] - start_pos
+                A[1, 0] = 1  # C1
+                A[1, 1] = x_rel  # C2
+                b[1] = -field_deflection[-1]
+        else:
+            # Tussenliggend veld
+            # Doorbuiging = 0 aan begin (vorig steunpunt)
+            A[0, 0] = 1  # C1
+            b[0] = 0
+            # Doorbuiging = 0 aan eind (volgend steunpunt)
+            x_rel = field_ends[i] - start_pos
+            A[1, 0] = 1  # C1
+            A[1, 1] = x_rel  # C2
+            b[1] = -field_deflection[-1]
+            
+            # Als vorig steunpunt inklemming was, rotatie moet continu zijn
+            if i > 0 and supports[i-1][1].lower() == "inklemming":
+                A[0, 1] = 1  # C2 (rotatie)
+                b[0] = 0
+        
+        try:
+            # Los het stelsel op voor dit veld
+            C1, C2 = np.linalg.solve(A, b)
+            
+            # Pas de constanten toe op dit veld
+            x_rel = field_x - start_pos
+            field_deflection += C1 + C2 * x_rel
+            field_rotation += C2
+            
+            # Sla resultaten op in hoofdarrays
+            rotation[field_mask] = field_rotation
+            deflection[field_mask] = field_deflection
+            
+        except np.linalg.LinAlgError:
+            st.error(f"Fout bij het oplossen van veld {i+1}")
+    
+    # Forceer exacte waarden bij steunpunten
+    for pos, type in supports:
+        idx = np.abs(x - pos).argmin()
+        deflection[idx] = 0.0
+        if type.lower() == "inklemming":
+            rotation[idx] = 0.0
     
     return x, V, M, rotation, deflection
 
