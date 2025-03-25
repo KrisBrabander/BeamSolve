@@ -1223,21 +1223,21 @@ if 'export_count' not in st.session_state:
 def main():
     st.set_page_config(
         page_title="BeamSolve Professional",
-        page_icon="🏗️",
+        page_icon="",
         layout="wide"
     )
     
     # Header
     col1, col2 = st.columns([3,1])
     with col1:
-        st.title("🏗️ BeamSolve Professional")
+        st.title("BeamSolve Professional")
         st.markdown("Geavanceerde balkberekeningen voor constructeurs")
     with col2:
-        st.markdown("### 📊 Versie")
+        st.markdown("### Versie")
         st.markdown("""
         <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>
         <small>
-        ⭐ Free Edition<br>
+        Free Edition<br>
         <span style='color: #6c757d;'>2/2 Exports Beschikbaar</span>
         </small>
         </div>
@@ -1418,14 +1418,14 @@ def main():
         }
         </style>
         <div class="results-header">
-        <h2>📊 Berekeningsresultaten</h2>
+        <h2> Berekeningsresultaten</h2>
         </div>
         """, unsafe_allow_html=True)
         
         # Grafieken sectie
         st.markdown("""
         <div class="results-section">
-        <h3>📈 Grafieken</h3>
+        <h3> Grafieken</h3>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1438,7 +1438,7 @@ def main():
         with col1:
             st.markdown("""
             <div class="results-section">
-            <h3>📏 Maximale Waarden</h3>
+            <h3> Maximale Waarden</h3>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1455,7 +1455,7 @@ def main():
         with col2:
             st.markdown("""
             <div class="results-section">
-            <h3>🔧 Profiel Eigenschappen</h3>
+            <h3> Profiel Eigenschappen</h3>
             </div>
             """, unsafe_allow_html=True)
             
@@ -1473,7 +1473,7 @@ def main():
         # PDF Export sectie
         st.markdown("""
         <div class="results-section">
-        <h3>📑 Rapport Exporteren</h3>
+        <h3> Rapport Exporteren</h3>
         </div>
         """, unsafe_allow_html=True)
         
@@ -1501,7 +1501,7 @@ def main():
                 col1, col2 = st.columns([3,1])
                 with col1:
                     if st.download_button(
-                        label=f"⬇️ Download Rapport (PDF) - {remaining_exports} export(s) over",
+                        label=f" Download Rapport (PDF) - {remaining_exports} export(s) over",
                         data=pdf_content,
                         file_name="beamsolve_report.pdf",
                         mime="application/pdf",
@@ -1509,23 +1509,23 @@ def main():
                     ):
                         st.session_state.export_count += 1
                 with col2:
-                    st.markdown(f"<small>💡 Tip: Sla dit rapport op voor later gebruik</small>", unsafe_allow_html=True)
+                    st.markdown(f"<small> Tip: Sla dit rapport op voor later gebruik</small>", unsafe_allow_html=True)
                         
                 if remaining_exports == 1:
-                    st.warning("⚠️ Dit is je laatste gratis export. Upgrade naar Professional voor onbeperkt gebruik!")
+                    st.warning(" Dit is je laatste gratis export. Upgrade naar Professional voor onbeperkt gebruik!")
             except Exception as e:
                 st.error(f"Fout bij genereren rapport: {str(e)}")
         else:
-            st.error("🔒 Je hebt je gratis exports gebruikt. Upgrade naar Professional voor onbeperkt gebruik!")
+            st.error(" Je hebt je gratis exports gebruikt. Upgrade naar Professional voor onbeperkt gebruik!")
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("💎 Upgrade naar Professional", type="primary"):
+                if st.button(" Upgrade naar Professional", type="primary"):
                     st.markdown("### Contact voor Professional Licentie")
                     st.info("Neem contact op via info@beamsolve.nl voor een Professional licentie.")
             with col2:
                 st.markdown("""
                 <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px;'>
-                <h4>💎 Professional Voordelen</h4>
+                <h4> Professional Voordelen</h4>
                 <ul>
                 <li>Onbeperkt PDF exports</li>
                 <li>Geavanceerde belastingcombinaties</li>
