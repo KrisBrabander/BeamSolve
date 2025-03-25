@@ -1113,11 +1113,18 @@ def main():
             
             if load_type in ["Verdeelde last", "Driehoekslast"]:
                 with col2:
+                    # Bereken maximale lengte op basis van positie
+                    max_length = min(beam_length - position, beam_length)
+                    # Als er een bestaande waarde is, gebruik die (maar begrens het)
+                    default_length = min(1000.0, max_length)
+                    if f"load_length_{i}" in st.session_state:
+                        default_length = min(st.session_state[f"load_length_{i}"], max_length)
+                    
                     length = st.number_input(
                         "Lengte",
-                        value=1000.0,
+                        value=default_length,
                         min_value=0.0,
-                        max_value=beam_length - position,
+                        max_value=max_length,
                         step=100.0,
                         format="%.0f",
                         help="mm",
