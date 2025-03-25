@@ -819,78 +819,49 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda x: x[0])
-    support_indices = [np.abs(x - pos).argmin() for pos, _ in supports]
     
     # Bereken rotatie en doorbuiging
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Bereken per veld tussen steunpunten
-    field_starts = [0] + [pos for pos, _ in supports]
-    field_ends = [pos for pos, _ in supports] + [beam_length]
-    
-    # Voor elk veld
-    for i in range(len(field_starts)):
-        # Indices voor dit veld
-        field_mask = (x >= field_starts[i]) & (x <= field_ends[i])
-        field_x = x[field_mask]
-        
-        if len(field_x) < 2:
-            continue
-            
-        # Integreer moment naar rotatie voor dit veld
-        field_rotation = np.zeros_like(field_x)
-        for j in range(1, len(field_x)):
-            field_rotation[j] = field_rotation[j-1] + (M[field_mask][j-1] + M[field_mask][j])/(2 * EI) * dx
-            
-        # Integreer rotatie naar doorbuiging voor dit veld
-        field_deflection = np.zeros_like(field_x)
-        for j in range(1, len(field_x)):
-            field_deflection[j] = field_deflection[j-1] + (field_rotation[j-1] + field_rotation[j])/2 * dx
-            
-        # Sla resultaten op in hoofdarrays
-        rotation[field_mask] = field_rotation
-        deflection[field_mask] = field_deflection
+    # Bereken eerst de basisoplossing zonder randvoorwaarden
+    for i in range(1, len(x)):
+        rotation[i] = rotation[i-1] + (M[i-1] + M[i])/(2 * EI) * dx
+        deflection[i] = deflection[i-1] + (rotation[i-1] + rotation[i])/2 * dx
     
     # Pas randvoorwaarden toe
-    # We hebben 2 onbekenden per veld (integratieconstanten)
-    n_fields = len(field_starts)
-    n_equations = len(supports)  # Doorbuiging = 0 bij steunpunten
-    
-    # Maak matrix voor randvoorwaarden
-    A = np.zeros((n_equations, 2 * n_fields))
+    # We hebben 2 onbekenden (C1 en C2) voor de complete balk
+    n_equations = len(supports)  # Aantal vergelijkingen = aantal steunpunten
+    A = np.zeros((n_equations, 2))
     b = np.zeros(n_equations)
     
     # Vergelijkingen voor doorbuiging = 0 bij steunpunten
-    for i, (pos, _) in enumerate(supports):
-        field_idx = next(j for j, end in enumerate(field_ends) if end >= pos)
-        x_rel = pos - field_starts[field_idx]
-        
-        # Coefficienten voor dit veld
-        A[i, 2*field_idx] = 1  # C1 term
-        A[i, 2*field_idx + 1] = x_rel  # C2 term
-        b[i] = -deflection[np.abs(x - pos).argmin()]
+    for i, (pos, type) in enumerate(supports):
+        idx = np.abs(x - pos).argmin()
+        A[i, 0] = 1  # C1 term
+        A[i, 1] = x[idx]  # C2 term
+        b[i] = -deflection[idx]  # Tegengestelde van huidige doorbuiging
     
     try:
         # Los het stelsel op met SVD voor betere numerieke stabiliteit
         constants = np.linalg.lstsq(A, b, rcond=None)[0]
         
-        # Pas de integratieconstanten toe per veld
-        for i in range(n_fields):
-            field_mask = (x >= field_starts[i]) & (x <= field_ends[i])
-            x_rel = x[field_mask] - field_starts[i]
-            deflection[field_mask] += constants[2*i] + constants[2*i + 1] * x_rel
-            rotation[field_mask] += constants[2*i + 1]
-        
-        # Zorg dat er geen doorbuiging is voor het eerste steunpunt
-        first_support_pos = supports[0][0]
-        deflection[x < first_support_pos] = 0
-        rotation[x < first_support_pos] = 0
+        # Pas de integratieconstanten toe
+        C1, C2 = constants
+        deflection += C1 + C2 * x
+        rotation += C2
         
         # Forceer exacte nul bij steunpunten
-        for pos, _ in supports:
+        for pos, type in supports:
             idx = np.abs(x - pos).argmin()
-            deflection[idx] = 0
+            deflection[idx] = 0.0
+            if type.lower() == "inklemming":
+                rotation[idx] = 0.0
+        
+        # Zorg dat alles voor het eerste steunpunt nul is
+        first_support_pos = supports[0][0]
+        deflection[x < first_support_pos] = 0.0
+        rotation[x < first_support_pos] = 0.0
         
     except np.linalg.LinAlgError:
         st.error("Fout bij het oplossen van de randvoorwaarden")
