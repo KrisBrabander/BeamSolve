@@ -780,11 +780,7 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda x: x[0])
     
-    # Check statische bepaaldheid
-    n_reactions = sum(2 if type.lower() == "inklemming" else 1 for _, type in supports)
-    is_hyperstatic = n_reactions > 3
-    
-    # Bereken reactiekrachten (voor statisch bepaald systeem of benadering)
+    # Bereken reactiekrachten
     reactions = calculate_reactions(beam_length, supports, loads)
     
     # Bereken interne krachten
@@ -794,71 +790,81 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Bereken eerst de basisoplossing (particuliere integraal)
-    for i in range(1, len(x)):
-        rotation[i] = rotation[i-1] + (M[i-1] + M[i])/(2 * EI) * dx
+    # Bereken doorbuiging voor elke last en steunpunt apart
+    def elastic_line(F, a, x):
+        """Bereken doorbuiging door puntlast F op positie a"""
+        v = np.zeros_like(x)
+        L = beam_length
+        
+        # Voor x ≤ a: v = Fx(L-a)(L-x)x/(6EIL)
+        mask = x <= a
+        v[mask] = F * x[mask] * (L-a) * (L-x[mask]) * x[mask] / (6 * EI * L)
+        
+        # Voor x > a: v = Fa(L-x)(L-a)x/(6EIL)
+        mask = x > a
+        v[mask] = F * a * (L-x[mask]) * (L-a) * x[mask] / (6 * EI * L)
+        
+        return v
     
-    for i in range(1, len(x)):
-        deflection[i] = deflection[i-1] + (rotation[i-1] + rotation[i])/2 * dx
-    
-    # Bepaal referentiepunt (eerste steunpunt)
-    first_support = supports[0]
-    ref_idx = np.abs(x - first_support[0]).argmin()
-    
-    # Corrigeer voor absolute verplaatsing en rotatie
-    deflection -= deflection[ref_idx]
-    if first_support[1].lower() == "inklemming":
-        rotation -= rotation[ref_idx]
-    
-    # Voor hyperstatische systemen: iteratieve correctie
-    if is_hyperstatic:
-        max_iter = 10
-        for iter in range(max_iter):
-            # Sla oude waarden op
-            old_deflection = deflection.copy()
+    # 1. Bereken doorbuiging door belastingen
+    for load in loads:
+        load_type = load[2]
+        value = load[1]
+        pos = load[0]
+        
+        if load_type == "Puntlast":
+            deflection += elastic_line(value, pos, x)
             
-            # Corrigeer voor elk steunpunt
-            for pos, type in supports:
-                idx = np.abs(x - pos).argmin()
+        elif load_type == "Verdeelde last":
+            # Verdeel in 10 puntlasten
+            length = load[3]
+            n_points = 10
+            dx_load = length / n_points
+            for i in range(n_points):
+                xi = pos + i * dx_load + dx_load/2
+                Fi = value * dx_load
+                deflection += elastic_line(Fi, xi, x)
                 
-                # Bereken correcties
-                d_corr = deflection[idx]
-                r_corr = rotation[idx] if type.lower() == "inklemming" else 0
+        elif load_type == "Driehoekslast":
+            # Verdeel in 10 puntlasten
+            length = load[3]
+            n_points = 10
+            dx_load = length / n_points
+            for i in range(n_points):
+                xi = pos + i * dx_load + dx_load/2
+                h = value * (i + 0.5) / n_points  # Hoogte op dit punt
+                Fi = h * dx_load
+                deflection += elastic_line(Fi, xi, x)
                 
-                # Pas correcties lokaal toe
-                # Bepaal invloedsgebied (tot volgende/vorige steunpunt)
-                next_support = next((s for s in supports if s[0] > pos), (beam_length, None))
-                prev_support = next((s for s in reversed(supports) if s[0] < pos), (0, None))
-                
-                # Bereken correctiefactoren
-                mask = (x >= prev_support[0]) & (x <= next_support[0])
-                x_rel_right = (x[mask] - pos) / (next_support[0] - pos)
-                x_rel_left = (x[mask] - prev_support[0]) / (pos - prev_support[0])
-                
-                # Pas correctie toe met gewichten
-                weights = np.minimum(1 - x_rel_right, 1 - x_rel_left)
-                weights = np.maximum(0, weights)
-                deflection[mask] -= d_corr * weights
-                
-                if type.lower() == "inklemming":
-                    rotation[mask] -= r_corr * weights
-            
-            # Check convergentie
-            if np.max(np.abs(deflection - old_deflection)) < 1e-6:
-                break
-    else:
-        # Voor statisch bepaalde systemen: directe correctie
-        for pos, type in supports[1:]:
+        elif load_type == "Moment":
+            # Moment = koppel van twee tegengestelde krachten
+            d = dx  # Kleine afstand voor koppel
+            F = value / d  # Grootte van de krachten
+            deflection += elastic_line(F, pos, x)
+            deflection -= elastic_line(F, pos + d, x)
+    
+    # 2. Bereken correctiekrachten voor steunpunten
+    while True:
+        max_deflection = 0
+        
+        # Voor elk steunpunt
+        for pos, type in supports:
             idx = np.abs(x - pos).argmin()
+            d = deflection[idx]
             
-            # Bereken correcties
-            d_corr = deflection[idx]
-            r_corr = rotation[idx] if type.lower() == "inklemming" else 0
-            
-            # Pas correcties toe over hele balk
-            deflection -= d_corr
-            if type.lower() == "inklemming":
-                rotation -= r_corr
+            if abs(d) > 1e-10:  # Als er nog significante doorbuiging is
+                # Pas een correctiekracht toe
+                F = -d * EI / (pos * (beam_length - pos)**2)  # Geschatte correctiekracht
+                deflection += elastic_line(F, pos, x)
+                max_deflection = max(max_deflection, abs(d))
+        
+        if max_deflection < 1e-10:
+            break
+    
+    # Bereken rotatie door differentiatie
+    rotation[1:-1] = (deflection[2:] - deflection[:-2]) / (2*dx)
+    rotation[0] = (deflection[1] - deflection[0]) / dx
+    rotation[-1] = (deflection[-1] - deflection[-2]) / dx
     
     # Forceer exacte waarden bij steunpunten
     for pos, type in supports:
