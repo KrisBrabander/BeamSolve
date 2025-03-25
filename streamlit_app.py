@@ -816,67 +816,49 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Bereken interne krachten
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Initialiseer arrays
-    rotation = np.zeros_like(x)
-    deflection = np.zeros_like(x)
-    
     # Sorteer steunpunten op positie
     supports = sorted(supports, key=lambda x: x[0])
     support_indices = [np.abs(x - pos).argmin() for pos, _ in supports]
     
-    # Eerste integratie: M/EI -> θ
+    # Bereken rotatie en doorbuiging per veld tussen steunpunten
+    rotation = np.zeros_like(x)
+    deflection = np.zeros_like(x)
+    
+    # Integreer moment naar rotatie
     for i in range(1, len(x)):
         rotation[i] = rotation[i-1] + (M[i-1] + M[i])/(2 * EI) * dx
     
-    # Tweede integratie: θ -> v
+    # Integreer rotatie naar doorbuiging
     for i in range(1, len(x)):
         deflection[i] = deflection[i-1] + (rotation[i-1] + rotation[i])/2 * dx
     
-    # Pas randvoorwaarden toe
-    if len(support_indices) > 0:
-        # Matrix voor randvoorwaarden
-        n_equations = len(support_indices)
-        if any(type.lower() == "inklemming" for _, type in supports):
-            n_equations += 1  # Extra vergelijking voor rotatie bij inklemming
-        
-        A = np.zeros((n_equations, 2))  # 2 onbekenden: C1 en C2
-        b = np.zeros(n_equations)
-        
-        # Vergelijkingen voor doorbuiging bij steunpunten
-        for i, idx in enumerate(support_indices):
-            A[i, 0] = 1  # C1 coefficient
-            A[i, 1] = x[idx]  # C2 coefficient
-            b[i] = -deflection[idx]  # Tegengestelde van huidige doorbuiging
-        
-        # Extra vergelijking voor inklemming indien aanwezig
-        for pos, type in supports:
-            if type.lower() == "inklemming":
-                idx = np.abs(x - pos).argmin()
-                if idx == 0:  # Inklemming aan begin
-                    A[-1, 1] = 1  # C2 is de rotatie
-                    b[-1] = -rotation[0]
-                    break
-                elif idx == len(x)-1:  # Inklemming aan eind
-                    A[-1, 1] = 1
-                    b[-1] = -rotation[-1]
-                    break
-        
-        try:
-            # Los het stelsel op
-            C = np.linalg.solve(A, b)
-            # Pas correcties toe
-            deflection += C[0] + C[1] * x  # C1 + C2*x
-            rotation += C[1]  # C2 is de rotatie correctie
-        except np.linalg.LinAlgError:
-            # Fallback: forceer nul bij eerste steunpunt
-            deflection -= deflection[support_indices[0]]
+    # Pas randvoorwaarden toe voor doorbuiging bij steunpunten
+    # We hebben 2 onbekenden (C1 en C2) voor de complete balk
+    A = np.zeros((len(supports), 2))
+    b = np.zeros(len(supports))
     
-    # Forceer exacte waarden bij steunpunten
-    for pos, type in supports:
+    # Vergelijkingen voor doorbuiging = 0 bij steunpunten
+    for i, (pos, _) in enumerate(supports):
         idx = np.abs(x - pos).argmin()
-        deflection[idx] = 0.0  # Altijd nul doorbuiging bij steunpunt
-        if type.lower() == "inklemming":
-            rotation[idx] = 0.0  # Nul rotatie bij inklemming
+        A[i, 0] = 1  # C1 term
+        A[i, 1] = x[idx]  # C2 term
+        b[i] = -deflection[idx]  # Tegengestelde van huidige doorbuiging
+    
+    try:
+        # Los het stelsel op met SVD voor betere numerieke stabiliteit
+        constants = np.linalg.lstsq(A, b, rcond=None)[0]
+        
+        # Pas de integratieconstanten toe op de hele balk
+        deflection += constants[0] + constants[1] * x
+        rotation += constants[1]
+        
+        # Zorg dat er geen doorbuiging is voor het eerste steunpunt
+        first_support_pos = supports[0][0]
+        deflection[x < first_support_pos] = 0
+        rotation[x < first_support_pos] = 0
+        
+    except np.linalg.LinAlgError:
+        st.error("Fout bij het oplossen van de randvoorwaarden")
     
     return x, V, M, rotation, deflection
 
