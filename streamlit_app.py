@@ -1348,3 +1348,132 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+def calculate_reactions(beam_length, supports, loads):
+    """Bereken reactiekrachten met correcte mechanica"""
+    reactions = {}
+    
+    # 1. Tel onbekenden
+    n_unknowns = 0
+    for _, type in supports:
+        if type.lower() == "inklemming":
+            n_unknowns += 3  # Fx, Fy, M
+        elif type.lower() == "scharnier":
+            n_unknowns += 2  # Fx, Fy
+        else:  # Rol
+            n_unknowns += 1  # Alleen Fy
+    
+    # 2. Bereken externe belastingen
+    Ftot_x = 0  # Totale horizontale kracht
+    Ftot_y = 0  # Totale verticale kracht
+    Mtot = 0    # Totaal moment om eerste steunpunt
+    
+    first_support = min(supports, key=lambda x: x[0])
+    x0 = first_support[0]  # Neem eerste steunpunt als referentie
+    
+    for load in loads:
+        pos = load[0]
+        value = load[1]
+        load_type = load[2]
+        
+        if load_type == "Puntlast":
+            Ftot_y += value
+            Mtot += value * (pos - x0)
+            
+        elif load_type == "Moment":
+            Mtot += value
+            
+        elif load_type == "Verdeelde last":
+            length = load[3]
+            Ftot_y += value * length
+            # Moment t.o.v. eerste steunpunt
+            arm = pos + length/2 - x0
+            Mtot += value * length * arm
+            
+        elif load_type == "Driehoekslast":
+            length = load[3]
+            Ftot_y += value * length / 2
+            # Moment t.o.v. eerste steunpunt
+            arm = pos + 2*length/3 - x0
+            Mtot += value * length/2 * arm
+    
+    # 3. Los op voor reactiekrachten
+    if len(supports) == 1:
+        # Eén steunpunt moet een inklemming zijn
+        pos, type = supports[0]
+        if type.lower() != "inklemming":
+            st.error("❌ Systeem met één steunpunt moet een inklemming zijn")
+            return reactions
+        
+        reactions[pos] = {
+            "Fy": -Ftot_y,
+            "M": -Mtot
+        }
+        
+    elif len(supports) == 2:
+        # Twee steunpunten - statisch bepaald
+        x1, type1 = supports[0]
+        x2, type2 = supports[1]
+        L = x2 - x1
+        
+        # Bereken verticale reacties
+        R2 = -Mtot / L
+        R1 = -Ftot_y - R2
+        
+        reactions[x1] = {"Fy": R1}
+        reactions[x2] = {"Fy": R2}
+        
+        # Voeg moment toe bij inklemming
+        if type1.lower() == "inklemming":
+            reactions[x1]["M"] = Mtot
+        if type2.lower() == "inklemming":
+            reactions[x2]["M"] = -Mtot
+            
+    else:
+        # Drie of meer steunpunten - gebruik superpositie
+        n = len(supports)
+        A = np.zeros((n, n))  # Matrix voor reactiekrachten
+        b = np.zeros(n)       # Vector voor belastingen
+        
+        # Stel vergelijkingen op voor elk steunpunt
+        for i, (xi, _) in enumerate(supports):
+            # Evenwicht: som van momenten om punt i moet nul zijn
+            for j, (xj, _) in enumerate(supports):
+                if i != j:
+                    # Effect van reactiekracht j op moment in i
+                    A[i,j] = xj - xi
+            
+            # Effect van belastingen op moment in i
+            for load in loads:
+                pos = load[0]
+                value = load[1]
+                load_type = load[2]
+                
+                if load_type == "Puntlast":
+                    b[i] -= value * (pos - xi)
+                elif load_type == "Verdeelde last":
+                    length = load[3]
+                    # Resultante in midden van last
+                    b[i] -= value * length * (pos + length/2 - xi)
+                elif load_type == "Driehoekslast":
+                    length = load[3]
+                    # Resultante op 2/3 van begin
+                    b[i] -= value * length/2 * (pos + 2*length/3 - xi)
+        
+        # Vervang laatste rij door verticaal evenwicht
+        A[-1] = np.ones(n)
+        b[-1] = -Ftot_y
+        
+        try:
+            # Los stelsel op
+            R = np.linalg.solve(A, b)
+            
+            # Zet om naar reactions dictionary
+            for (pos, type), force in zip(supports, R):
+                reactions[pos] = {"Fy": force}
+                
+        except np.linalg.LinAlgError:
+            st.error("❌ Kon reactiekrachten niet berekenen")
+            return reactions
+    
+    return reactions
