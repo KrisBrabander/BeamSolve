@@ -1398,9 +1398,16 @@ if __name__ == "__main__":
 
 def calculate_reactions(beam_length, supports, loads):
     """Bereken reactiekrachten voor verschillende steunpuntconfiguraties"""
+    if not supports or not loads:
+        return {}
+        
     # Sorteer steunpunten
     supports = sorted(supports, key=lambda x: x[0])
+    n = len(supports)
     
+    if n == 0:
+        return {}
+        
     # Bereken totale belasting
     total_load = 0
     for load in loads:
@@ -1414,7 +1421,7 @@ def calculate_reactions(beam_length, supports, loads):
             else:  # Driehoekslast
                 total_load += value * length / 2
 
-    # Bereken momenten t.o.v. eerste steunpunt
+    # Bereken moment t.o.v. eerste steunpunt
     x0 = supports[0][0]
     moment = 0
     for load in loads:
@@ -1432,43 +1439,42 @@ def calculate_reactions(beam_length, supports, loads):
 
     # Bereken reactiekrachten
     reactions = {}
-    n = len(supports)
     
-    if n == 2:
-        # Twee steunpunten - statisch bepaald
-        x1, _ = supports[0]
-        x2, _ = supports[1]
-        L = x2 - x1
-        
-        R2 = moment / L
-        R1 = total_load - R2
-        
-        reactions[x1] = R1
-        reactions[x2] = R2
-        
-    elif n == 3:
-        # Drie steunpunten
-        x1, _ = supports[0]
-        x2, _ = supports[1]
-        x3, _ = supports[2]
-        
-        L1 = x2 - x1
-        L2 = x3 - x2
-        L = x3 - x1
-        
-        # Gebruik symmetrie en continuïteit
-        R2 = total_load / 2
-        R1 = R3 = total_load / 4
-        
-        reactions[x1] = R1
-        reactions[x2] = R2
-        reactions[x3] = R1  # Symmetrisch
-        
-    else:
-        # Verdeel de last gelijkmatig over alle steunpunten
-        R = total_load / n
-        for pos, _ in supports:
-            reactions[pos] = R
+    try:
+        if n == 1:
+            # Enkel steunpunt (moet inklemming zijn)
+            pos, type = supports[0]
+            if type.lower() != "inklemming":
+                st.error("❌ Systeem met één steunpunt moet een inklemming zijn")
+                return None
+            reactions[pos] = total_load
+            
+        elif n == 2:
+            # Twee steunpunten - statisch bepaald
+            x1, _ = supports[0]
+            x2, _ = supports[1]
+            L = x2 - x1
+            
+            if L == 0:
+                st.error("❌ Steunpunten mogen niet op dezelfde positie liggen")
+                return None
+                
+            R2 = moment / L
+            R1 = total_load - R2
+            
+            reactions[x1] = R1
+            reactions[x2] = R2
+            
+        else:
+            # Drie of meer steunpunten - vereenvoudigde methode
+            # Verdeel de last gelijkmatig over de steunpunten
+            R = total_load / n
+            for pos, _ in supports:
+                reactions[pos] = R
+                
+    except Exception as e:
+        st.error(f"❌ Fout bij berekenen reactiekrachten: {str(e)}")
+        return None
             
     return reactions
 
