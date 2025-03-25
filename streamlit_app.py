@@ -767,7 +767,7 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     return V, M
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
-    """Analyseer de balk en bereken dwarskrachten, momenten, rotatie en doorbuiging"""
+    """Analyseer de balk met correcte mechanica voor alle types systemen"""
     # Aantal punten voor berekening
     n_points = 2001
     x = np.linspace(0, beam_length, n_points)
@@ -777,94 +777,151 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
     EI = E * I
     
-    # Sorteer steunpunten op positie
-    supports = sorted(supports, key=lambda x: x[0])
+    # 1. Bepaal statische bepaaldheid
+    n_unknowns = 0
+    for _, type in supports:
+        if type.lower() == "inklemming":
+            n_unknowns += 3  # Fx, Fy, M
+        elif type.lower() == "scharnier":
+            n_unknowns += 2  # Fx, Fy
+        else:  # Rol
+            n_unknowns += 1  # Alleen Fy
+    
+    if n_unknowns > 3:
+        st.error(f"Systeem is {n_unknowns-3}× statisch onbepaald. Gebruik de stijfheidsmethode voor analyse.")
+        return None, None, None, None, None
+    
+    # 2. Bepaal alle discontinuïteiten (steunpunten + belastingspunten)
+    discontinuities = []
+    
+    # Voeg steunpunten toe
+    for pos, type in supports:
+        discontinuities.append((pos, "support", type))
+    
+    # Voeg belastingspunten toe
+    for load in loads:
+        pos = load[0]
+        load_type = load[2]
+        if load_type in ["Puntlast", "Moment"]:
+            discontinuities.append((pos, "load", load))
+        elif load_type in ["Verdeelde last", "Driehoekslast"]:
+            start_pos = load[0]
+            length = load[3]
+            discontinuities.append((start_pos, "load_start", load))
+            discontinuities.append((start_pos + length, "load_end", load))
+    
+    # Sorteer op positie
+    discontinuities.sort(key=lambda x: x[0])
+    
+    # 3. Verdeel in segmenten
+    segments = []
+    for i in range(len(discontinuities) - 1):
+        start = discontinuities[i][0]
+        end = discontinuities[i + 1][0]
+        if end > start:  # Voorkom nul-lengte segmenten
+            segments.append((start, end))
+    
+    # 4. Analyseer elk segment
+    V = np.zeros_like(x)  # Dwarskracht
+    M = np.zeros_like(x)  # Moment
+    rotation = np.zeros_like(x)  # Hoekverdraaiing
+    deflection = np.zeros_like(x)  # Doorbuiging
     
     # Bereken reactiekrachten
     reactions = calculate_reactions(beam_length, supports, loads)
     
-    # Bereken interne krachten
-    V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
-    
-    # Arrays voor resultaten
-    rotation = np.zeros_like(x)
-    deflection = np.zeros_like(x)
-    
-    # Bereken doorbuiging voor elke last en steunpunt apart
-    def elastic_line(F, a, x):
-        """Bereken doorbuiging door puntlast F op positie a"""
-        v = np.zeros_like(x)
-        L = beam_length
+    # Verwerk reactiekrachten in interne krachten
+    for pos, reaction in reactions.items():
+        # Vind relevante indices
+        idx = x >= pos
         
-        # Voor x ≤ a: v = Fx(L-a)(L-x)x/(6EIL)
-        mask = x <= a
-        v[mask] = F * x[mask] * (L-a) * (L-x[mask]) * x[mask] / (6 * EI * L)
+        # Dwarskracht door verticale reactie
+        if "Fy" in reaction:
+            V[idx] += reaction["Fy"]
+            # Moment door verticale reactie
+            M[idx] += reaction["Fy"] * (x[idx] - pos)
         
-        # Voor x > a: v = Fa(L-x)(L-a)x/(6EIL)
-        mask = x > a
-        v[mask] = F * a * (L-x[mask]) * (L-a) * x[mask] / (6 * EI * L)
-        
-        return v
+        # Direct moment van inklemming
+        if "M" in reaction:
+            M[idx] += reaction["M"]
     
-    # 1. Bereken doorbuiging door belastingen
+    # Verwerk belastingen
     for load in loads:
-        load_type = load[2]
-        value = load[1]
         pos = load[0]
+        value = load[1]
+        load_type = load[2]
+        
+        # Indices waar deze belasting effect heeft
+        idx = x >= pos
         
         if load_type == "Puntlast":
-            deflection += elastic_line(value, pos, x)
+            V[idx] -= value  # Sprong in dwarskracht
+            M[idx] -= value * (x[idx] - pos)  # Lineaire toename moment
+            
+        elif load_type == "Moment":
+            M[idx] -= value  # Sprong in moment
             
         elif load_type == "Verdeelde last":
-            # Verdeel in 10 puntlasten
             length = load[3]
-            n_points = 10
-            dx_load = length / n_points
-            for i in range(n_points):
-                xi = pos + i * dx_load + dx_load/2
-                Fi = value * dx_load
-                deflection += elastic_line(Fi, xi, x)
-                
-        elif load_type == "Driehoekslast":
-            # Verdeel in 10 puntlasten
-            length = load[3]
-            n_points = 10
-            dx_load = length / n_points
-            for i in range(n_points):
-                xi = pos + i * dx_load + dx_load/2
-                h = value * (i + 0.5) / n_points  # Hoogte op dit punt
-                Fi = h * dx_load
-                deflection += elastic_line(Fi, xi, x)
-                
-        elif load_type == "Moment":
-            # Moment = koppel van twee tegengestelde krachten
-            d = dx  # Kleine afstand voor koppel
-            F = value / d  # Grootte van de krachten
-            deflection += elastic_line(F, pos, x)
-            deflection -= elastic_line(F, pos + d, x)
-    
-    # 2. Bereken correctiekrachten voor steunpunten
-    while True:
-        max_deflection = 0
-        
-        # Voor elk steunpunt
-        for pos, type in supports:
-            idx = np.abs(x - pos).argmin()
-            d = deflection[idx]
+            end_pos = pos + length
+            # Alleen effect tussen start en eind van de last
+            idx = (x >= pos) & (x <= end_pos)
             
-            if abs(d) > 1e-10:  # Als er nog significante doorbuiging is
-                # Pas een correctiekracht toe
-                F = -d * EI / (pos * (beam_length - pos)**2)  # Geschatte correctiekracht
-                deflection += elastic_line(F, pos, x)
-                max_deflection = max(max_deflection, abs(d))
-        
-        if max_deflection < 1e-10:
-            break
+            # Dwarskracht neemt lineair toe
+            V[idx] -= value * (x[idx] - pos)
+            
+            # Moment is kwadratisch
+            M[idx] -= value * (x[idx] - pos)**2 / 2
+            
+            # Na de last
+            idx = x > end_pos
+            V[idx] -= value * length
+            M[idx] -= value * length * (x[idx] - (pos + length/2))
+            
+        elif load_type == "Driehoekslast":
+            length = load[3]
+            end_pos = pos + length
+            
+            # Tussen start en eind van de last
+            idx = (x >= pos) & (x <= end_pos)
+            
+            # Dwarskracht is kwadratisch
+            rel_x = (x[idx] - pos) / length
+            V[idx] -= value * length * rel_x**2 / 2
+            
+            # Moment is cubisch
+            M[idx] -= value * length * rel_x**3 / 6
+            
+            # Na de last
+            idx = x > end_pos
+            V[idx] -= value * length / 2
+            M[idx] -= value * length/2 * (x[idx] - (pos + 2*length/3))
     
-    # Bereken rotatie door differentiatie
-    rotation[1:-1] = (deflection[2:] - deflection[:-2]) / (2*dx)
-    rotation[0] = (deflection[1] - deflection[0]) / dx
-    rotation[-1] = (deflection[-1] - deflection[-2]) / dx
+    # 5. Bereken vervormingen per segment
+    for start, end in segments:
+        # Vind indices voor dit segment
+        idx = (x >= start) & (x <= end)
+        x_seg = x[idx]
+        M_seg = M[idx]
+        
+        # Integreer moment voor rotatie (EIθ = ∫M dx)
+        dx_seg = x_seg[1] - x_seg[0]
+        rotation[idx] = np.cumsum(M_seg) * dx_seg / EI
+        
+        # Integreer rotatie voor doorbuiging (EIv = ∫∫M dx dx)
+        deflection[idx] = np.cumsum(rotation[idx]) * dx_seg
+    
+    # 6. Pas randvoorwaarden toe
+    # Vind eerste steunpunt (referentie voor absolute verplaatsing)
+    first_support = min(supports, key=lambda x: x[0])
+    first_idx = np.abs(x - first_support[0]).argmin()
+    
+    # Corrigeer absolute verplaatsing
+    deflection -= deflection[first_idx]
+    
+    # Als eerste steunpunt een inklemming is, corrigeer ook rotatie
+    if first_support[1].lower() == "inklemming":
+        rotation -= rotation[first_idx]
     
     # Forceer exacte waarden bij steunpunten
     for pos, type in supports:
