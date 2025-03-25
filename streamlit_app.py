@@ -820,52 +820,23 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
 
 def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     """Analyseer de balk met de stijfheidsmethode"""
-    # 1. Stel stijfheidsmatrix en belastingsvector op
-    K, F = setup_stiffness_system(beam_length, supports, loads, EI)
-    
-    try:
-        # 2. Los het systeem op voor de onbekende verplaatsingen
-        displacements = np.linalg.solve(K, F)
-        
-        # 3. Bereken reactiekrachten uit de verplaatsingen
-        reactions = {}
-        for i, (pos, type) in enumerate(sorted(supports, key=lambda s: s[0])):
-            if type.lower() == "inklemming":
-                # Voor inklemming: zowel kracht als moment
-                reactions[pos] = displacements[2*i]  # Verticale reactie
-                reactions[f"M_{pos}"] = displacements[2*i + 1]  # Moment
-            else:
-                # Voor scharnier of rol: alleen kracht
-                reactions[pos] = displacements[i]
-        
-        # 4. Bereken interne krachten
-        V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
-        
-        # 5. Bereken rotatie en doorbuiging
-        rotation = np.zeros_like(x)
-        deflection = np.zeros_like(x)
-        
-        # Integreer moment voor rotatie
-        for i in range(1, len(x)):
-            rotation[i] = rotation[i-1] + M[i] * dx / EI
-        
-        # Integreer rotatie voor doorbuiging
-        for i in range(1, len(x)):
-            deflection[i] = deflection[i-1] + rotation[i] * dx
-        
-        # Pas randvoorwaarden toe
-        # Reset verplaatsing en rotatie bij steunpunten
-        for pos, type in supports:
-            idx = np.abs(x - pos).argmin()
-            deflection[idx] = 0.0
-            if type.lower() == "inklemming":
-                rotation[idx] = 0.0
-        
-        return x, V, M, rotation, deflection
-        
-    except np.linalg.LinAlgError:
-        st.error("❌ Systeem is niet oplosbaar. Controleer de steunpunten configuratie.")
+    # 1. Bereken eerst de reactiekrachten
+    reactions = calculate_reactions(beam_length, supports, loads)
+    if not reactions:
         return None, None, None, None, None
+    
+    # 2. Bereken interne krachten
+    V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
+    
+    # 3. Bereken rotatie en doorbuiging
+    rotation = np.zeros_like(x)
+    deflection = calculate_deflection(x, beam_length, supports, loads, reactions)
+    
+    # Integreer moment voor rotatie
+    for i in range(1, len(x)):
+        rotation[i] = rotation[i-1] + M[i] * (x[i] - x[i-1]) / EI
+    
+    return x, V, M, rotation, deflection
 
 def calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness):
     """Cache profiel eigenschappen voor snellere berekeningen"""
@@ -1527,8 +1498,8 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
                     M[i] -= value * (xi - pos)
                 elif load_type == "Verdeelde last":
                     length = rest[0]
-                    end_pos = pos + length
-                    if xi <= end_pos:
+                    end_load = min(pos + length, beam_length) - pos
+                    if xi <= end_load + pos:
                         # Gedeeltelijke last
                         dx = xi - pos
                         V[i] -= value * dx
@@ -1539,8 +1510,8 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
                         M[i] -= value * length * (xi - pos - length/2)
                 elif load_type == "Driehoekslast":
                     length = rest[0]
-                    end_pos = pos + length
-                    if xi <= end_pos:
+                    end_load = min(pos + length, beam_length) - pos
+                    if xi <= end_load + pos:
                         # Gedeeltelijke last
                         dx = xi - pos
                         q = value * dx/length
