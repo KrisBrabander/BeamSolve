@@ -254,17 +254,8 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Genereer x-coordinaten voor de analyse
     x = np.linspace(0, beam_length, 1000)
     
-    # Bereken reactiekrachten
-    reactions = calculate_reactions(beam_length, supports, loads)
-    
-    # Bereken interne krachten
-    V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
-    
-    # Bereken doorbuiging en rotatie
-    deflection = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
-    rotation = np.gradient(deflection, x)
-    
-    return x, V, M, rotation, deflection
+    # Gebruik de matrix methode voor consistente resultaten
+    return analyze_beam_matrix(beam_length, supports, loads, EI, x)
 
 def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     """Analyseer de balk met de stijfheidsmethode"""
@@ -277,12 +268,8 @@ def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
     # 3. Bereken rotatie en doorbuiging
-    rotation = np.zeros_like(x)
     deflection = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
-    
-    # Integreer moment voor rotatie
-    for i in range(1, len(x)):
-        rotation[i] = rotation[i-1] + M[i] * (x[i] - x[i-1]) / EI
+    rotation = np.gradient(deflection, x, edge_order=2)  # Verbeterde rotatie berekening
     
     return x, V, M, rotation, deflection
 
