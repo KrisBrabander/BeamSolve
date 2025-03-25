@@ -222,7 +222,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     x=[x_pos + i*circle_size*2],
                     y=[-triangle_size/1000 - circle_size],
                     mode='markers',
-                    marker=dict(size=8, color=colors['support']),
+                    marker=dict(size=6, color=colors['support']),
                     showlegend=False
                 ))
     
@@ -235,37 +235,58 @@ def plot_beam_diagram(beam_length, supports, loads):
         
         if load_type == "Puntlast":
             # Moderne pijl voor puntlast
+            # Label boven de pijl
+            fig.add_trace(go.Scatter(
+                x=[x_pos],
+                y=[arrow_height/1000 + arrow_height/4000],
+                mode='text',
+                text=[f'{value/1000:.1f} kN'],
+                textposition='top center',
+                textfont=dict(size=14, color=colors['load']),
+                showlegend=False
+            ))
+            # Pijl
             fig.add_trace(go.Scatter(
                 x=[x_pos, x_pos],
                 y=[arrow_height/1000, 0],
                 mode='lines',
-                line=dict(color=colors['load'], width=2),
-                name=f'{value/1000:.1f} kN'
+                line=dict(color=colors['load'], width=3),
+                showlegend=True,
+                name='Puntlast'
             ))
-            # Pijlpunt
-            fig.add_trace(go.Scatter(
-                x=[x_pos-arrow_height/2000, x_pos, x_pos+arrow_height/2000],
-                y=[arrow_height/2000, 0, arrow_height/2000],
-                mode='lines',
-                line=dict(color=colors['load'], width=2),
-                showlegend=False
-            ))
+            # Pijlpunt (driehoek)
+            fig.add_shape(
+                type="path",
+                path=f"M {x_pos-arrow_height/3000} {arrow_height/3000} L {x_pos} 0 L {x_pos+arrow_height/3000} {arrow_height/3000} Z",
+                fillcolor=colors['load'],
+                line=dict(color=colors['load'], width=0),
+            )
             
         elif load_type == "Verdeelde last":
             length = load[3]/1000 if len(load) > 3 else (beam_length - load[0])/1000
-            # Moderne verdeelde last met meer pijlen en verbindingslijn
-            num_arrows = min(max(int(length*5), 3), 10)
+            # Label boven de verdeelde last
+            fig.add_trace(go.Scatter(
+                x=[x_pos + length/2],
+                y=[arrow_height/1000 + arrow_height/4000],
+                mode='text',
+                text=[f'{value/1000:.1f} kN/m'],
+                textposition='top center',
+                textfont=dict(size=14, color=colors['load']),
+                showlegend=False
+            ))
             
             # Verbindingslijn bovenaan
             fig.add_trace(go.Scatter(
                 x=[x_pos, x_pos+length],
                 y=[arrow_height/1000, arrow_height/1000],
                 mode='lines',
-                line=dict(color=colors['load'], width=2),
-                showlegend=False
+                line=dict(color=colors['load'], width=3),
+                showlegend=True,
+                name='Verdeelde last'
             ))
             
             # Pijlen
+            num_arrows = min(max(int(length*8), 4), 15)  # Meer pijlen voor vloeiender uiterlijk
             for i in range(num_arrows):
                 arrow_x = x_pos + (i * length/(num_arrows-1))
                 # Pijlsteel
@@ -274,83 +295,96 @@ def plot_beam_diagram(beam_length, supports, loads):
                     y=[arrow_height/1000, 0],
                     mode='lines',
                     line=dict(color=colors['load'], width=2),
-                    showlegend=(i==0),
-                    name=f'{value/1000:.1f} kN/m'
-                ))
-                # Pijlpunt
-                fig.add_trace(go.Scatter(
-                    x=[arrow_x-arrow_height/4000, arrow_x, arrow_x+arrow_height/4000],
-                    y=[arrow_height/4000, 0, arrow_height/4000],
-                    mode='lines',
-                    line=dict(color=colors['load'], width=2),
                     showlegend=False
                 ))
+                # Pijlpunt (driehoek)
+                fig.add_shape(
+                    type="path",
+                    path=f"M {arrow_x-arrow_height/4000} {arrow_height/4000} L {arrow_x} 0 L {arrow_x+arrow_height/4000} {arrow_height/4000} Z",
+                    fillcolor=colors['load'],
+                    line=dict(color=colors['load'], width=0),
+                )
             
         elif load_type == "Driehoekslast":
             length = load[3]/1000
-            # Moderne driehoekslast met variabele pijlgrootte
-            num_arrows = min(max(int(length*5), 3), 10)
+            # Label boven het hoogste punt
+            fig.add_trace(go.Scatter(
+                x=[x_pos + length],
+                y=[arrow_height/1000 + arrow_height/4000],
+                mode='text',
+                text=[f'{value/1000:.1f} kN/m'],
+                textposition='top center',
+                textfont=dict(size=14, color=colors['load']),
+                showlegend=False
+            ))
             
-            # Verbindingslijn met gradient
-            x_gradient = np.linspace(x_pos, x_pos+length, 100)
-            y_gradient = np.linspace(0, arrow_height/1000, 100)
+            # Schuine lijn bovenaan
             fig.add_trace(go.Scatter(
                 x=[x_pos, x_pos+length],
                 y=[0, arrow_height/1000],
                 mode='lines',
-                line=dict(color=colors['load'], width=2),
-                showlegend=False
+                line=dict(color=colors['load'], width=3),
+                showlegend=True,
+                name='Driehoekslast'
             ))
             
             # Pijlen met variabele lengte
+            num_arrows = min(max(int(length*8), 4), 15)  # Meer pijlen voor vloeiender uiterlijk
             for i in range(num_arrows):
                 rel_pos = i/(num_arrows-1)
                 arrow_x = x_pos + length * rel_pos
-                arrow_height_scaled = arrow_height * rel_pos
+                current_height = (arrow_height/1000) * rel_pos  # Hoogte op basis van positie
                 
                 # Pijlsteel
                 fig.add_trace(go.Scatter(
                     x=[arrow_x, arrow_x],
-                    y=[arrow_height_scaled/1000, 0],
-                    mode='lines',
-                    line=dict(color=colors['load'], width=2),
-                    showlegend=(i==num_arrows-1),
-                    name=f'{value/1000:.1f} kN/m'
-                ))
-                # Pijlpunt
-                fig.add_trace(go.Scatter(
-                    x=[arrow_x-arrow_height/4000, arrow_x, arrow_x+arrow_height/4000],
-                    y=[arrow_height_scaled/4000, 0, arrow_height_scaled/4000],
+                    y=[current_height, 0],
                     mode='lines',
                     line=dict(color=colors['load'], width=2),
                     showlegend=False
                 ))
+                # Pijlpunt (driehoek)
+                arrow_size = (arrow_height/4000) * rel_pos  # Pijlgrootte schaalt mee
+                if rel_pos > 0:  # Alleen pijlpunten tekenen als er een steel is
+                    fig.add_shape(
+                        type="path",
+                        path=f"M {arrow_x-arrow_size} {arrow_size} L {arrow_x} 0 L {arrow_x+arrow_size} {arrow_size} Z",
+                        fillcolor=colors['load'],
+                        line=dict(color=colors['load'], width=0),
+                    )
             
         elif load_type == "Moment":
-            # Modern moment symbool met gebogen pijl
+            # Label bij het moment
+            fig.add_trace(go.Scatter(
+                x=[x_pos],
+                y=[arrow_height/1000 + arrow_height/4000],
+                mode='text',
+                text=[f'{value/1e6:.1f} kNm'],
+                textposition='top center',
+                textfont=dict(size=14, color=colors['load']),
+                showlegend=False
+            ))
+            
+            # Moment cirkel met pijl
             radius = arrow_height/2000
-            theta = np.linspace(0, 2*np.pi, 50)
-            # Teken cirkel
+            theta = np.linspace(-np.pi/2, 3*np.pi/2, 50)
             fig.add_trace(go.Scatter(
                 x=x_pos + radius*np.cos(theta),
                 y=radius*np.sin(theta),
                 mode='lines',
-                line=dict(color=colors['load'], width=2),
-                name=f'{value/1e6:.1f} kNm'
+                line=dict(color=colors['load'], width=3),
+                showlegend=True,
+                name='Moment'
             ))
             # Pijlpunt op cirkel
-            arrow_angle = np.pi/4
-            fig.add_trace(go.Scatter(
-                x=[x_pos + radius*np.cos(arrow_angle), 
-                   x_pos + radius*np.cos(arrow_angle-np.pi/6),
-                   x_pos + radius*np.cos(arrow_angle+np.pi/6)],
-                y=[radius*np.sin(arrow_angle),
-                   radius*np.sin(arrow_angle-np.pi/6),
-                   radius*np.sin(arrow_angle+np.pi/6)],
-                mode='lines',
-                line=dict(color=colors['load'], width=2),
-                showlegend=False
-            ))
+            arrow_angle = 3*np.pi/2
+            arrow_size = radius/2
+            fig.add_shape(
+                type="path",
+                path=f"M {x_pos + radius*np.cos(arrow_angle-0.2)} {radius*np.sin(arrow_angle-0.2)} L {x_pos + radius*np.cos(arrow_angle)} {radius*np.sin(arrow_angle)} L {x_pos + radius*np.cos(arrow_angle-0.2)} {radius*np.sin(arrow_angle+0.2)}",
+                fillcolor=colors['load'],
+                line=dict(color=colors['load'], width=3),
+            )
     
     # Update layout voor moderne uitstraling
     fig.update_layout(
