@@ -22,11 +22,11 @@ def calculate_reactions(beam_length, supports, loads):
     total_load = 0
     for load in loads:
         pos, value, load_type, *rest = load
-        if load_type == "Puntlast":
+        if load_type.lower() == "puntlast":
             total_load += value
-        elif load_type in ["Verdeelde last", "Driehoekslast"]:
+        elif load_type.lower() in ["verdeelde last", "driehoekslast"]:
             length = rest[0]
-            if load_type == "Verdeelde last":
+            if load_type.lower() == "verdeelde last":
                 total_load += value * length
             else:  # Driehoekslast
                 total_load += value * length / 2
@@ -36,15 +36,15 @@ def calculate_reactions(beam_length, supports, loads):
     moment = 0
     for load in loads:
         pos, value, load_type, *rest = load
-        if load_type == "Puntlast":
+        if load_type.lower() == "puntlast":
             moment += value * (pos - x0)
-        elif load_type in ["Verdeelde last", "Driehoekslast"]:
+        elif load_type.lower() in ["verdeelde last", "driehoekslast"]:
             length = rest[0]
-            if load_type == "Verdeelde last":
+            if load_type.lower() == "verdeelde last":
                 moment += value * length * (pos + length/2 - x0)
             else:  # Driehoekslast
                 moment += value * length/2 * (pos + 2*length/3 - x0)
-        elif load_type == "Moment":
+        elif load_type.lower() == "moment":
             moment += value
 
     # Bereken reactiekrachten
@@ -109,10 +109,10 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         for load in loads:
             pos, value, load_type, *rest = load
             if pos <= xi:
-                if load_type == "Puntlast":
+                if load_type.lower() == "puntlast":
                     V[i] -= value
                     M[i] -= value * (xi - pos)
-                elif load_type == "Verdeelde last":
+                elif load_type.lower() in ["verdeelde last", "driehoekslast"]:
                     length = rest[0]
                     end_load = min(pos + length, beam_length) - pos
                     if xi <= end_load + pos:
@@ -124,25 +124,12 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
                         # Volledige last
                         V[i] -= value * length
                         M[i] -= value * length * (xi - pos - length/2)
-                elif load_type == "Driehoekslast":
-                    length = rest[0]
-                    end_load = min(pos + length, beam_length) - pos
-                    if xi <= end_load + pos:
-                        # Gedeeltelijke last
-                        dx = xi - pos
-                        q = value * dx/length
-                        V[i] -= q * dx/2
-                        M[i] -= q * dx * dx/6
-                    else:
-                        # Volledige last
-                        V[i] -= value * length/2
-                        M[i] -= value * length/2 * (xi - pos - 2*length/3)
-                elif load_type == "Moment":
+                elif load_type.lower() == "moment":
                     M[i] -= value
     
     return V, M
 
-def calculate_deflection(x, beam_length, supports, loads, reactions):
+def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
     """Bereken doorbuiging met superpositie per veld tussen steunpunten"""
     deflection = np.zeros_like(x)
     rotation = np.zeros_like(x)
@@ -214,7 +201,7 @@ def calculate_deflection(x, beam_length, supports, loads, reactions):
                         else:
                             deflection[i] -= value * a * (L-x_local) * (L+a-x_local) / (6*EI*L)
                     
-                    elif load_type.lower() == "q":
+                    elif load_type.lower() == "verdeelde last":
                         length = rest[0]
                         q = value
                         end_load = min(pos + length, end) - start
@@ -223,6 +210,22 @@ def calculate_deflection(x, beam_length, supports, loads, reactions):
                         n_steps = 50
                         dx_load = (end_load - a) / n_steps
                         for x_load in np.linspace(a, end_load, n_steps):
+                            if x_local <= x_load:
+                                deflection[i] -= q * dx_load * x_local * (L-x_load) * (L+x_load-x_local) / (6*EI*L)
+                            else:
+                                deflection[i] -= q * dx_load * x_load * (L-x_local) * (L+x_load-x_local) / (6*EI*L)
+                    
+                    elif load_type.lower() == "driehoekslast":
+                        length = rest[0]
+                        q_max = value
+                        end_load = min(pos + length, end) - start
+                        
+                        # Integreer effect van driehoekslast
+                        n_steps = 50
+                        dx_load = (end_load - a) / n_steps
+                        for j, x_load in enumerate(np.linspace(a, end_load, n_steps)):
+                            # Lineaire interpolatie voor q
+                            q = q_max * (j + 1) / n_steps
                             if x_local <= x_load:
                                 deflection[i] -= q * dx_load * x_local * (L-x_load) * (L+x_load-x_local) / (6*EI*L)
                             else:
@@ -244,17 +247,24 @@ def calculate_deflection(x, beam_length, supports, loads, reactions):
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk met de stijfheidsmethode"""
-    # Aantal punten voor berekening
-    n_points = 2001
-    x = np.linspace(0, beam_length, n_points)
-    dx = x[1] - x[0]
-    
-    # Bereken profiel eigenschappen
-    A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
+    # Bereken traagheidsmoment
+    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     EI = E * I
     
-    # Gebruik altijd de stijfheidsmethode voor consistente resultaten
-    return analyze_beam_matrix(beam_length, supports, loads, EI, x)
+    # Genereer x-coordinaten voor de analyse
+    x = np.linspace(0, beam_length, 1000)
+    
+    # Bereken reactiekrachten
+    reactions = calculate_reactions(beam_length, supports, loads)
+    
+    # Bereken interne krachten
+    V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
+    
+    # Bereken doorbuiging en rotatie
+    deflection = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
+    rotation = np.gradient(deflection, x)
+    
+    return x, V, M, rotation, deflection
 
 def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     """Analyseer de balk met de stijfheidsmethode"""
@@ -268,7 +278,7 @@ def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     
     # 3. Bereken rotatie en doorbuiging
     rotation = np.zeros_like(x)
-    deflection = calculate_deflection(x, beam_length, supports, loads, reactions)
+    deflection = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
     
     # Integreer moment voor rotatie
     for i in range(1, len(x)):
@@ -438,7 +448,7 @@ def plot_beam_diagram(beam_length, supports, loads):
         value = load[1]
         load_type = load[2]
         
-        if load_type == "Puntlast":
+        if load_type.lower() == "puntlast":
             # Maak puntlast pijlen 1.5x langer dan verdeelde last pijlen
             arrow_height = beam_length/25  # Was /40, nu langer
             # Label boven de pijl
@@ -468,7 +478,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 line=dict(color=colors['load'], width=0),
             )
             
-        elif load_type == "Verdeelde last":
+        elif load_type.lower() == "verdeelde last":
             # Standaard hoogte voor verdeelde last
             arrow_height = beam_length/40
             length = load[3]/1000 if len(load) > 3 else (beam_length - load[0])/1000
@@ -513,7 +523,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                     line=dict(color=colors['load'], width=0),
                 )
             
-        elif load_type == "Driehoekslast":
+        elif load_type.lower() == "driehoekslast":
             length = load[3]/1000
             # Label boven het hoogste punt
             fig.add_trace(go.Scatter(
@@ -561,7 +571,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                         line=dict(color=colors['load'], width=0),
                     )
             
-        elif load_type == "Moment":
+        elif load_type.lower() == "moment":
             # Label bij het moment
             fig.add_trace(go.Scatter(
                 x=[x_pos],
