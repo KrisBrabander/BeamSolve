@@ -821,12 +821,17 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     rotation = np.zeros_like(x)
     deflection = np.zeros_like(x)
     
-    # Bereken per veld
+    # Bereken particuliere oplossingen voor alle velden
+    field_rotations = []
+    field_deflections = []
+    field_indices = []
+    
     for i in range(n_fields):
         # Grenzen van dit veld
         start_pos = field_starts[i]
         end_pos = field_ends[i]
         field_mask = (x >= start_pos) & (x <= end_pos)
+        field_indices.append(np.where(field_mask)[0])
         
         # Bereken particuliere oplossing voor dit veld
         field_x = x[field_mask]
@@ -845,63 +850,84 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
         for j in range(1, len(field_x)):
             field_deflection[j] = field_deflection[j-1] + (field_rotation[j-1] + field_rotation[j])/2 * dx
             
-        # Bepaal randvoorwaarden voor dit veld
-        A = np.zeros((2, 2))
-        b = np.zeros(2)
-        
-        # Begin van het veld
-        if i == 0:
-            # Eerste veld: doorbuiging = 0 aan begin
-            A[0, 0] = 1  # C1
-            b[0] = 0
-            # Als eerste steunpunt inklemming is, rotatie = 0
-            if supports[0][1].lower() == "inklemming":
-                A[1, 1] = 1  # C2
-                b[1] = 0
-            else:
-                # Anders: doorbuiging = 0 bij eerste steunpunt
-                x_rel = field_ends[i] - start_pos
-                A[1, 0] = 1  # C1
-                A[1, 1] = x_rel  # C2
-                b[1] = -field_deflection[-1]
-        else:
-            # Tussenliggend veld
-            # Doorbuiging = 0 aan begin (vorig steunpunt)
-            A[0, 0] = 1  # C1
-            b[0] = 0
-            # Doorbuiging = 0 aan eind (volgend steunpunt)
-            x_rel = field_ends[i] - start_pos
-            A[1, 0] = 1  # C1
-            A[1, 1] = x_rel  # C2
-            b[1] = -field_deflection[-1]
-            
-            # Als vorig steunpunt inklemming was, rotatie moet continu zijn
-            if i > 0 and supports[i-1][1].lower() == "inklemming":
-                A[0, 1] = 1  # C2 (rotatie)
-                b[0] = 0
-        
-        try:
-            # Los het stelsel op voor dit veld
-            C1, C2 = np.linalg.solve(A, b)
-            
-            # Pas de constanten toe op dit veld
-            x_rel = field_x - start_pos
-            field_deflection += C1 + C2 * x_rel
-            field_rotation += C2
-            
-            # Sla resultaten op in hoofdarrays
-            rotation[field_mask] = field_rotation
-            deflection[field_mask] = field_deflection
-            
-        except np.linalg.LinAlgError:
-            st.error(f"Fout bij het oplossen van veld {i+1}")
+        field_rotations.append(field_rotation)
+        field_deflections.append(field_deflection)
     
-    # Forceer exacte waarden bij steunpunten
-    for pos, type in supports:
-        idx = np.abs(x - pos).argmin()
-        deflection[idx] = 0.0
-        if type.lower() == "inklemming":
-            rotation[idx] = 0.0
+    # Stel globaal stelsel op voor alle velden
+    n_unknowns = 2 * n_fields  # 2 constanten per veld
+    n_equations = 0
+    
+    # Tel vergelijkingen:
+    # 1. Doorbuiging = 0 bij elk steunpunt (n_fields - 1)
+    # 2. Continuïteit van doorbuiging tussen velden (n_fields - 1)
+    # 3. Continuïteit van rotatie tussen velden (n_fields - 1)
+    # 4. Extra randvoorwaarden voor eerste en laatste veld
+    n_equations = (n_fields - 1) * 3 + 2
+    
+    A = np.zeros((n_equations, n_unknowns))
+    b = np.zeros(n_equations)
+    eq = 0
+    
+    # 1. Eerste randvoorwaarde: v(0) = 0
+    A[eq, 0] = 1  # C1 van eerste veld
+    b[eq] = 0
+    eq += 1
+    
+    # 2. Laatste randvoorwaarde: v(L) = 0
+    x_rel = beam_length - field_starts[-1]
+    A[eq, -2] = 1  # C1 van laatste veld
+    A[eq, -1] = x_rel  # C2 van laatste veld
+    b[eq] = -field_deflections[-1][-1]
+    eq += 1
+    
+    # 3. Voor elk steunpunt (behalve eerste en laatste):
+    for i in range(n_fields - 1):
+        # Positie van het steunpunt
+        pos = field_ends[i]
+        x_rel = pos - field_starts[i]
+        
+        # a) Doorbuiging continuïteit
+        A[eq, 2*i] = 1  # C1 links
+        A[eq, 2*i + 1] = x_rel  # C2 links
+        A[eq, 2*(i+1)] = -1  # C1 rechts
+        b[eq] = field_deflections[i+1][0] - field_deflections[i][-1]
+        eq += 1
+        
+        # b) Rotatie continuïteit
+        A[eq, 2*i + 1] = 1  # C2 links
+        A[eq, 2*(i+1) + 1] = -1  # C2 rechts
+        b[eq] = field_rotations[i+1][0] - field_rotations[i][-1]
+        eq += 1
+        
+        # c) Doorbuiging = 0 bij steunpunt
+        A[eq, 2*i] = 1  # C1
+        A[eq, 2*i + 1] = x_rel  # C2
+        b[eq] = -field_deflections[i][-1]
+        eq += 1
+    
+    try:
+        # Los het stelsel op
+        constants = np.linalg.solve(A, b)
+        
+        # Pas de constanten toe per veld
+        for i in range(n_fields):
+            field_mask = (x >= field_starts[i]) & (x <= field_ends[i])
+            x_rel = x[field_mask] - field_starts[i]
+            
+            # Pas constanten toe
+            C1, C2 = constants[2*i:2*i+2]
+            deflection[field_mask] = field_deflections[i] + C1 + C2 * x_rel
+            rotation[field_mask] = field_rotations[i] + C2
+        
+        # Forceer exacte waarden bij steunpunten
+        for pos, type in supports:
+            idx = np.abs(x - pos).argmin()
+            deflection[idx] = 0.0
+            if type.lower() == "inklemming":
+                rotation[idx] = 0.0
+        
+    except np.linalg.LinAlgError:
+        st.error("Fout bij het oplossen van de randvoorwaarden")
     
     return x, V, M, rotation, deflection
 
