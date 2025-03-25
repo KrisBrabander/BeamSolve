@@ -1484,8 +1484,9 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     V = np.zeros_like(x)
     M = np.zeros_like(x)
     
-    # Sorteer steunpunten op positie
+    # Sorteer steunpunten en belastingen op positie
     sorted_supports = sorted(supports, key=lambda s: s[0])
+    sorted_loads = sorted(loads, key=lambda l: l[0])
     
     # Loop door alle x-posities
     for i, xi in enumerate(x):
@@ -1494,17 +1495,19 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         for pos, type in sorted_supports:
             if xi >= pos:  # Reactiekracht alleen meenemen als we voorbij het steunpunt zijn
                 V[i] += reactions.get(pos, 0)
+                # Voeg ook het moment toe van een inklemming
+                if type.lower() == "inklemming":
+                    moment = reactions.get(f"M_{pos}", 0)
+                    # Moment heeft geen direct effect op dwarskracht
         
         # Voeg belastingen toe
-        for load in loads:
+        for load in sorted_loads:
             pos, value, load_type, *rest = load
             length = rest[0] if rest else 0
             
             if load_type.lower() == "puntlast":
                 if xi >= pos:
                     V[i] -= value
-            elif load_type.lower() == "moment":
-                pass  # Momenten hebben geen effect op dwarskracht
             elif load_type.lower() == "q":
                 # Voor gelijkmatig verdeelde last
                 if xi >= pos:
@@ -1522,33 +1525,32 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             if type.lower() == "inklemming" and xi >= pos:
                 M[i] += reactions.get(f"M_{pos}", 0)
         
-        # Voeg effect van dwarskrachten toe (integreer V*dx)
-        for j, xj in enumerate(x):
-            if xj <= xi:  # Alleen bijdragen tot huidige positie
-                if j > 0:
-                    dx = x[j] - x[j-1]
-                    M[i] += V[j] * dx
+        # Bereken moment door dwarskracht te integreren
+        if i > 0:
+            dx = x[i] - x[i-1]
+            M[i] = M[i-1] + V[i] * dx
         
-        # Voeg directe momenten toe
-        for load in loads:
+        # Voeg directe momenten en puntlasten toe
+        for load in sorted_loads:
             pos, value, load_type, *rest = load
+            length = rest[0] if rest else 0
+            
             if load_type.lower() == "moment" and xi >= pos:
                 M[i] -= value  # Negatief omdat extern moment tegengesteld werkt
             elif load_type.lower() == "puntlast":
                 if xi >= pos:
                     M[i] -= value * (xi - pos)
             elif load_type.lower() == "q":
-                length = rest[0] if rest else 0
                 if xi >= pos:
                     end_pos = pos + length
                     if xi <= end_pos:
                         # We zijn binnen het belaste gebied
-                        # Moment = -q*L*x/2 waar x de afstand vanaf begin last is
+                        # Moment = -q*x²/2 waar x de afstand vanaf begin last is
                         x_from_load = xi - pos
                         M[i] -= value * x_from_load**2 / 2
                     else:
                         # We zijn voorbij het belaste gebied
-                        # Moment = -q*L*L/2 waar L de totale lengte van de last is
+                        # Moment = -q*L*(x - L/2) waar L de totale lengte van de last is
                         M[i] -= value * length * (xi - (pos + length/2))
     
     return V, M
