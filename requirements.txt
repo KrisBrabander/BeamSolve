@@ -1,13 +1,11 @@
 # Web interface
-streamlit>=1.31.0
+streamlit
 
 # Data processing & berekeningen
-numpy>=1.24.0
-scipy>=1.11.0
+numpy
 
 # Visualisatie
-plotly>=5.18.0
+plotly
 
 # Rapportage
-jinja2>=3.1.0
-weasyprint>=60.0
+reportlab
