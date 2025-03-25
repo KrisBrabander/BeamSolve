@@ -724,15 +724,16 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             mask = (x >= pos) & (x <= end_pos)
             after_mask = x > end_pos
             
-            # Relatieve x-positie voor driehoek
-            rel_x = np.where(mask, (x - pos) / length, 0)
+            # Relatieve x-positie voor driehoek (alleen binnen belast gebied)
+            rel_x = np.zeros_like(x)
+            rel_x[mask] = (x[mask] - pos) / length
             
             # Dwarskracht
-            V[mask] -= value * length * rel_x**2 / 2  # Kwadratisch in belast gebied
+            V[mask] -= value * length * (rel_x[mask]**2) / 2  # Kwadratisch in belast gebied
             V[after_mask] -= value * length / 2  # Constante waarde na belast gebied
             
             # Moment
-            M[mask] -= value * length * rel_x**3 / 6  # Kubisch in belast gebied
+            M[mask] -= value * length * (rel_x[mask]**3) / 6  # Kubisch in belast gebied
             M[after_mask] -= value * length * (x[after_mask] - (pos + 2*length/3)) / 2  # Lineair na belast gebied
             
         elif load_type == "Moment":
