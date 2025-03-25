@@ -1253,7 +1253,7 @@ def main():
             col1, col2 = st.columns(2)
             with col1:
                 position = st.number_input(
-                    "Positie",heb je een di
+                    "Positie",
                     value=beam_length/2,
                     min_value=0.0,
                     max_value=beam_length,
