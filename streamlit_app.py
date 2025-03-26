@@ -90,42 +90,44 @@ def calculate_reactions(beam_length, supports, loads):
     return reactions
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
-    """Bereken interne krachten (dwarskracht en moment)"""
+    """Bereken dwarskracht en moment in de balk"""
     V = np.zeros_like(x)
     M = np.zeros_like(x)
     
-    # Sorteer steunpunten en belastingen
-    supports = sorted(supports, key=lambda s: s[0])
-    loads = sorted(loads, key=lambda l: l[0])
-    
-    # Voor elke x-positie
+    # Voor elk punt x
     for i, xi in enumerate(x):
         # Tel reactiekrachten op
-        for pos, force in reactions.items():
-            if pos <= xi:
-                V[i] += force
-                M[i] += force * (xi - pos)
+        for pos, _ in supports:
+            if pos <= xi:  # Alleen krachten links van x
+                V[i] += reactions.get(pos, 0)
+                M[i] += reactions.get(pos, 0) * (xi - pos)
+                # Voeg moment toe indien aanwezig
+                M[i] += reactions.get(f"M_{pos}", 0)
         
         # Trek belastingen af
         for load in loads:
             pos, value, load_type, *rest = load
-            if pos <= xi:
-                if load_type.lower() == "puntlast":
+            if load_type.lower() == "puntlast":
+                if pos <= xi:  # Alleen krachten links van x
                     V[i] -= value
                     M[i] -= value * (xi - pos)
-                elif load_type.lower() in ["verdeelde last", "driehoekslast"]:
-                    length = rest[0]
-                    end_load = min(pos + length, beam_length) - pos
-                    if xi <= end_load + pos:
-                        # Gedeeltelijke last
-                        dx = xi - pos
-                        V[i] -= value * dx
-                        M[i] -= value * dx * dx/2
+            
+            elif load_type.lower() == "verdeelde last":
+                length = rest[0]
+                end_pos = pos + length
+                if pos <= xi:
+                    if xi <= end_pos:
+                        # Gedeeltelijke last tot x
+                        deel_lengte = xi - pos
+                        V[i] -= value * deel_lengte
+                        M[i] -= value * deel_lengte * (xi - (pos + deel_lengte/2))
                     else:
                         # Volledige last
                         V[i] -= value * length
-                        M[i] -= value * length * (xi - pos - length/2)
-                elif load_type.lower() == "moment":
+                        M[i] -= value * length * (xi - (pos + length/2))
+            
+            elif load_type.lower() == "moment":
+                if pos <= xi:
                     M[i] -= value
     
     return V, M
