@@ -114,146 +114,94 @@ def calculate_reactions(beam_length, supports, loads):
     return reactions
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
-    """Bereken dwarskracht (V) en moment (M) volgens de elementaire methode:
-    1. V(x) = ΣF voor x ≤ positie
-    2. M(x) = ΣF·(x-a) + ΣM voor x ≤ positie"""
+    """Bereken dwarskracht (V) en moment (M) volgens mechanica principes.
+    Tekenconventies:
+    - Dwarskracht omhoog positief
+    - Moment rechtsom positief
+    - Externe belastingen omlaag positief"""
     
     V = np.zeros_like(x)
     M = np.zeros_like(x)
     
-    # 1. Verwerk puntlasten (inclusief reactiekrachten)
-    point_forces = []
+    # Sorteer alle krachten op positie
+    forces = []
     
-    # Reactiekrachten (positief omhoog)
+    # 1. Reactiekrachten (omhoog positief)
     for pos, type in supports:
         R = reactions.get(pos, 0)
-        if abs(R) > 1e-10:  # Voorkom numerieke fouten
-            point_forces.append((pos, R))
+        if abs(R) > 1e-10:
+            forces.append((pos, R, "reactie"))
+        # Voeg inklemming moment toe (rechtsom positief)
+        M_fixed = reactions.get(f"M_{pos}", 0)
+        if abs(M_fixed) > 1e-10:
+            forces.append((pos, M_fixed, "moment"))
     
-    # Puntlasten (positief omlaag)
+    # 2. Externe belastingen
     for load in loads:
         pos, value, load_type, *rest = load
         if load_type.lower() == "puntlast":
-            point_forces.append((pos, -value))
+            forces.append((pos, -value, "puntlast"))  # Omlaag positief
+        elif load_type.lower() == "moment":
+            forces.append((pos, -value, "moment"))  # Rechtsom positief
+        elif load_type.lower() == "verdeelde last":
+            length = rest[0]
+            q = value  # Last per lengte
+            # Behandel als puntlast in zwaartepunt
+            x_c = pos + length/2
+            Q = q * length
+            forces.append((x_c, -Q, "puntlast"))
     
     # Sorteer op positie
-    point_forces.sort(key=lambda x: x[0])
-    
-    # 2. Verwerk verdeelde lasten
-    distributed_loads = []
-    for load in loads:
-        pos, value, load_type, *rest = load
-        if load_type.lower() == "verdeelde last":
-            length = rest[0]
-            distributed_loads.append((pos, pos + length, -value))
-    
-    # 3. Verwerk momenten
-    moments = []
-    # Externe momenten (positief rechtsom)
-    for load in loads:
-        pos, value, load_type, *rest = load
-        if load_type.lower() == "moment":
-            moments.append((pos, -value))
-    
-    # Inklemming momenten
-    for pos, type in supports:
-        M_fixed = reactions.get(f"M_{pos}", 0)
-        if abs(M_fixed) > 1e-10:  # Voorkom numerieke fouten
-            moments.append((pos, M_fixed))
+    forces.sort(key=lambda f: f[0])
     
     # Bereken V(x) en M(x) voor elk punt
     for i, xi in enumerate(x):
-        # A. Puntlasten bijdrage
-        for pos, F in point_forces:
+        for pos, F, force_type in forces:
             if pos <= xi:  # Kracht links van x
-                V[i] += F  # Dwarskracht = som krachten
-                M[i] += F * (xi - pos)  # Moment = kracht × arm
-        
-        # B. Verdeelde lasten bijdrage
-        for start, end, q in distributed_loads:
-            if start <= xi:
-                if xi <= end:
-                    # Gedeeltelijke last
-                    L = xi - start
-                    Q = q * L  # Totale kracht tot x
-                    arm = L/2  # Arm tot zwaartepunt
-                    V[i] += Q
-                    M[i] += Q * arm
-                else:
-                    # Volledige last
-                    L = end - start
-                    Q = q * L
-                    arm = (xi - start) - L/2  # Arm tot zwaartepunt
-                    V[i] += Q
-                    M[i] += Q * arm
-        
-        # C. Momenten bijdrage
-        for pos, M_val in moments:
-            if pos <= xi:
-                M[i] += M_val
+                if force_type in ["puntlast", "reactie"]:
+                    V[i] += F  # Som van krachten
+                    M[i] += F * (xi - pos)  # Moment = kracht × arm
+                elif force_type == "moment":
+                    M[i] += F  # Moment direct toevoegen
     
     return V, M
 
 def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
-    """Bereken doorbuiging met superpositie"""
-    deflection = np.zeros_like(x)
-    rotation = np.zeros_like(x)
+    """Bereken doorbuiging en rotatie met de dubbele integratie methode.
+    y'' = M/(EI)
+    y' = ∫(M/(EI))dx + C1
+    y = ∫y'dx + C2"""
     
-    # Sorteer steunpunten op positie
-    sorted_supports = sorted(supports, key=lambda s: s[0])
+    # 1. Bereken moment diagram
+    _, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Voor elke puntlast (inclusief reactiekrachten)
-    for pos, type in sorted_supports:
-        R = reactions.get(pos, 0)
-        if R != 0:  # Alleen voor echte reactiekrachten
-            # Bereken doorbuiging voor deze reactiekracht
-            for i, xi in enumerate(x):
-                if xi <= pos:
-                    deflection[i] += -R * xi**2 * (3*pos - xi) / (6*EI)
-                else:
-                    deflection[i] += -R * pos**2 * (3*xi - pos) / (6*EI)
+    # 2. Bereken kromming
+    kappa = M / EI  # y'' = M/(EI)
     
-    # Voor elke belasting
-    for load in loads:
-        pos, value, load_type, *rest = load
-        if load_type.lower() == "puntlast":
-            # Bereken doorbuiging voor deze puntlast
-            for i, xi in enumerate(x):
-                if xi <= pos:
-                    deflection[i] += value * xi**2 * (3*pos - xi) / (6*EI)
-                else:
-                    deflection[i] += value * pos**2 * (3*xi - pos) / (6*EI)
-                    
-        elif load_type.lower() == "verdeelde last":
-            length = rest[0]
-            q = value
-            end_pos = pos + length
-            # Bereken doorbuiging voor verdeelde last
-            for i, xi in enumerate(x):
-                if xi <= pos:
-                    deflection[i] += q * xi**2 * (6*pos**2 - 2*xi**2) / (24*EI)
-                elif xi <= end_pos:
-                    deflection[i] += q * (pos**4 - 4*pos**3*xi + 6*pos**2*xi**2 - 4*pos*xi**3 + xi**4) / (24*EI)
-                else:
-                    deflection[i] += q * length * (4*xi**3 - length**2*xi) / (24*EI)
-    
-    # Bereken rotatie als afgeleide van doorbuiging
+    # 3. Eerste integratie voor rotatie
     dx = x[1] - x[0]
-    rotation[1:-1] = (deflection[2:] - deflection[:-2]) / (2*dx)
-    rotation[0] = (deflection[1] - deflection[0]) / dx
-    rotation[-1] = (deflection[-1] - deflection[-2]) / dx
+    theta = np.cumsum(kappa) * dx  # y' = ∫κdx
     
-    # Pas randvoorwaarden toe
+    # 4. Tweede integratie voor doorbuiging
+    y = np.cumsum(theta) * dx  # y = ∫θdx
+    
+    # 5. Pas randvoorwaarden toe
     for pos, type in supports:
+        # Vind index van steunpunt
         idx = np.abs(x - pos).argmin()
-        deflection[idx] = 0.0
+        
         if type.lower() == "inklemming":
-            rotation[idx] = 0.0
-            
-    # Verschuif doorbuiging zodat minimum op 0 ligt
-    deflection -= np.min(deflection)
+            # y = 0 en θ = 0
+            y_support = y[idx]
+            theta_support = theta[idx]
+            y -= y_support  # Verschuif doorbuiging
+            theta -= theta_support  # Verschuif rotatie
+        else:
+            # y = 0
+            y_support = y[idx]
+            y -= y_support  # Verschuif alleen doorbuiging
     
-    return deflection, rotation
+    return y, theta
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk met de elementaire methode"""
