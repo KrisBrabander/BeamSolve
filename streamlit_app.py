@@ -131,28 +131,49 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     return V, M
 
 def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
-    """Bereken doorbuiging met de momentenlijn methode"""
+    """Bereken doorbuiging met de elementaire methode"""
     deflection = np.zeros_like(x)
     rotation = np.zeros_like(x)
     
-    # Bereken eerst het moment in elk punt
-    _, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
+    # Sorteer steunpunten
+    sorted_supports = sorted(supports, key=lambda s: s[0])
     
-    # Zorg dat er geen NaN waarden in M zitten
-    M = np.nan_to_num(M, 0)
+    # Voor elk punt x
+    for i, xi in enumerate(x):
+        # Voor elke puntlast (inclusief reactiekrachten)
+        for pos, type in sorted_supports:
+            R = reactions.get(pos, 0)
+            if R != 0:  # Alleen voor echte reactiekrachten
+                if xi <= pos:
+                    deflection[i] += R * xi * (3*pos - xi) / (6*EI)
+                else:
+                    deflection[i] += R * pos * (3*xi - pos) / (6*EI)
+                
+        # Voor elke belasting
+        for load in loads:
+            pos, value, load_type, *rest = load
+            if load_type.lower() == "puntlast":
+                if xi <= pos:
+                    deflection[i] -= value * xi * (3*pos - xi) / (6*EI)
+                else:
+                    deflection[i] -= value * pos * (3*xi - pos) / (6*EI)
+                    
+            elif load_type.lower() == "verdeelde last":
+                length = rest[0]
+                q = value
+                end_pos = pos + length
+                if xi <= pos:
+                    # Links van de last
+                    deflection[i] -= q * xi * (4*pos*pos - xi*xi) / (24*EI)
+                elif xi <= end_pos:
+                    # Onder de last
+                    deflection[i] -= q * (xi - pos) * (4*pos*xi - xi*xi - pos*pos) / (24*EI)
     
-    # Integreer het moment twee keer voor doorbuiging
+    # Bereken rotatie als afgeleide van doorbuiging
     dx = x[1] - x[0]
-    
-    # Eerste integratie voor rotatie (M/EI)
-    for i in range(len(x)-1):
-        # Gebruik trapezium regel voor nauwkeurigere integratie
-        rotation[i+1] = rotation[i] + (M[i] + M[i+1]) * dx / (2 * EI)
-    
-    # Tweede integratie voor doorbuiging
-    for i in range(len(x)-1):
-        # Gebruik trapezium regel voor nauwkeurigere integratie
-        deflection[i+1] = deflection[i] + (rotation[i] + rotation[i+1]) * dx / 2
+    rotation[1:-1] = (deflection[2:] - deflection[:-2]) / (2*dx)
+    rotation[0] = (deflection[1] - deflection[0]) / dx
+    rotation[-1] = (deflection[-1] - deflection[-2]) / dx
     
     # Pas randvoorwaarden toe
     for pos, type in supports:
@@ -161,14 +182,10 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
         if type.lower() == "inklemming":
             rotation[idx] = 0.0
     
-    # Corrigeer voor numerieke fouten
-    deflection = np.nan_to_num(deflection, 0)
-    rotation = np.nan_to_num(rotation, 0)
-    
     return deflection, rotation
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
-    """Analyseer de balk met de momentenlijn methode"""
+    """Analyseer de balk met de elementaire methode"""
     # Bereken traagheidsmoment
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     EI = E * I
@@ -187,9 +204,11 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Bereken doorbuiging en rotatie
     deflection, rotation = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
     
-    # Corrigeer voor numerieke fouten
+    # Zorg dat er geen NaN waarden zijn
     V = np.nan_to_num(V, 0)
     M = np.nan_to_num(M, 0)
+    deflection = np.nan_to_num(deflection, 0)
+    rotation = np.nan_to_num(rotation, 0)
     
     return x, V, M, rotation, deflection
 
