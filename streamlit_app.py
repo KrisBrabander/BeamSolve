@@ -97,16 +97,20 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     # Voor elk punt x
     for i, xi in enumerate(x):
         # Tel reactiekrachten op
-        for pos, _ in supports:
+        for pos, type in supports:
             if pos <= xi:  # Alleen krachten links van x
-                V[i] += reactions.get(pos, 0)
-                M[i] += reactions.get(pos, 0) * (xi - pos)
-                # Voeg moment toe indien aanwezig
-                M[i] += reactions.get(f"M_{pos}", 0)
+                R = reactions.get(pos, 0)
+                V[i] += R
+                M[i] += R * (xi - pos)
+                # Voeg inklemming moment toe
+                if type.lower() == "inklemming":
+                    M_fixed = reactions.get(f"M_{pos}", 0)
+                    M[i] += M_fixed
         
         # Trek belastingen af
         for load in loads:
             pos, value, load_type, *rest = load
+            
             if load_type.lower() == "puntlast":
                 if pos <= xi:  # Alleen krachten links van x
                     V[i] -= value
@@ -115,16 +119,19 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             elif load_type.lower() == "verdeelde last":
                 length = rest[0]
                 end_pos = pos + length
-                if pos <= xi:
-                    if xi <= end_pos:
+                
+                if pos <= xi:  # Last begint voor x
+                    if xi <= end_pos:  # x ligt onder de last
                         # Gedeeltelijke last tot x
                         deel_lengte = xi - pos
-                        V[i] -= value * deel_lengte
-                        M[i] -= value * deel_lengte * (xi - (pos + deel_lengte/2))
-                    else:
+                        q = value * deel_lengte
+                        V[i] -= q
+                        M[i] -= q * deel_lengte/2
+                    else:  # x ligt voorbij de last
                         # Volledige last
-                        V[i] -= value * length
-                        M[i] -= value * length * (xi - (pos + length/2))
+                        q = value * length
+                        V[i] -= q
+                        M[i] -= q * length/2
             
             elif load_type.lower() == "moment":
                 if pos <= xi:
