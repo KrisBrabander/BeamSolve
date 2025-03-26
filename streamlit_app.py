@@ -748,7 +748,7 @@ def generate_pdf_report(beam_data, results_plot):
     elements = []
     
     # Header met logo en titel
-    elements.append(Paragraph("BeamSolve Professional", title_style))
+    elements.append(Paragraph("BeamSolve Pro", title_style))
     elements.append(Paragraph(f"Rapport gegenereerd op {datetime.now().strftime('%d-%m-%Y %H:%M')}", body_style))
     elements.append(Spacer(1, 20))
     
@@ -886,7 +886,7 @@ def generate_pdf_report(beam_data, results_plot):
     
     # Footer
     elements.append(Spacer(1, 30))
-    footer_text = "Berekend met BeamSolve Professional 2025"
+    footer_text = "Berekend met BeamSolve Pro 2025"
     elements.append(Paragraph(footer_text, body_style))
     
     # Build PDF
@@ -1179,7 +1179,7 @@ def calculate_A(profile_type, h, b, t_w, t_f=None):
 
 def main():
     st.set_page_config(
-        page_title="BeamSolve Professional",
+        page_title="BeamSolve Pro",
         page_icon="",
         layout="wide"
     )
@@ -1187,7 +1187,7 @@ def main():
     # Header
     col1, col2 = st.columns([3,1])
     with col1:
-        st.title("BeamSolve Professional")
+        st.title("BeamSolve Pro")
         st.markdown("Geavanceerde balkberekeningen voor constructeurs")
     with col2:
         st.markdown("### Versie")
@@ -1225,7 +1225,7 @@ def main():
     
     # Sidebar voor invoer
     with st.sidebar:
-        st.title("BeamSolve Professional")
+        st.title("BeamSolve Pro")
         st.markdown("---")
         
         # Profiel selectie
