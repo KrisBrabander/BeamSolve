@@ -223,125 +223,105 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     return V, M
 
 def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
-    """Bereken doorbuiging met de elementaire methode.
-    Voor een ligger op 3 steunpunten met puntlast:
-    1. Splits in 2 overspanningen
-    2. Bereken doorbuiging per overspanning
-    3. Pas randvoorwaarden toe"""
+    """Bereken doorbuiging met de momentenvlakken methode."""
     
-    # Sorteer steunpunten op positie
-    supports = sorted(supports, key=lambda x: x[0])
-    
-    if len(supports) == 3:  # Specifiek voor 3 steunpunten
-        x1, _ = supports[0]  # Links
-        x2, _ = supports[1]  # Midden
-        x3, _ = supports[2]  # Rechts
-        
-        # Reactiekrachten (positief omhoog)
-        R1 = -reactions[x1]  # Links
-        R2 = -reactions[x2]  # Midden
-        R3 = -reactions[x3]  # Rechts
-        
-        # Initialiseer arrays
-        y = np.zeros_like(x)
-        theta = np.zeros_like(x)
-        
-        # Loop door alle belastingen
-        for load in loads:
-            pos, value, load_type, *rest = load
-            if load_type.lower() == "puntlast":
-                F = value  # Puntlast omlaag positief
-                a = pos   # Positie van de last
-                
-                # Voor elk punt x
-                for i, xi in enumerate(x):
-                    if xi <= x2:  # Eerste overspanning
-                        L = x2 - x1  # Lengte eerste overspanning
-                        if a <= x2:  # Last op eerste overspanning
-                            if xi <= a:
-                                # Links van de last
-                                y[i] = R1*xi/(6*EI)*(xi**2 - 3*L**2) + \
-                                      F*xi/(6*EI)*(3*a*(L-a) - xi**2) * (xi <= a)
-                            else:
-                                # Rechts van de last
-                                y[i] = R1*xi/(6*EI)*(xi**2 - 3*L**2) + \
-                                      F*a/(6*EI)*(3*xi*L - xi**2 - 2*a**2)
-                    else:  # Tweede overspanning
-                        L = x3 - x2  # Lengte tweede overspanning
-                        xi_rel = xi - x2  # Relatieve x vanaf steunpunt 2
-                        if a >= x2:  # Last op tweede overspanning
-                            a_rel = a - x2  # Relatieve a
-                            if xi_rel <= a_rel:
-                                # Links van de last
-                                y[i] = R2*xi_rel/(6*EI)*(xi_rel**2 - 3*L**2) + \
-                                      F*xi_rel/(6*EI)*(3*a_rel*(L-a_rel) - xi_rel**2)
-                            else:
-                                # Rechts van de last
-                                y[i] = R2*xi_rel/(6*EI)*(xi_rel**2 - 3*L**2) + \
-                                      F*a_rel/(6*EI)*(3*xi_rel*L - xi_rel**2 - 2*a_rel**2)
-        
-        # Bereken rotatie als afgeleide van doorbuiging
-        dx = x[1] - x[0]
-        theta[1:-1] = (y[2:] - y[:-2]) / (2*dx)
-        theta[0] = (y[1] - y[0]) / dx
-        theta[-1] = (y[-1] - y[-2]) / dx
-        
-        return y, theta
-    
-    else:
-        # Voor andere gevallen, gebruik numerieke integratie
+    try:
+        # 1. Bereken momentenlijn
         _, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
-        kappa = M / EI
-        dx = x[1] - x[0]
-        theta = np.cumsum(kappa) * dx
-        y = np.cumsum(theta) * dx
-        
-        # Pas randvoorwaarden toe
-        for pos, type in supports:
-            idx = np.abs(x - pos).argmin()
-            y_support = y[idx]
-            y -= y_support
+        if M is None:
+            return None, None
             
-            if type.lower() == "inklemming":
-                theta_support = theta[idx]
-                theta -= theta_support
+        # 2. Dubbele integratie
+        dx = x[1] - x[0]
+        kappa = M / EI  # Kromming κ = M/EI
+        
+        # Eerste integratie voor helling
+        theta = np.zeros_like(x)
+        theta[1:] = np.cumsum(kappa[:-1]) * dx
+        
+        # Tweede integratie voor doorbuiging
+        y = np.zeros_like(x)
+        y[1:] = np.cumsum(theta[:-1]) * dx
+        
+        # 3. Pas randvoorwaarden toe voor 3 steunpunten
+        if len(supports) == 3:
+            # Vind steunpunt indices
+            support_indices = []
+            for pos, _ in supports:
+                idx = np.abs(x - pos).argmin()
+                support_indices.append(idx)
+                
+            i1, i2, i3 = support_indices
+            
+            # Bereken correctie parameters
+            L1 = x[i2] - x[i1]  # Lengte eerste overspanning
+            L2 = x[i3] - x[i2]  # Lengte tweede overspanning
+            
+            # Correctie voor eerste overspanning (0 tot L1)
+            mask1 = (x >= x[i1]) & (x <= x[i2])
+            xi1 = (x[mask1] - x[i1]) / L1
+            y[mask1] = y[i1] + (y[i2] - y[i1]) * (3*xi1**2 - 2*xi1**3)
+            
+            # Correctie voor tweede overspanning (L1 tot L1+L2)
+            mask2 = (x > x[i2]) & (x <= x[i3])
+            xi2 = (x[mask2] - x[i2]) / L2
+            y[mask2] = y[i2] + (y[i3] - y[i2]) * (3*xi2**2 - 2*xi2**3)
+            
+            # Update helling na correcties
+            theta[1:-1] = (y[2:] - y[:-2]) / (2*dx)
+            theta[0] = (y[1] - y[0]) / dx
+            theta[-1] = (y[-1] - y[-2]) / dx
         
         return y, theta
+        
+    except Exception as e:
+        st.error(f"❌ Fout bij berekenen doorbuiging: {str(e)}")
+        return None, None
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk met de elementaire methode"""
-    # Bereken traagheidsmoment
-    I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
-    EI = E * I
-    
-    # Genereer x-coordinaten voor de analyse
-    x = np.linspace(0, beam_length, 1000)
-    
-    # Bereken reactiekrachten
-    reactions = calculate_reactions(beam_length, supports, loads)
-    if not reactions:
+    try:
+        # Controleer invoer
+        if not all([beam_length, supports, loads, profile_type, height, width, wall_thickness, E]):
+            st.error("❌ Vul alle velden in")
+            return None, None, None, None, None
+            
+        if E <= 0:
+            st.error("❌ E-modulus moet positief zijn")
+            return None, None, None, None, None
+            
+        # Bereken profieleigenschappen
+        I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+        if I is None or I <= 0:
+            st.error("❌ Ongeldige profielafmetingen")
+            return None, None, None, None, None
+            
+        # Bereken buigstijfheid
+        EI = E * I  # N·mm²
+        
+        # Maak x-array voor berekeningen (100 punten)
+        x = np.linspace(0, beam_length, 100)
+        
+        # Bereken reactiekrachten
+        reactions = calculate_reactions(beam_length, supports, loads)
+        if reactions is None:
+            return None, None, None, None, None
+            
+        # Bereken inwendige krachten
+        V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
+        if V is None or M is None:
+            return None, None, None, None, None
+            
+        # Bereken doorbuiging en rotatie
+        y, theta = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
+        if y is None or theta is None:
+            return None, None, None, None, None
+            
+        return x, V, M, theta, y
+        
+    except Exception as e:
+        st.error(f"❌ Fout bij analyse: {str(e)}")
         return None, None, None, None, None
-    
-    # Bereken interne krachten
-    V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
-    
-    # Bereken doorbuiging en rotatie
-    deflection, rotation = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
-    
-    # Zorg dat er geen NaN waarden zijn
-    V = np.nan_to_num(V, 0)
-    M = np.nan_to_num(M, 0)
-    deflection = np.nan_to_num(deflection, 0)
-    rotation = np.nan_to_num(rotation, 0)
-    
-    # Schaal de resultaten voor betere visualisatie
-    max_defl = np.max(np.abs(deflection))
-    if max_defl > 0:
-        scale = beam_length / (20 * max_defl)  # Schaal zodat max doorbuiging 5% van overspanning is
-        deflection *= scale
-        rotation *= scale
-    
-    return x, V, M, rotation, deflection
 
 def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     """Analyseer de balk met de stijfheidsmethode"""
@@ -1252,24 +1232,71 @@ def get_profile_list(profile_type):
 
 def calculate_I(profile_type, h, b, t_w, t_f=None):
     """Bereken traagheidsmoment voor verschillende profieltypes"""
-    if profile_type == "Koker":
-        h_i = h - 2*t_w
-        b_i = b - 2*t_w
-        return (b*h**3)/12 - (b_i*h_i**3)/12
-    elif profile_type in ["I-profiel", "U-profiel"]:
-        # Flens bijdrage
-        I_f = 2 * (b*t_f**3/12 + b*t_f*(h/2 - t_f/2)**2)
-        # Lijf bijdrage
-        h_w = h - 2*t_f
-        I_w = t_w*h_w**3/12
-        return I_f + I_w
-    return 0
+    try:
+        # Controleer invoer
+        if h <= 0 or b <= 0 or t_w <= 0:
+            st.error("❌ Profielafmetingen moeten positief zijn")
+            return None
+            
+        if t_w >= min(h, b)/2:
+            st.error("❌ Wanddikte te groot voor profiel")
+            return None
+            
+        # Bereken traagheidsmoment
+        if profile_type.lower() == "koker":
+            # Koker: I = (BH³ - bh³)/12
+            H = h  # Uitwendige hoogte
+            B = b   # Uitwendige breedte
+            t = t_w
+            
+            h_i = H - 2*t  # Inwendige hoogte
+            b_i = B - 2*t  # Inwendige breedte
+            
+            if h_i <= 0 or b_i <= 0:
+                st.error("❌ Wanddikte te groot voor profiel")
+                return None
+                
+            I = (B*H**3 - b_i*h_i**3)/12
+            
+        elif profile_type.lower() in ["i-profiel", "u-profiel"]:
+            if t_f is None or t_f <= 0:
+                st.error("❌ Flensdikte moet positief zijn")
+                return None
+                
+            H = h  # Totale hoogte
+            B = b   # Flensbreedte
+            tw = t_w    # Lijfdikte
+            tf = t_f  # Flensdikte
+            
+            if tf >= H/2:
+                st.error("❌ Flensdikte te groot voor profiel")
+                return None
+                
+            # I-profiel: I = (bh³)/12 + 2×(BH³)/12
+            hw = H - 2*tf  # Lijfhoogte
+            if hw <= 0:
+                st.error("❌ Flensdikte te groot voor profiel")
+                return None
+                
+            I_web = tw * hw**3 / 12  # Lijf
+            I_flange = B * tf**3 / 12 + B*tf * (H-tf)**2 / 2  # Flenzen
+            I = I_web + 2*I_flange
+            
+        else:
+            st.error("❌ Ongeldig profieltype")
+            return None
+            
+        return I  # mm⁴
+        
+    except Exception as e:
+        st.error(f"❌ Fout bij berekenen traagheidsmoment: {str(e)}")
+        return None{{ ... }}
 
 def calculate_A(profile_type, h, b, t_w, t_f=None):
     """Bereken oppervlakte voor verschillende profieltypes"""
-    if profile_type == "Koker":
+    if profile_type.lower() == "koker":
         return (h * b) - ((h - 2*t_w) * (b - 2*t_w))
-    elif profile_type in ["I-profiel", "U-profiel"]:
+    elif profile_type.lower() in ["i-profiel", "u-profiel"]:
         # Flens oppervlakte
         A_f = 2 * (b * t_f)
         # Lijf oppervlakte
