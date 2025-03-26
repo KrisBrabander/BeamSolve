@@ -1469,20 +1469,20 @@ def main():
                     st.markdown(f"<small> Tip: Sla dit rapport op voor later gebruik</small>", unsafe_allow_html=True)
                         
                 if remaining_exports == 1:
-                    st.warning(" Dit is je laatste gratis export. Upgrade naar Professional voor onbeperkt gebruik!")
+                    st.warning(" Dit is je laatste gratis export. Upgrade naar Pro voor onbeperkt gebruik!")
             except Exception as e:
                 st.error(f"Fout bij genereren rapport: {str(e)}")
         else:
-            st.error(" Je hebt je gratis exports gebruikt. Upgrade naar Professional voor onbeperkt gebruik!")
+            st.error(" Je hebt je gratis exports gebruikt. Upgrade naar Pro voor onbeperkt gebruik!")
             col1, col2 = st.columns(2)
             with col1:
-                if st.button(" Upgrade naar Professional", type="primary"):
-                    st.markdown("### Contact voor Professional Licentie")
-                    st.info("Neem contact op via info@beamsolve.nl voor een Professional licentie.")
+                if st.button(" Upgrade naar Pro", type="primary"):
+                    st.markdown("### Contact voor Pro Licentie")
+                    st.info("Neem contact op via info@beamsolve.nl voor een Pro licentie.")
             with col2:
                 st.markdown("""
                 <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px;'>
-                <h4> Professional Voordelen</h4>
+                <h4> Pro Voordelen</h4>
                 <ul>
                 <li>Onbeperkt PDF exports</li>
                 <li>Geavanceerde belastingcombinaties</li>
