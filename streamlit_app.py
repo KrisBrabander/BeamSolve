@@ -635,7 +635,7 @@ def plot_beam_diagram(beam_length, supports, loads):
     return fig
 
 def plot_results(x, V, M, theta, y, beam_length, supports, loads):
-    """Plot resultaten in één figuur met subplots"""
+    """Plot resultaten in één figuur met moderne styling"""
     
     # Maak figuur met subplots
     fig = make_subplots(
@@ -646,17 +646,31 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
             "Rotatie [rad]",
             "Doorbuiging [mm]"
         ),
-        vertical_spacing=0.08,
+        vertical_spacing=0.05,
         row_heights=[0.25, 0.25, 0.25, 0.25]
     )
+    
+    # Kleurenpalet
+    colors = {
+        'shear': '#2ecc71',     # Groen
+        'moment': '#e74c3c',    # Rood
+        'rotation': '#f39c12',  # Oranje
+        'deflection': '#3498db', # Blauw
+        'grid': '#ecf0f1',      # Lichtgrijs
+        'zero': '#bdc3c7',      # Middengrijs
+        'support': '#34495e',   # Donkerblauw
+        'load': '#e74c3c'       # Rood
+    }
     
     # Plot dwarskracht (bovenaan)
     fig.add_trace(
         go.Scatter(
             x=x/1000, y=V/1000,
             mode='lines',
-            name='V',
-            line=dict(color='green', width=2)
+            name='Dwarskracht',
+            line=dict(color=colors['shear'], width=3),
+            fill='tozeroy',
+            fillcolor=f'rgba(46, 204, 113, 0.2)'
         ),
         row=1, col=1
     )
@@ -666,8 +680,10 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
         go.Scatter(
             x=x/1000, y=M/1e6,
             mode='lines',
-            name='M',
-            line=dict(color='red', width=2)
+            name='Moment',
+            line=dict(color=colors['moment'], width=3),
+            fill='tozeroy',
+            fillcolor=f'rgba(231, 76, 60, 0.2)'
         ),
         row=2, col=1
     )
@@ -677,8 +693,10 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
         go.Scatter(
             x=x/1000, y=theta,
             mode='lines',
-            name='θ',
-            line=dict(color='orange', width=2)
+            name='Rotatie',
+            line=dict(color=colors['rotation'], width=3),
+            fill='tozeroy',
+            fillcolor=f'rgba(243, 156, 18, 0.2)'
         ),
         row=3, col=1
     )
@@ -688,8 +706,10 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
         go.Scatter(
             x=x/1000, y=y,
             mode='lines',
-            name='y',
-            line=dict(color='blue', width=2)
+            name='Doorbuiging',
+            line=dict(color=colors['deflection'], width=3),
+            fill='tozeroy',
+            fillcolor=f'rgba(52, 152, 219, 0.2)'
         ),
         row=4, col=1
     )
@@ -705,8 +725,9 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
                 name=type,
                 marker=dict(
                     symbol=marker,
-                    size=12,
-                    color='black'
+                    size=14,
+                    color=colors['support'],
+                    line=dict(width=2, color='white')
                 ),
                 showlegend=False
             ),
@@ -721,16 +742,25 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[pos/1000],
-                    y=[2],  # Iets boven de balk
+                    y=[min(y)*0.5],  # Boven de balk
                     mode='markers',
                     name=f'{value/1000:.1f} kN',
                     marker=dict(
                         symbol='arrow-down',
-                        size=12,
-                        color='red'
+                        size=14,
+                        color=colors['load']
                     ),
                     showlegend=False
                 ),
+                row=4, col=1
+            )
+            # Voeg waarde label toe
+            fig.add_annotation(
+                x=pos/1000,
+                y=min(y)*0.3,
+                text=f"{value/1000:.1f} kN",
+                showarrow=False,
+                font=dict(size=10, color=colors['load']),
                 row=4, col=1
             )
         elif load_type.lower() == "verdeelde last":
@@ -741,34 +771,58 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[start, end],
-                    y=[2, 2],  # Iets boven de balk
+                    y=[min(y)*0.5, min(y)*0.5],  # Boven de balk
                     mode='lines',
                     name=f'{value/1000:.1f} kN/m',
-                    line=dict(color='red', width=2),
+                    line=dict(color=colors['load'], width=2),
                     showlegend=False
                 ),
+                row=4, col=1
+            )
+            # Voeg waarde label toe
+            fig.add_annotation(
+                x=(start + end)/2,
+                y=min(y)*0.3,
+                text=f"{value/1000:.1f} kN/m",
+                showarrow=False,
+                font=dict(size=10, color=colors['load']),
                 row=4, col=1
             )
     
     # Update layout
     fig.update_layout(
-        height=800,
+        height=900,
         showlegend=False,
-        margin=dict(t=60, b=20),
-        plot_bgcolor='white'
+        margin=dict(t=60, b=20, l=50, r=20),
+        plot_bgcolor='white',
+        font=dict(family="Arial, sans-serif", size=12),
+        title=dict(
+            text="BeamSolve Pro - Resultaten",
+            font=dict(size=24, family="Arial, sans-serif", color="#2c3e50")
+        )
     )
     
     # Update assen
     for i in range(1, 5):
         fig.update_xaxes(
             title="Positie [m]" if i == 4 else None,
-            gridcolor='lightgray',
-            zerolinecolor='black',
+            gridcolor=colors['grid'],
+            zerolinecolor=colors['zero'],
+            zerolinewidth=2,
+            showline=True,
+            linewidth=1,
+            linecolor='black',
+            mirror=True,
             row=i, col=1
         )
         fig.update_yaxes(
-            gridcolor='lightgray',
-            zerolinecolor='black',
+            gridcolor=colors['grid'],
+            zerolinecolor=colors['zero'],
+            zerolinewidth=2,
+            showline=True,
+            linewidth=1,
+            linecolor='black',
+            mirror=True,
             row=i, col=1
         )
     
@@ -1266,7 +1320,7 @@ def calculate_I(profile_type, h, b, t_w, t_f=None):
             H = h  # Totale hoogte
             B = b   # Flensbreedte
             tw = t_w    # Lijfdikte
-            tf = t_f  # Flensdikte
+            tf = t_f   # Flensdikte
             
             if tf >= H/2:
                 st.error("❌ Flensdikte te groot voor profiel")
@@ -1306,175 +1360,256 @@ def calculate_A(profile_type, h, b, t_w, t_f=None):
     return 0
 
 def main():
+    """Hoofdfunctie voor de Streamlit app"""
+    
+    # App configuratie
     st.set_page_config(
         page_title="BeamSolve Pro",
-        page_icon="",
-        layout="wide"
+        page_icon="🔧",
+        layout="wide",
+        initial_sidebar_state="expanded"
     )
     
+    # Custom CSS voor moderne styling
+    st.markdown("""
+    <style>
+    .main .block-container {padding-top: 2rem;}
+    h1, h2, h3 {color: #2c3e50;}
+    .stButton>button {background-color: #3498db; color: white; border-radius: 5px; border: none; padding: 0.5rem 1rem;}
+    .stButton>button:hover {background-color: #2980b9;}
+    .css-1v3fvcr {background-color: #f8f9fa;}
+    .css-18e3th9 {padding-top: 2rem;}
+    .css-1kyxreq {justify-content: center;}
+    .stNumberInput input {border-radius: 5px;}
+    .stSelectbox div[data-baseweb="select"] {border-radius: 5px;}
+    </style>
+    """, unsafe_allow_html=True)
+    
     # Header
-    col1, col2 = st.columns([3,1])
+    col1, col2 = st.columns([3, 1])
     with col1:
         st.title("BeamSolve Pro")
-        st.markdown("Geavanceerde balkberekeningen voor constructeurs")
-    with col2:
-        st.markdown("### Versie")
-        st.markdown("""
-        <div style='background-color: #f8f9fa; padding: 10px; border-radius: 5px;'>
-        <small>
-        Free Edition<br>
-        <span style='color: #6c757d;'>2/2 Exports Beschikbaar</span>
-        </small>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    st.divider()
-    
-    # Test voorbeeld (zoals in de afbeelding)
-    if st.sidebar.button("Laad Testvoorbeeld", type="secondary"):
-        st.session_state.test_example = True
-        # Balk van 18m met 3 steunpunten
-        st.session_state.beam_length = 18000  # 18m in mm
-        st.session_state.supports = [
-            (3000, "Scharnier"),   # C op 3m
-            (9000, "Scharnier"),   # D op 9m
-            (15000, "Scharnier"),  # B op 15m
-        ]
-        st.session_state.loads = [
-            # Driehoekslast van 50 kN/m over 4m
-            (3000, 50, "Driehoekslast", 4000),
-            # Verdeelde last van 20 kN/m over rest
-            (9000, 20, "Verdeelde last", 6000),
-            # Puntlast van 100 kN
-            (9000, 100, "Puntlast")
-        ]
-        st.session_state.profile_type = "HEA"
-        st.session_state.profile_name = "HEA 300"
+        st.markdown("#### Geavanceerde balkberekeningen voor constructeurs")
     
     # Sidebar voor invoer
     with st.sidebar:
-        st.title("BeamSolve Pro")
-        st.markdown("---")
+        st.header("Invoergegevens")
         
-        # Profiel selectie
-        st.subheader("1. Profiel")
-        col1, col2 = st.columns(2)
-        with col1:
-            profile_type = st.selectbox("Type", ["HEA", "HEB", "IPE", "UNP", "Koker"])
-        with col2:
-            profile_name = st.selectbox("Naam", get_profile_list(profile_type))
-        
-        # Haal profiel dimensies op
-        dimensions = get_profile_dimensions(profile_type, profile_name)
-        if dimensions:
-            if profile_type == "Koker":
-                height, width, wall_thickness = dimensions
-                flange_thickness = wall_thickness
+        # Profiel tab
+        with st.expander("Profiel", expanded=True):
+            profile_type = st.selectbox(
+                "Profieltype",
+                ["Koker", "I-profiel", "Rechthoek", "Cirkel", "Standaard profiel"]
+            )
+            
+            if profile_type == "Standaard profiel":
+                profile_category = st.selectbox(
+                    "Categorie",
+                    ["HEA", "HEB", "IPE", "UNP", "Koker"]
+                )
+                profile_list = get_profile_list(profile_category)
+                profile_name = st.selectbox("Profiel", profile_list)
+                
+                # Haal dimensies op
+                height, width, wall_thickness, flange_thickness = get_profile_dimensions(profile_category, profile_name)
+                
+                # Toon dimensies
+                col1, col2 = st.columns(2)
+                with col1:
+                    st.metric("Hoogte", f"{height} mm")
+                    st.metric("Wanddikte", f"{wall_thickness} mm")
+                with col2:
+                    st.metric("Breedte", f"{width} mm")
+                    if flange_thickness:
+                        st.metric("Flensdikte", f"{flange_thickness} mm")
             else:
-                height, width, wall_thickness, flange_thickness = dimensions
-        
-        # Toon dimensies
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Hoogte", f"{height} mm")
-            st.metric("Breedte", f"{width} mm")
-        with col2:
-            st.metric("Wanddikte", f"{wall_thickness} mm")
-            if profile_type != "Koker":
-                st.metric("Flensdikte", f"{flange_thickness} mm")
-        
-        # E-modulus
-        E = st.number_input("E-modulus", value=210000.0, step=1000.0, format="%.0f", help="N/mm²")
-        
-        st.markdown("---")
-        
-        # Overspanning
-        st.subheader("2. Overspanning")
-        beam_length = st.number_input("Lengte", value=3000.0, step=100.0, format="%.0f", help="mm")
-        
-        # Steunpunten
-        st.subheader("3. Steunpunten")
-        num_supports = st.number_input("Aantal", min_value=1, max_value=4, value=1)
-        
-        supports = []
-        for i in range(num_supports):
-            col1, col2 = st.columns(2)
-            with col1:
-                pos = st.number_input(
-                    f"Positie {i+1}",
-                    value=0.0 if i == 0 else beam_length if i == 1 else beam_length/2,
-                    min_value=0.0,
-                    max_value=beam_length,
-                    step=100.0,
-                    format="%.0f",
-                    help="mm"
-                )
-            with col2:
-                type = st.selectbox(
-                    f"Type {i+1}",
-                    ["Inklemming", "Scharnier", "Rol"],
-                    index=0 if i == 0 else 1
-                )
-            supports.append((pos, type))
-        
-        # Belastingen
-        st.subheader("4. Belastingen")
-        num_loads = st.number_input("Aantal", min_value=0, max_value=5, value=1)
-        
-        loads = []
-        for i in range(num_loads):
-            st.markdown(f"**Belasting {i+1}**")
+                col1, col2 = st.columns(2)
+                with col1:
+                    height = st.number_input(
+                        "Hoogte", 
+                        value=100.0,
+                        min_value=10.0,
+                        step=10.0,
+                        format="%.1f",
+                        help="mm"
+                    )
+                with col2:
+                    width = st.number_input(
+                        "Breedte", 
+                        value=50.0,
+                        min_value=10.0,
+                        step=10.0,
+                        format="%.1f",
+                        help="mm"
+                    )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    wall_thickness = st.number_input(
+                        "Wanddikte", 
+                        value=5.0,
+                        min_value=1.0,
+                        step=0.5,
+                        format="%.1f",
+                        help="mm"
+                    )
+                with col2:
+                    if profile_type == "I-profiel":
+                        flange_thickness = st.number_input(
+                            "Flensdikte", 
+                            value=8.0,
+                            min_value=1.0,
+                            step=0.5,
+                            format="%.1f",
+                            help="mm"
+                        )
+                    else:
+                        flange_thickness = None
             
-            col1, col2 = st.columns(2)
-            with col1:
-                load_type = st.selectbox(
-                    "Type",
-                    ["Puntlast", "Verdeelde last", "Moment", "Driehoekslast"],
-                    key=f"load_type_{i}"
-                )
-            with col2:
-                if load_type == "Moment":
-                    unit = "Nmm"
-                elif load_type in ["Verdeelde last", "Driehoekslast"]:
-                    unit = "N/mm"
-                else:
-                    unit = "N"
-                    
-                value = st.number_input(
-                    f"Waarde ({unit})",
-                    value=1000.0,
-                    step=100.0,
-                    format="%.1f",
-                    key=f"load_value_{i}"
-                )
+            # Materiaal eigenschappen
+            E = st.number_input(
+                "E-modulus", 
+                value=210000.0,
+                min_value=1000.0,
+                step=1000.0,
+                format="%.1f",
+                help="N/mm²"
+            )
             
-            col1, col2 = st.columns(2)
-            with col1:
-                position = st.number_input(
-                    "Positie", 
-                    value=0.0,
-                    min_value=0.0,
-                    max_value=beam_length,
-                    step=100.0,
-                    format="%.0f",
-                    help="mm",
-                    key=f"load_pos_{i}"
-                )
-            with col2:
-                if load_type in ["Verdeelde last", "Driehoekslast"]:
-                    length = st.number_input(
-                        "Lengte",
+            # Bereken en toon eigenschappen
+            if profile_type != "Standaard profiel":
+                I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
+                A = calculate_A(profile_type, height, width, wall_thickness, flange_thickness)
+                
+                if I is not None and A is not None:
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("I", f"{I:.2e} mm⁴")
+                    with col2:
+                        st.metric("A", f"{A:.1f} mm²")
+        
+        # Balk tab
+        with st.expander("Balk", expanded=True):
+            beam_length = st.number_input(
+                "Overspanning", 
+                value=3000.0,
+                min_value=100.0,
+                step=100.0,
+                format="%.0f",
+                help="mm"
+            )
+            
+            # Steunpunten
+            st.subheader("Steunpunten")
+            num_supports = st.slider("Aantal steunpunten", 2, 5, 2)
+            
+            supports = []
+            for i in range(num_supports):
+                col1, col2 = st.columns(2)
+                with col1:
+                    if i == 0:
+                        pos = 0.0
+                        st.number_input(
+                            f"Positie {i+1}", 
+                            value=pos,
+                            min_value=0.0,
+                            max_value=0.0,
+                            step=100.0,
+                            format="%.0f",
+                            help="mm",
+                            key=f"support_pos_{i}",
+                            disabled=True
+                        )
+                    elif i == num_supports - 1:
+                        pos = beam_length
+                        st.number_input(
+                            f"Positie {i+1}", 
+                            value=pos,
+                            min_value=beam_length,
+                            max_value=beam_length,
+                            step=100.0,
+                            format="%.0f",
+                            help="mm",
+                            key=f"support_pos_{i}",
+                            disabled=True
+                        )
+                    else:
+                        pos = st.number_input(
+                            f"Positie {i+1}", 
+                            value=i * beam_length / (num_supports - 1),
+                            min_value=0.0,
+                            max_value=beam_length,
+                            step=100.0,
+                            format="%.0f",
+                            help="mm",
+                            key=f"support_pos_{i}"
+                        )
+                with col2:
+                    type = st.selectbox(
+                        f"Type {i+1}",
+                        ["Scharnier", "Rol", "Inklemming"],
+                        key=f"support_type_{i}"
+                    )
+                supports.append((pos, type))
+            
+            # Belastingen
+            st.subheader("Belastingen")
+            num_loads = st.slider("Aantal belastingen", 1, 5, 1)
+            
+            loads = []
+            for i in range(num_loads):
+                st.markdown(f"**Belasting {i+1}**")
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    load_type = st.selectbox(
+                        "Type",
+                        ["Puntlast", "Verdeelde last", "Moment", "Driehoekslast"],
+                        key=f"load_type_{i}"
+                    )
+                with col2:
+                    if load_type == "Moment":
+                        unit = "Nmm"
+                    elif load_type in ["Verdeelde last", "Driehoekslast"]:
+                        unit = "N/mm"
+                    else:
+                        unit = "N"
+                        
+                    value = st.number_input(
+                        f"Waarde ({unit})",
                         value=1000.0,
+                        step=100.0,
+                        format="%.1f",
+                        key=f"load_value_{i}"
+                    )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    position = st.number_input(
+                        "Positie", 
+                        value=0.0,
                         min_value=0.0,
                         max_value=beam_length,
                         step=100.0,
                         format="%.0f",
                         help="mm",
-                        key=f"load_length_{i}"
+                        key=f"load_pos_{i}"
                     )
-                    loads.append((position, value, load_type, length))
-                else:
-                    loads.append((position, value, load_type))
+                with col2:
+                    if load_type in ["Verdeelde last", "Driehoekslast"]:
+                        length = st.number_input(
+                            "Lengte",
+                            value=1000.0,
+                            min_value=0.0,
+                            max_value=beam_length,
+                            step=100.0,
+                            format="%.0f",
+                            help="mm",
+                            key=f"load_length_{i}"
+                        )
+                        loads.append((position, value, load_type, length))
+                    else:
+                        loads.append((position, value, load_type))
     
     # Hoofdgedeelte
     if st.sidebar.button("Bereken", type="primary", use_container_width=True):
@@ -1483,142 +1618,105 @@ def main():
         
         # Teken balkschema
         beam_fig = plot_beam_diagram(beam_length, supports, loads)
-        st.plotly_chart(beam_fig, use_container_width=True)
         
-        # Resultaten header
-        st.markdown("""
-        <style>
-        .results-header {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .results-section {
-            background-color: white;
-            padding: 20px;
-            border-radius: 5px;
-            border: 1px solid #e9ecef;
-            margin-bottom: 20px;
-        }
-        </style>
-        <div class="results-header">
-        <h2> Berekeningsresultaten</h2>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Grafieken sectie
-        st.markdown("""
-        <div class="results-section">
-        <h3> Grafieken</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        results_plot = plot_results(x, V, M, theta, y, beam_length, supports, loads)
-        st.plotly_chart(results_plot, use_container_width=True)
-        
-        # Maximale waarden en profiel eigenschappen
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.markdown("""
-            <div class="results-section">
-            <h3> Maximale Waarden</h3>
-            </div>
-            """, unsafe_allow_html=True)
+        # Toon resultaten als analyse succesvol was
+        if x is not None and V is not None and M is not None and theta is not None and y is not None:
+            # Resultaten tabs
+            tab1, tab2, tab3 = st.tabs(["Grafieken", "Balkschema", "Resultaten"])
             
-            max_vals = {
-                "Dwarskracht": [f"{max(abs(np.min(V)), abs(np.max(V)))/1000:.1f}", "kN"],
-                "Moment": [f"{max(abs(np.min(M)), abs(np.max(M)))/1e6:.1f}", "kNm"],
-                "Rotatie": [f"{max(abs(np.min(theta)), abs(np.max(theta))):.4f}", "rad"],
-                "Doorbuiging": [f"{max(abs(np.min(y)), abs(np.max(y))):.2f}", "mm"]
-            }
-            
-            for key, (val, unit) in max_vals.items():
-                st.metric(key, f"{val} {unit}")
-        
-        with col2:
-            st.markdown("""
-            <div class="results-section">
-            <h3> Profiel Eigenschappen</h3>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            A, I, W = calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness)
-            properties = {
-                "Oppervlakte": [f"{A:.0f}", "mm²"],
-                "Traagheidsmoment": [f"{I:.0f}", "mm⁴"],
-                "Weerstandsmoment": [f"{W:.0f}", "mm³"],
-                "Max. buigspanning": [f"{max(abs(np.min(M)), abs(np.max(M)))/W:.1f}", "N/mm²"]
-            }
-            
-            for key, (val, unit) in properties.items():
-                st.metric(key, f"{val} {unit}")
-            
-        # PDF Export sectie
-        st.markdown("""
-        <div class="results-section">
-        <h3> Rapport Exporteren</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Maak een dictionary met alle beam data
-        beam_data = {
-            "profile_type": profile_type,
-            "height": height,
-            "width": width,
-            "wall_thickness": wall_thickness,
-            "flange_thickness": flange_thickness,
-            "beam_length": beam_length,
-            "supports": supports,
-            "loads": loads,
-            "max_deflection": max(abs(np.min(y)), abs(np.max(y))),
-            "max_rotation": max(abs(np.min(theta)), abs(np.max(theta))),
-            "max_shear": max(abs(np.min(V)), abs(np.max(V))),
-            "max_moment": max(abs(np.min(M)), abs(np.max(M)))
-        }
-        
-        # Demo export knop (beperkt tot 2 exports)
-        remaining_exports = 2 - st.session_state.export_count
-        if remaining_exports > 0:
-            try:
-                pdf_content = generate_pdf_report(beam_data, results_plot)
-                col1, col2 = st.columns([3,1])
+            with tab1:
+                # Plot resultaten
+                results_fig = plot_results(x, V, M, theta, y, beam_length, supports, loads)
+                st.plotly_chart(results_fig, use_container_width=True)
+                
+                # Toon maximale waarden
+                col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    if st.download_button(
-                        label=f" Download Rapport (PDF) - {remaining_exports} export(s) over",
-                        data=pdf_content,
-                        file_name="beamsolve_report.pdf",
-                        mime="application/pdf",
-                        key="download_report"
-                    ):
-                        st.session_state.export_count += 1
+                    max_V = np.max(np.abs(V))
+                    st.metric("Max. dwarskracht", f"{max_V/1000:.2f} kN")
                 with col2:
-                    st.markdown(f"<small> Tip: Sla dit rapport op voor later gebruik</small>", unsafe_allow_html=True)
-                        
-                if remaining_exports == 1:
-                    st.warning(" Dit is je laatste gratis export. Upgrade naar Pro voor onbeperkt gebruik!")
-            except Exception as e:
-                st.error(f"Fout bij genereren rapport: {str(e)}")
-        else:
-            st.error(" Je hebt je gratis exports gebruikt. Upgrade naar Pro voor onbeperkt gebruik!")
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button(" Upgrade naar Pro", type="primary"):
-                    st.markdown("### Contact voor Pro Licentie")
-                    st.info("Neem contact op via info@beamsolve.nl voor een Pro licentie.")
-            with col2:
-                st.markdown("""
-                <div style='background-color: #f8f9fa; padding: 15px; border-radius: 5px;'>
-                <h4> Pro Voordelen</h4>
-                <ul>
-                <li>Onbeperkt PDF exports</li>
-                <li>Geavanceerde belastingcombinaties</li>
-                <li>Excel/CAD export</li>
-                <li>Email support</li>
-                </ul>
-                </div>
-                """, unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
+                    max_M = np.max(np.abs(M))
+                    st.metric("Max. moment", f"{max_M/1e6:.2f} kNm")
+                with col3:
+                    max_theta = np.max(np.abs(theta))
+                    st.metric("Max. rotatie", f"{max_theta:.6f} rad")
+                with col4:
+                    max_y = np.max(np.abs(y))
+                    st.metric("Max. doorbuiging", f"{max_y:.2f} mm")
+            
+            with tab2:
+                # Toon balkschema
+                st.plotly_chart(beam_fig, use_container_width=True)
+            
+            with tab3:
+                # Toon reactiekrachten
+                st.subheader("Reactiekrachten")
+                reaction_data = []
+                for pos, support_type in supports:
+                    reaction = 0
+                    if pos in reactions:
+                        reaction = -reactions[pos]  # Negatief omdat reacties omhoog positief zijn
+                    reaction_data.append([f"{pos:.0f} mm", support_type, f"{reaction/1000:.2f} kN"])
+                
+                st.table({
+                    "Positie": [row[0] for row in reaction_data],
+                    "Type": [row[1] for row in reaction_data],
+                    "Reactiekracht": [row[2] for row in reaction_data]
+                })
+                
+                # Toon PDF export optie
+                if st.button("Exporteer rapport (PDF)", use_container_width=True):
+                    # Verzamel data voor rapport
+                    beam_data = {
+                        "profile_type": profile_type,
+                        "height": height,
+                        "width": width,
+                        "wall_thickness": wall_thickness,
+                        "flange_thickness": flange_thickness,
+                        "beam_length": beam_length,
+                        "supports": supports,
+                        "loads": loads,
+                        "reactions": reactions,
+                        "max_values": {
+                            "V": max_V,
+                            "M": max_M,
+                            "theta": max_theta,
+                            "y": max_y
+                        }
+                    }
+                    
+                    # Genereer rapport
+                    report_content = generate_pdf_report(beam_data, results_fig)
+                    
+                    # Download knop
+                    now = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename = f"beamsolve_rapport_{now}.pdf"
+                    
+                    # Converteer naar base64 voor download
+                    b64 = base64.b64encode(report_content).decode()
+                    href = f'<a href="data:application/pdf;base64,{b64}" download="{filename}">Download PDF rapport</a>'
+                    st.markdown(href, unsafe_allow_html=True)
+    else:
+        # Toon welkomstscherm
+        st.markdown("""
+        ## Welkom bij BeamSolve Pro
+        
+        Dit is een geavanceerde tool voor het analyseren van balken en liggers.
+        
+        ### Hoe te gebruiken:
+        1. Configureer het profiel in de sidebar
+        2. Definieer de balk en steunpunten
+        3. Voeg belastingen toe
+        4. Klik op 'Bereken'
+        
+        ### Mogelijkheden:
+        - Verschillende profieltypes en standaardprofielen
+        - Meerdere steunpunten (2-5)
+        - Verschillende belastingtypes
+        - Visualisatie van dwarskracht, moment, rotatie en doorbuiging
+        - Export naar PDF rapport
+        """)
+        
+        # Toon voorbeeld afbeelding
+        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Beam_deflection.svg/800px-Beam_deflection.svg.png", 
+                 caption="Voorbeeld van balkdoorbuiging", width=600){{ ... }}
