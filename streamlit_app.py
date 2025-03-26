@@ -8,7 +8,12 @@ import base64
 from plotly.subplots import make_subplots
 
 def calculate_reactions(beam_length, supports, loads):
-    """Bereken reactiekrachten voor verschillende steunpuntconfiguraties"""
+    """Bereken reactiekrachten voor verschillende steunpuntconfiguraties.
+    Tekenconventies:
+    - Krachten omhoog positief
+    - Momenten rechtsom positief
+    - Belastingen omlaag positief"""
+    
     if not supports or not loads:
         return {}
         
@@ -29,26 +34,29 @@ def calculate_reactions(beam_length, supports, loads):
                 st.error("❌ Systeem met één steunpunt moet een inklemming zijn")
                 return None
                 
-            # Bereken totale verticale kracht en moment
+            # Bereken totale verticale kracht en moment t.o.v. inklemming
             V_total = 0
             M_total = 0
+            
             for load in loads:
                 pos_load, value, load_type, *rest = load
                 if load_type.lower() == "puntlast":
-                    V_total += value
-                    M_total += value * (pos_load - pos)
+                    V_total += value  # Last omlaag positief
+                    M_total += value * (pos_load - pos)  # Rechtsom positief
                 elif load_type.lower() == "verdeelde last":
                     length = rest[0]
-                    V_total += value * length
-                    M_total += value * length * (pos_load + length/2 - pos)
+                    q = value  # Last per lengte-eenheid
+                    V_total += q * length  # Totale last
+                    x_c = pos_load + length/2  # Zwaartepunt
+                    M_total += q * length * (x_c - pos)  # Moment t.o.v. inklemming
                 elif load_type.lower() == "moment":
-                    M_total += value
+                    M_total += value  # Extern moment (rechtsom positief)
             
-            reactions[pos] = V_total  # Verticale reactiekracht
-            reactions[f"M_{pos}"] = -M_total  # Inklemmingsmoment (tegengesteld)
+            reactions[pos] = -V_total  # Reactiekracht tegengesteld aan belasting
+            reactions[f"M_{pos}"] = -M_total  # Reactiemoment tegengesteld aan belastingmoment
             
         elif n == 2:
-            # Twee steunpunten - statisch bepaald
+            # Twee steunpunten - statisch bepaald systeem
             x1, type1 = supports[0]
             x2, type2 = supports[1]
             L = x2 - x1
@@ -57,93 +65,47 @@ def calculate_reactions(beam_length, supports, loads):
                 st.error("❌ Steunpunten mogen niet op dezelfde positie liggen")
                 return None
             
-            # Bereken totale verticale kracht en moment t.o.v. x1
-            V_total = 0
-            M_x1 = 0
+            # Bereken totale verticale kracht en moment t.o.v. linker steunpunt
+            V_total = 0  # Totale verticale belasting
+            M_1 = 0     # Moment t.o.v. steunpunt 1
             
             for load in loads:
                 pos, value, load_type, *rest = load
                 if load_type.lower() == "puntlast":
-                    V_total += value
-                    M_x1 += value * (pos - x1)
+                    V_total += value  # Last omlaag positief
+                    M_1 += value * (pos - x1)  # Moment t.o.v. steunpunt 1
                 elif load_type.lower() == "verdeelde last":
                     length = rest[0]
-                    q = value * length
-                    V_total += q
-                    M_x1 += q * (pos + length/2 - x1)
+                    q = value
+                    Q = q * length  # Totale last
+                    x_c = pos + length/2  # Zwaartepunt
+                    V_total += Q
+                    M_1 += Q * (x_c - x1)  # Moment t.o.v. steunpunt 1
                 elif load_type.lower() == "moment":
-                    M_x1 += value
+                    M_1 += value  # Extern moment (rechtsom positief)
             
-            # Los op met momentevenwicht
-            R2 = M_x1 / L
-            R1 = V_total - R2
+            # Los reactiekrachten op met momentevenwicht
+            R2 = M_1 / L  # Reactie in steunpunt 2 (omhoog positief)
+            R1 = V_total - R2  # Reactie in steunpunt 1 (omhoog positief)
             
-            reactions[x1] = R1
-            reactions[x2] = R2
+            reactions[x1] = -R1  # Reactiekracht tegengesteld aan belasting
+            reactions[x2] = -R2
             
             # Voeg inklemming momenten toe indien nodig
             if type1.lower() == "inklemming" and type2.lower() == "inklemming":
-                # Beide inklemmingen
-                reactions[f"M_{x1}"] = -M_x1/2  # Links
-                reactions[f"M_{x2}"] = M_x1/2   # Rechts
+                # Beide ingeklemd: symmetrische verdeling
+                reactions[f"M_{x1}"] = -M_1/2
+                reactions[f"M_{x2}"] = M_1/2
             elif type1.lower() == "inklemming":
                 # Alleen links ingeklemd
-                reactions[f"M_{x1}"] = -3*M_x1/4
+                reactions[f"M_{x1}"] = -M_1
             elif type2.lower() == "inklemming":
                 # Alleen rechts ingeklemd
-                reactions[f"M_{x2}"] = 3*M_x1/4
+                reactions[f"M_{x2}"] = M_1
                 
         else:
-            # Drie of meer steunpunten - verdeel krachten
-            # Bereken totale belasting
-            V_total = 0
-            for load in loads:
-                pos, value, load_type, *rest = load
-                if load_type.lower() == "puntlast":
-                    V_total += value
-                elif load_type.lower() == "verdeelde last":
-                    length = rest[0]
-                    V_total += value * length
-            
-            # Verdeel krachten op basis van steunpunt afstanden
-            total_span = supports[-1][0] - supports[0][0]
-            prev_pos = supports[0][0]
-            
-            # Eerste steunpunt
-            span_ratio = (supports[1][0] - supports[0][0]) / total_span
-            reactions[supports[0][0]] = V_total * span_ratio
-            
-            # Middelste steunpunten
-            for i in range(1, n-1):
-                pos = supports[i][0]
-                next_pos = supports[i+1][0]
-                span_ratio = (next_pos - prev_pos) / total_span
-                reactions[pos] = V_total * span_ratio
-                prev_pos = pos
-            
-            # Laatste steunpunt
-            span_ratio = (supports[-1][0] - supports[-2][0]) / total_span
-            reactions[supports[-1][0]] = V_total * span_ratio
-            
-            # Voeg inklemming momenten toe waar nodig
-            for pos, type in supports:
-                if type.lower() == "inklemming":
-                    # Schat moment op basis van naburige overspanningen
-                    idx = [i for i, (p, _) in enumerate(supports) if p == pos][0]
-                    if idx == 0:
-                        # Eerste steunpunt
-                        L = supports[1][0] - pos
-                        M = -reactions[pos] * L / 6
-                    elif idx == n-1:
-                        # Laatste steunpunt
-                        L = pos - supports[-2][0]
-                        M = reactions[pos] * L / 6
-                    else:
-                        # Middelste steunpunt
-                        L_left = pos - supports[idx-1][0]
-                        L_right = supports[idx+1][0] - pos
-                        M = reactions[pos] * (L_right - L_left) / 6
-                    reactions[f"M_{pos}"] = M
+            st.error("❌ Meer dan twee steunpunten wordt nog niet ondersteund")
+            return None
                 
     except Exception as e:
         st.error(f"❌ Fout bij berekenen reactiekrachten: {str(e)}")
