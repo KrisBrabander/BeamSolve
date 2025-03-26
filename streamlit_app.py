@@ -1344,7 +1344,7 @@ def calculate_I(profile_type, h, b, t_w, t_f=None):
         
     except Exception as e:
         st.error(f"❌ Fout bij berekenen traagheidsmoment: {str(e)}")
-        return None{{ ... }}
+        return None
 
 def calculate_A(profile_type, h, b, t_w, t_f=None):
     """Bereken oppervlakte voor verschillende profieltypes"""
