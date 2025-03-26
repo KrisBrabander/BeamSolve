@@ -138,16 +138,21 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
     # Bereken eerst het moment in elk punt
     _, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
+    # Zorg dat er geen NaN waarden in M zitten
+    M = np.nan_to_num(M, 0)
+    
     # Integreer het moment twee keer voor doorbuiging
     dx = x[1] - x[0]
     
     # Eerste integratie voor rotatie (M/EI)
-    for i in range(1, len(x)):
-        rotation[i] = rotation[i-1] + M[i] * dx / EI
+    for i in range(len(x)-1):
+        # Gebruik trapezium regel voor nauwkeurigere integratie
+        rotation[i+1] = rotation[i] + (M[i] + M[i+1]) * dx / (2 * EI)
     
     # Tweede integratie voor doorbuiging
-    for i in range(1, len(x)):
-        deflection[i] = deflection[i-1] + rotation[i] * dx
+    for i in range(len(x)-1):
+        # Gebruik trapezium regel voor nauwkeurigere integratie
+        deflection[i+1] = deflection[i] + (rotation[i] + rotation[i+1]) * dx / 2
     
     # Pas randvoorwaarden toe
     for pos, type in supports:
@@ -155,6 +160,10 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
         deflection[idx] = 0.0
         if type.lower() == "inklemming":
             rotation[idx] = 0.0
+    
+    # Corrigeer voor numerieke fouten
+    deflection = np.nan_to_num(deflection, 0)
+    rotation = np.nan_to_num(rotation, 0)
     
     return deflection, rotation
 
@@ -178,8 +187,9 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Bereken doorbuiging en rotatie
     deflection, rotation = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
     
-    # Corrigeer voor gemiddelde doorbuiging
-    deflection -= np.mean(deflection)
+    # Corrigeer voor numerieke fouten
+    V = np.nan_to_num(V, 0)
+    M = np.nan_to_num(M, 0)
     
     return x, V, M, rotation, deflection
 
