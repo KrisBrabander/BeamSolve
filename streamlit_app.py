@@ -1364,7 +1364,7 @@ def main():
     
     # App configuratie
     st.set_page_config(
-        page_title="BeamSolve Pro",
+        page_title="BeamSolved",
         page_icon="🔧",
         layout="wide",
         initial_sidebar_state="expanded"
@@ -1388,7 +1388,7 @@ def main():
     # Header
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.title("BeamSolve Pro")
+        st.title("BeamSolved")
         st.markdown("#### Geavanceerde balkberekeningen voor constructeurs")
     
     # Sidebar voor invoer
@@ -1699,7 +1699,7 @@ def main():
     else:
         # Toon welkomstscherm
         st.markdown("""
-        ## Welkom bij BeamSolve Pro
+        ## Welkom bij BeamSolved
         
         Dit is een geavanceerde tool voor het analyseren van balken en liggers.
         
