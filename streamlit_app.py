@@ -152,52 +152,59 @@ def calculate_reactions(beam_length, supports, loads):
     return reactions
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
-    """Bereken dwarskracht en moment in de balk"""
+    """Bereken dwarskracht (V) en moment (M) in de balk volgens mechanica principes:
+    1. Dwarskracht = som van alle krachten links van x
+    2. Moment = som van alle momenten t.o.v. punt x"""
+    
     V = np.zeros_like(x)
     M = np.zeros_like(x)
     
-    # Voor elk punt x
+    # Sorteer alle krachten en steunpunten op positie
+    all_forces = []
+    
+    # Voeg reactiekrachten toe
+    for pos, type in supports:
+        R = reactions.get(pos, 0)
+        if R != 0:
+            all_forces.append((pos, R, "reactie"))
+        # Voeg inklemming moment toe
+        M_fixed = reactions.get(f"M_{pos}", 0)
+        if M_fixed != 0:
+            all_forces.append((pos, M_fixed, "moment"))
+    
+    # Voeg externe belastingen toe
+    for load in loads:
+        pos, value, load_type, *rest = load
+        if load_type.lower() == "puntlast":
+            all_forces.append((pos, -value, "puntlast"))  # Negatief want belasting
+        elif load_type.lower() == "moment":
+            all_forces.append((pos, -value, "moment"))  # Negatief want belasting
+        elif load_type.lower() == "verdeelde last":
+            length = rest[0]
+            # Verdeel de last in 10 segmenten voor nauwkeurigere berekening
+            n_segments = 10
+            dx = length / n_segments
+            q = value * dx  # Kracht per segment
+            for i in range(n_segments):
+                seg_pos = pos + i * dx + dx/2  # Midden van segment
+                all_forces.append((seg_pos, -q, "puntlast"))
+    
+    # Sorteer alle krachten op positie
+    all_forces.sort(key=lambda f: f[0])
+    
+    # Voor elk punt x, bereken V en M
     for i, xi in enumerate(x):
-        # Tel reactiekrachten op
-        for pos, type in supports:
-            if pos <= xi:  # Alleen krachten links van x
-                R = reactions.get(pos, 0)
-                V[i] += R
-                M[i] += R * (xi - pos)
-                # Voeg inklemming moment toe
-                if type.lower() == "inklemming":
-                    M_fixed = reactions.get(f"M_{pos}", 0)
-                    M[i] += M_fixed
-        
-        # Trek belastingen af
-        for load in loads:
-            pos, value, load_type, *rest = load
-            
-            if load_type.lower() == "puntlast":
-                if pos <= xi:  # Alleen krachten links van x
-                    V[i] -= value
-                    M[i] -= value * (xi - pos)
-            
-            elif load_type.lower() == "verdeelde last":
-                length = rest[0]
-                end_pos = pos + length
-                
-                if pos <= xi:  # Last begint voor x
-                    if xi <= end_pos:  # x ligt onder de last
-                        # Gedeeltelijke last tot x
-                        deel_lengte = xi - pos
-                        q = value * deel_lengte
-                        V[i] -= q
-                        M[i] -= q * deel_lengte/2
-                    else:  # x ligt voorbij de last
-                        # Volledige last
-                        q = value * length
-                        V[i] -= q
-                        M[i] -= q * length/2
-            
-            elif load_type.lower() == "moment":
-                if pos <= xi:
-                    M[i] -= value
+        # Tel alle krachten en momenten links van x op
+        for pos, value, force_type in all_forces:
+            if pos <= xi:  # Kracht/moment ligt links van x
+                if force_type in ["puntlast", "reactie"]:
+                    # Dwarskracht = som krachten
+                    V[i] += value
+                    # Moment = kracht × arm
+                    M[i] += value * (xi - pos)
+                elif force_type == "moment":
+                    # Moment direct toevoegen
+                    M[i] += value
     
     return V, M
 
