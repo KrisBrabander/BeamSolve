@@ -131,128 +131,26 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     return V, M
 
 def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
-    """Bereken doorbuiging en rotatie met superpositie per veld tussen steunpunten"""
+    """Bereken doorbuiging met de momentenlijn methode"""
     deflection = np.zeros_like(x)
     rotation = np.zeros_like(x)
     
-    # Sorteer steunpunten op positie
-    sorted_supports = sorted(supports, key=lambda s: s[0])
+    # Bereken eerst het moment in elk punt
+    _, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # Bepaal velden tussen steunpunten
-    fields = []
-    for i in range(len(sorted_supports)-1):
-        start = sorted_supports[i][0]
-        end = sorted_supports[i+1][0]
-        fields.append((start, end))
+    # Integreer het moment twee keer voor doorbuiging
+    dx = x[1] - x[0]
     
-    # Voor elk punt x, bepaal in welk veld het ligt
-    for i, xi in enumerate(x):
-        # Vind het juiste veld
-        current_field = None
-        for start, end in fields:
-            if start <= xi <= end:
-                current_field = (start, end)
-                break
-        
-        if current_field is None:
-            # Punt ligt voor eerste of na laatste steunpunt
-            if xi < sorted_supports[0][0]:
-                # Uitkraging links
-                current_field = (0, sorted_supports[0][0])
-            elif xi > sorted_supports[-1][0]:
-                # Uitkraging rechts
-                current_field = (sorted_supports[-1][0], beam_length)
-        
-        if current_field:
-            start, end = current_field
-            L = end - start  # Lengte van het huidige veld
-            
-            # Effect van reactiekrachten in dit veld
-            for pos, type in sorted_supports:
-                if start <= pos <= end:
-                    reaction = reactions.get(pos, 0)
-                    # Pas formules aan naar lokale coördinaten binnen het veld
-                    x_local = xi - start
-                    a = pos - start
-                    
-                    if x_local <= a:
-                        deflection[i] += reaction * x_local * (L-a) * (L+a-x_local) / (6*EI*L)
-                        rotation[i] += reaction * (L-a) * (L+a-2*x_local) / (6*EI*L)
-                    else:
-                        deflection[i] += reaction * a * (L-x_local) * (L+a-x_local) / (6*EI*L)
-                        rotation[i] += -reaction * a * (2*x_local-L-a) / (6*EI*L)
-                    
-                    # Voeg effect van inklemming toe
-                    if type.lower() == "inklemming":
-                        M = reactions.get(f"M_{pos}", 0)
-                        if x_local <= a:
-                            deflection[i] += M * x_local * (L-a) / (2*EI*L)
-                            rotation[i] += M * (L-2*x_local) / (2*EI*L)
-                        else:
-                            deflection[i] += M * a * (L-x_local) / (2*EI*L)
-                            rotation[i] += -M * (2*x_local-L) / (2*EI*L)
-            
-            # Effect van belastingen in dit veld
-            for load in loads:
-                pos, value, load_type, *rest = load
-                if start <= pos <= end:
-                    # Pas formules aan naar lokale coördinaten binnen het veld
-                    x_local = xi - start
-                    a = pos - start
-                    
-                    if load_type.lower() == "puntlast":
-                        if x_local <= a:
-                            deflection[i] -= value * x_local * (L-a) * (L+a-x_local) / (6*EI*L)
-                            rotation[i] -= value * (L-a) * (L+a-2*x_local) / (6*EI*L)
-                        else:
-                            deflection[i] -= value * a * (L-x_local) * (L+a-x_local) / (6*EI*L)
-                            rotation[i] -= -value * a * (2*x_local-L-a) / (6*EI*L)
-                    
-                    elif load_type.lower() == "verdeelde last":
-                        length = rest[0]
-                        q = value
-                        end_load = min(pos + length, end) - start
-                        
-                        # Integreer effect van verdeelde last
-                        n_steps = 50
-                        dx_load = (end_load - a) / n_steps
-                        for x_load in np.linspace(a, end_load, n_steps):
-                            if x_local <= x_load:
-                                deflection[i] -= q * dx_load * x_local * (L-x_load) * (L+x_load-x_local) / (6*EI*L)
-                                rotation[i] -= q * dx_load * (L-x_load) * (L+x_load-2*x_local) / (6*EI*L)
-                            else:
-                                deflection[i] -= q * dx_load * x_load * (L-x_local) * (L+x_load-x_local) / (6*EI*L)
-                                rotation[i] -= -q * dx_load * x_load * (2*x_local-L-x_load) / (6*EI*L)
-                    
-                    elif load_type.lower() == "driehoekslast":
-                        length = rest[0]
-                        q_max = value
-                        end_load = min(pos + length, end) - start
-                        
-                        # Integreer effect van driehoekslast
-                        n_steps = 50
-                        dx_load = (end_load - a) / n_steps
-                        for j, x_load in enumerate(np.linspace(a, end_load, n_steps)):
-                            # Lineaire interpolatie voor q
-                            q = q_max * (j + 1) / n_steps
-                            if x_local <= x_load:
-                                deflection[i] -= q * dx_load * x_local * (L-x_load) * (L+x_load-x_local) / (6*EI*L)
-                                rotation[i] -= q * dx_load * (L-x_load) * (L+x_load-2*x_local) / (6*EI*L)
-                            else:
-                                deflection[i] -= q * dx_load * x_load * (L-x_local) * (L+x_load-x_local) / (6*EI*L)
-                                rotation[i] -= -q * dx_load * x_load * (2*x_local-L-x_load) / (6*EI*L)
-                    
-                    elif load_type.lower() == "moment":
-                        if x_local <= a:
-                            deflection[i] -= value * x_local * (L-a) / (2*EI*L)
-                            rotation[i] -= value * (L-2*x_local) / (2*EI*L)
-                        else:
-                            deflection[i] -= value * a * (L-x_local) / (2*EI*L)
-                            rotation[i] -= -value * (2*x_local-L) / (2*EI*L)
+    # Eerste integratie voor rotatie (M/EI)
+    for i in range(1, len(x)):
+        rotation[i] = rotation[i-1] + M[i] * dx / EI
+    
+    # Tweede integratie voor doorbuiging
+    for i in range(1, len(x)):
+        deflection[i] = deflection[i-1] + rotation[i] * dx
     
     # Pas randvoorwaarden toe
-    # Reset doorbuiging bij alle steunpunten
-    for pos, type in sorted_supports:
+    for pos, type in supports:
         idx = np.abs(x - pos).argmin()
         deflection[idx] = 0.0
         if type.lower() == "inklemming":
@@ -261,7 +159,7 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
     return deflection, rotation
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
-    """Analyseer de balk met de stijfheidsmethode"""
+    """Analyseer de balk met de momentenlijn methode"""
     # Bereken traagheidsmoment
     I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
     EI = E * I
@@ -279,6 +177,9 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     
     # Bereken doorbuiging en rotatie
     deflection, rotation = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
+    
+    # Corrigeer voor gemiddelde doorbuiging
+    deflection -= np.mean(deflection)
     
     return x, V, M, rotation, deflection
 
