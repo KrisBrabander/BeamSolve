@@ -152,59 +152,83 @@ def calculate_reactions(beam_length, supports, loads):
     return reactions
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
-    """Bereken dwarskracht (V) en moment (M) in de balk volgens mechanica principes:
-    1. Dwarskracht = som van alle krachten links van x
-    2. Moment = som van alle momenten t.o.v. punt x"""
+    """Bereken dwarskracht (V) en moment (M) volgens de elementaire methode:
+    1. V(x) = ΣF voor x ≤ positie
+    2. M(x) = ΣF·(x-a) + ΣM voor x ≤ positie"""
     
     V = np.zeros_like(x)
     M = np.zeros_like(x)
     
-    # Sorteer alle krachten en steunpunten op positie
-    all_forces = []
+    # 1. Verwerk puntlasten (inclusief reactiekrachten)
+    point_forces = []
     
-    # Voeg reactiekrachten toe
+    # Reactiekrachten (positief omhoog)
     for pos, type in supports:
         R = reactions.get(pos, 0)
-        if R != 0:
-            all_forces.append((pos, R, "reactie"))
-        # Voeg inklemming moment toe
-        M_fixed = reactions.get(f"M_{pos}", 0)
-        if M_fixed != 0:
-            all_forces.append((pos, M_fixed, "moment"))
+        if abs(R) > 1e-10:  # Voorkom numerieke fouten
+            point_forces.append((pos, R))
     
-    # Voeg externe belastingen toe
+    # Puntlasten (positief omlaag)
     for load in loads:
         pos, value, load_type, *rest = load
         if load_type.lower() == "puntlast":
-            all_forces.append((pos, -value, "puntlast"))  # Negatief want belasting
-        elif load_type.lower() == "moment":
-            all_forces.append((pos, -value, "moment"))  # Negatief want belasting
-        elif load_type.lower() == "verdeelde last":
+            point_forces.append((pos, -value))
+    
+    # Sorteer op positie
+    point_forces.sort(key=lambda x: x[0])
+    
+    # 2. Verwerk verdeelde lasten
+    distributed_loads = []
+    for load in loads:
+        pos, value, load_type, *rest = load
+        if load_type.lower() == "verdeelde last":
             length = rest[0]
-            # Verdeel de last in 10 segmenten voor nauwkeurigere berekening
-            n_segments = 10
-            dx = length / n_segments
-            q = value * dx  # Kracht per segment
-            for i in range(n_segments):
-                seg_pos = pos + i * dx + dx/2  # Midden van segment
-                all_forces.append((seg_pos, -q, "puntlast"))
+            distributed_loads.append((pos, pos + length, -value))
     
-    # Sorteer alle krachten op positie
-    all_forces.sort(key=lambda f: f[0])
+    # 3. Verwerk momenten
+    moments = []
+    # Externe momenten (positief rechtsom)
+    for load in loads:
+        pos, value, load_type, *rest = load
+        if load_type.lower() == "moment":
+            moments.append((pos, -value))
     
-    # Voor elk punt x, bereken V en M
+    # Inklemming momenten
+    for pos, type in supports:
+        M_fixed = reactions.get(f"M_{pos}", 0)
+        if abs(M_fixed) > 1e-10:  # Voorkom numerieke fouten
+            moments.append((pos, M_fixed))
+    
+    # Bereken V(x) en M(x) voor elk punt
     for i, xi in enumerate(x):
-        # Tel alle krachten en momenten links van x op
-        for pos, value, force_type in all_forces:
-            if pos <= xi:  # Kracht/moment ligt links van x
-                if force_type in ["puntlast", "reactie"]:
-                    # Dwarskracht = som krachten
-                    V[i] += value
-                    # Moment = kracht × arm
-                    M[i] += value * (xi - pos)
-                elif force_type == "moment":
-                    # Moment direct toevoegen
-                    M[i] += value
+        # A. Puntlasten bijdrage
+        for pos, F in point_forces:
+            if pos <= xi:  # Kracht links van x
+                V[i] += F  # Dwarskracht = som krachten
+                M[i] += F * (xi - pos)  # Moment = kracht × arm
+        
+        # B. Verdeelde lasten bijdrage
+        for start, end, q in distributed_loads:
+            if start <= xi:
+                if xi <= end:
+                    # Gedeeltelijke last
+                    L = xi - start
+                    Q = q * L  # Totale kracht tot x
+                    arm = L/2  # Arm tot zwaartepunt
+                    V[i] += Q
+                    M[i] += Q * arm
+                else:
+                    # Volledige last
+                    L = end - start
+                    Q = q * L
+                    arm = (xi - start) - L/2  # Arm tot zwaartepunt
+                    V[i] += Q
+                    M[i] += Q * arm
+        
+        # C. Momenten bijdrage
+        for pos, M_val in moments:
+            if pos <= xi:
+                M[i] += M_val
     
     return V, M
 
