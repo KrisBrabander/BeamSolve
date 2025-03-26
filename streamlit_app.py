@@ -131,7 +131,7 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     return V, M
 
 def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
-    """Bereken doorbuiging met superpositie per veld tussen steunpunten"""
+    """Bereken doorbuiging en rotatie met superpositie per veld tussen steunpunten"""
     deflection = np.zeros_like(x)
     rotation = np.zeros_like(x)
     
@@ -177,16 +177,20 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
                     
                     if x_local <= a:
                         deflection[i] += reaction * x_local * (L-a) * (L+a-x_local) / (6*EI*L)
+                        rotation[i] += reaction * (L-a) * (L+a-2*x_local) / (6*EI*L)
                     else:
                         deflection[i] += reaction * a * (L-x_local) * (L+a-x_local) / (6*EI*L)
+                        rotation[i] += -reaction * a * (2*x_local-L-a) / (6*EI*L)
                     
                     # Voeg effect van inklemming toe
                     if type.lower() == "inklemming":
                         M = reactions.get(f"M_{pos}", 0)
                         if x_local <= a:
                             deflection[i] += M * x_local * (L-a) / (2*EI*L)
+                            rotation[i] += M * (L-2*x_local) / (2*EI*L)
                         else:
                             deflection[i] += M * a * (L-x_local) / (2*EI*L)
+                            rotation[i] += -M * (2*x_local-L) / (2*EI*L)
             
             # Effect van belastingen in dit veld
             for load in loads:
@@ -199,8 +203,10 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
                     if load_type.lower() == "puntlast":
                         if x_local <= a:
                             deflection[i] -= value * x_local * (L-a) * (L+a-x_local) / (6*EI*L)
+                            rotation[i] -= value * (L-a) * (L+a-2*x_local) / (6*EI*L)
                         else:
                             deflection[i] -= value * a * (L-x_local) * (L+a-x_local) / (6*EI*L)
+                            rotation[i] -= -value * a * (2*x_local-L-a) / (6*EI*L)
                     
                     elif load_type.lower() == "verdeelde last":
                         length = rest[0]
@@ -213,8 +219,10 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
                         for x_load in np.linspace(a, end_load, n_steps):
                             if x_local <= x_load:
                                 deflection[i] -= q * dx_load * x_local * (L-x_load) * (L+x_load-x_local) / (6*EI*L)
+                                rotation[i] -= q * dx_load * (L-x_load) * (L+x_load-2*x_local) / (6*EI*L)
                             else:
                                 deflection[i] -= q * dx_load * x_load * (L-x_local) * (L+x_load-x_local) / (6*EI*L)
+                                rotation[i] -= -q * dx_load * x_load * (2*x_local-L-x_load) / (6*EI*L)
                     
                     elif load_type.lower() == "driehoekslast":
                         length = rest[0]
@@ -229,22 +237,28 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
                             q = q_max * (j + 1) / n_steps
                             if x_local <= x_load:
                                 deflection[i] -= q * dx_load * x_local * (L-x_load) * (L+x_load-x_local) / (6*EI*L)
+                                rotation[i] -= q * dx_load * (L-x_load) * (L+x_load-2*x_local) / (6*EI*L)
                             else:
                                 deflection[i] -= q * dx_load * x_load * (L-x_local) * (L+x_load-x_local) / (6*EI*L)
+                                rotation[i] -= -q * dx_load * x_load * (2*x_local-L-x_load) / (6*EI*L)
                     
                     elif load_type.lower() == "moment":
                         if x_local <= a:
                             deflection[i] -= value * x_local * (L-a) / (2*EI*L)
+                            rotation[i] -= value * (L-2*x_local) / (2*EI*L)
                         else:
                             deflection[i] -= value * a * (L-x_local) / (2*EI*L)
+                            rotation[i] -= -value * (2*x_local-L) / (2*EI*L)
     
     # Pas randvoorwaarden toe
     # Reset doorbuiging bij alle steunpunten
     for pos, type in sorted_supports:
         idx = np.abs(x - pos).argmin()
         deflection[idx] = 0.0
+        if type.lower() == "inklemming":
+            rotation[idx] = 0.0
     
-    return deflection
+    return deflection, rotation
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk met de stijfheidsmethode"""
@@ -255,8 +269,18 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     # Genereer x-coordinaten voor de analyse
     x = np.linspace(0, beam_length, 1000)
     
-    # Gebruik de matrix methode voor consistente resultaten
-    return analyze_beam_matrix(beam_length, supports, loads, EI, x)
+    # Bereken reactiekrachten
+    reactions = calculate_reactions(beam_length, supports, loads)
+    if not reactions:
+        return None, None, None, None, None
+    
+    # Bereken interne krachten
+    V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
+    
+    # Bereken doorbuiging en rotatie
+    deflection, rotation = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
+    
+    return x, V, M, rotation, deflection
 
 def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     """Analyseer de balk met de stijfheidsmethode"""
@@ -268,77 +292,10 @@ def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     # 2. Bereken interne krachten
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # 3. Bereken rotatie en doorbuiging
-    deflection = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
-    rotation = np.gradient(deflection, x, edge_order=2)  # Verbeterde rotatie berekening
+    # 3. Bereken doorbuiging en rotatie
+    deflection, rotation = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
     
     return x, V, M, rotation, deflection
-
-def calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness):
-    """Cache profiel eigenschappen voor snellere berekeningen"""
-    # Map profile types to calculation types
-    calc_type = "Koker" if profile_type == "Koker" else ("U-profiel" if profile_type == "UNP" else "I-profiel")
-    
-    A = calculate_A(calc_type, height, width, wall_thickness, flange_thickness)
-    I = calculate_I(calc_type, height, width, wall_thickness, flange_thickness)
-    W = I / (height/2) if height > 0 else 0
-    return A, I, W
-
-def get_profile_dimensions(profile_type, profile_name):
-    """Haal de dimensies op voor een specifiek profiel"""
-    if profile_type == "HEA":
-        return HEA_PROFILES.get(profile_name)
-    elif profile_type == "HEB":
-        return HEB_PROFILES.get(profile_name)
-    elif profile_type == "IPE":
-        return IPE_PROFILES.get(profile_name)
-    elif profile_type == "UNP":
-        return UNP_PROFILES.get(profile_name)
-    elif profile_type == "Koker":
-        return KOKER_PROFILES.get(profile_name)
-    return None
-
-def get_profile_list(profile_type):
-    """Krijg een lijst van alle profielen van een bepaald type"""
-    if profile_type == "HEA":
-        return list(HEA_PROFILES.keys())
-    elif profile_type == "HEB":
-        return list(HEB_PROFILES.keys())
-    elif profile_type == "IPE":
-        return list(IPE_PROFILES.keys())
-    elif profile_type == "UNP":
-        return list(UNP_PROFILES.keys())
-    elif profile_type == "Koker":
-        return list(KOKER_PROFILES.keys())
-    return []
-
-def calculate_I(profile_type, h, b, t_w, t_f=None):
-    """Bereken traagheidsmoment voor verschillende profieltypes"""
-    if profile_type == "Koker":
-        h_i = h - 2*t_w
-        b_i = b - 2*t_w
-        return (b*h**3)/12 - (b_i*h_i**3)/12
-    elif profile_type in ["I-profiel", "U-profiel"]:
-        # Flens bijdrage
-        I_f = 2 * (b*t_f**3/12 + b*t_f*(h/2 - t_f/2)**2)
-        # Lijf bijdrage
-        h_w = h - 2*t_f
-        I_w = t_w*h_w**3/12
-        return I_f + I_w
-    return 0
-
-def calculate_A(profile_type, h, b, t_w, t_f=None):
-    """Bereken oppervlakte voor verschillende profieltypes"""
-    if profile_type == "Koker":
-        return (h * b) - ((h - 2*t_w) * (b - 2*t_w))
-    elif profile_type in ["I-profiel", "U-profiel"]:
-        # Flens oppervlakte
-        A_f = 2 * (b * t_f)
-        # Lijf oppervlakte
-        h_w = h - 2*t_f
-        A_w = t_w * h_w
-        return A_f + A_w
-    return 0
 
 def plot_beam_diagram(beam_length, supports, loads):
     """Teken professioneel balkschema"""
@@ -1207,6 +1164,72 @@ if 'units' not in st.session_state:
     }
 if 'export_count' not in st.session_state:
     st.session_state.export_count = 0
+
+def calculate_profile_properties(profile_type, height, width, wall_thickness, flange_thickness):
+    """Cache profiel eigenschappen voor snellere berekeningen"""
+    # Map profile types to calculation types
+    calc_type = "Koker" if profile_type == "Koker" else ("U-profiel" if profile_type == "UNP" else "I-profiel")
+    
+    A = calculate_A(calc_type, height, width, wall_thickness, flange_thickness)
+    I = calculate_I(calc_type, height, width, wall_thickness, flange_thickness)
+    W = I / (height/2) if height > 0 else 0
+    return A, I, W
+
+def get_profile_dimensions(profile_type, profile_name):
+    """Haal de dimensies op voor een specifiek profiel"""
+    if profile_type == "HEA":
+        return HEA_PROFILES.get(profile_name)
+    elif profile_type == "HEB":
+        return HEB_PROFILES.get(profile_name)
+    elif profile_type == "IPE":
+        return IPE_PROFILES.get(profile_name)
+    elif profile_type == "UNP":
+        return UNP_PROFILES.get(profile_name)
+    elif profile_type == "Koker":
+        return KOKER_PROFILES.get(profile_name)
+    return None
+
+def get_profile_list(profile_type):
+    """Krijg een lijst van alle profielen van een bepaald type"""
+    if profile_type == "HEA":
+        return list(HEA_PROFILES.keys())
+    elif profile_type == "HEB":
+        return list(HEB_PROFILES.keys())
+    elif profile_type == "IPE":
+        return list(IPE_PROFILES.keys())
+    elif profile_type == "UNP":
+        return list(UNP_PROFILES.keys())
+    elif profile_type == "Koker":
+        return list(KOKER_PROFILES.keys())
+    return []
+
+def calculate_I(profile_type, h, b, t_w, t_f=None):
+    """Bereken traagheidsmoment voor verschillende profieltypes"""
+    if profile_type == "Koker":
+        h_i = h - 2*t_w
+        b_i = b - 2*t_w
+        return (b*h**3)/12 - (b_i*h_i**3)/12
+    elif profile_type in ["I-profiel", "U-profiel"]:
+        # Flens bijdrage
+        I_f = 2 * (b*t_f**3/12 + b*t_f*(h/2 - t_f/2)**2)
+        # Lijf bijdrage
+        h_w = h - 2*t_f
+        I_w = t_w*h_w**3/12
+        return I_f + I_w
+    return 0
+
+def calculate_A(profile_type, h, b, t_w, t_f=None):
+    """Bereken oppervlakte voor verschillende profieltypes"""
+    if profile_type == "Koker":
+        return (h * b) - ((h - 2*t_w) * (b - 2*t_w))
+    elif profile_type in ["I-profiel", "U-profiel"]:
+        # Flens oppervlakte
+        A_f = 2 * (b * t_f)
+        # Lijf oppervlakte
+        h_w = h - 2*t_f
+        A_w = t_w * h_w
+        return A_f + A_w
+    return 0
 
 def main():
     st.set_page_config(
