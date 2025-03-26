@@ -157,94 +157,156 @@ def calculate_reactions(beam_length, supports, loads):
     return reactions
 
 def calculate_internal_forces(x, beam_length, supports, loads, reactions):
-    """Bereken dwarskracht (V) en moment (M) volgens mechanica principes.
+    """Bereken dwarskracht en moment in de balk.
     Tekenconventies:
-    - Dwarskracht omhoog positief
-    - Moment rechtsom positief
-    - Externe belastingen omlaag positief"""
+    - Dwarskracht positief omhoog
+    - Moment positief rechtsom
+    - Belastingen positief omlaag"""
     
+    # Initialiseer arrays
     V = np.zeros_like(x)
     M = np.zeros_like(x)
     
-    # Sorteer alle krachten op positie
-    forces = []
+    # Sorteer steunpunten
+    supports = sorted(supports, key=lambda x: x[0])
     
-    # 1. Reactiekrachten (omhoog positief)
-    for pos, type in supports:
-        R = reactions.get(pos, 0)
-        if abs(R) > 1e-10:
-            forces.append((pos, R, "reactie"))
-        # Voeg inklemming moment toe (rechtsom positief)
-        M_fixed = reactions.get(f"M_{pos}", 0)
-        if abs(M_fixed) > 1e-10:
-            forces.append((pos, M_fixed, "moment"))
-    
-    # 2. Externe belastingen
-    for load in loads:
-        pos, value, load_type, *rest = load
-        if load_type.lower() == "puntlast":
-            forces.append((pos, -value, "puntlast"))  # Omlaag positief
-        elif load_type.lower() == "moment":
-            forces.append((pos, -value, "moment"))  # Rechtsom positief
-        elif load_type.lower() == "verdeelde last":
-            length = rest[0]
-            q = value  # Last per lengte
-            # Behandel als puntlast in zwaartepunt
-            x_c = pos + length/2
-            Q = q * length
-            forces.append((x_c, -Q, "puntlast"))
-    
-    # Sorteer op positie
-    forces.sort(key=lambda f: f[0])
-    
-    # Bereken V(x) en M(x) voor elk punt
-    for i, xi in enumerate(x):
-        for pos, F, force_type in forces:
-            if pos <= xi:  # Kracht links van x
-                if force_type in ["puntlast", "reactie"]:
-                    V[i] += F  # Som van krachten
-                    M[i] += F * (xi - pos)  # Moment = kracht × arm
-                elif force_type == "moment":
-                    M[i] += F  # Moment direct toevoegen
-    
+    try:
+        # 1. Verwerk reactiekrachten (positief omhoog)
+        for pos, value in reactions.items():
+            if not isinstance(pos, str):  # Skip moment reacties (M_x)
+                idx = np.abs(x - pos).argmin()
+                V[idx:] += value  # Dwarskrachtsprong
+                M[idx:] += value * (x[idx:] - pos)  # Momentbijdrage
+        
+        # 2. Verwerk uitwendige belasting
+        for load in loads:
+            pos, value, load_type, *rest = load
+            
+            if load_type.lower() == "puntlast":
+                # Puntlast (positief omlaag)
+                idx = np.abs(x - pos).argmin()
+                V[idx:] -= value  # Dwarskrachtsprong
+                M[idx:] -= value * (x[idx:] - pos)  # Momentbijdrage
+                
+            elif load_type.lower() == "verdeelde last":
+                # Verdeelde last (positief omlaag)
+                length = rest[0]
+                q = value  # Last per lengte-eenheid
+                
+                # Begin- en eindpunt van de last
+                start_idx = np.abs(x - pos).argmin()
+                end_idx = np.abs(x - (pos + length)).argmin()
+                
+                # Dwarskracht: lineair afnemend
+                V[start_idx:end_idx] -= q * (x[start_idx:end_idx] - pos)
+                V[end_idx:] -= q * length
+                
+                # Moment: kwadratisch
+                for i in range(start_idx, len(x)):
+                    if i < end_idx:
+                        # Onder de last
+                        xi = x[i] - pos
+                        M[i] -= q * xi**2 / 2
+                    else:
+                        # Voorbij de last
+                        M[i] -= q * length * (x[i] - (pos + length/2))
+                        
+            elif load_type.lower() == "moment":
+                # Extern moment (positief rechtsom)
+                idx = np.abs(x - pos).argmin()
+                M[idx:] += value
+                
+    except Exception as e:
+        st.error(f"❌ Fout bij berekenen inwendige krachten: {str(e)}")
+        return None, None
+        
     return V, M
 
 def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
-    """Bereken doorbuiging en rotatie met de dubbele integratie methode.
-    y'' = M/(EI)
-    y' = ∫(M/(EI))dx + C1
-    y = ∫y'dx + C2"""
+    """Bereken doorbuiging met de elementaire methode.
+    Voor een ligger op 3 steunpunten met puntlast:
+    1. Splits in 2 overspanningen
+    2. Bereken doorbuiging per overspanning
+    3. Pas randvoorwaarden toe"""
     
-    # 1. Bereken moment diagram
-    _, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
+    # Sorteer steunpunten op positie
+    supports = sorted(supports, key=lambda x: x[0])
     
-    # 2. Bereken kromming
-    kappa = M / EI  # y'' = M/(EI)
-    
-    # 3. Eerste integratie voor rotatie
-    dx = x[1] - x[0]
-    theta = np.cumsum(kappa) * dx  # y' = ∫κdx
-    
-    # 4. Tweede integratie voor doorbuiging
-    y = np.cumsum(theta) * dx  # y = ∫θdx
-    
-    # 5. Pas randvoorwaarden toe
-    for pos, type in supports:
-        # Vind index van steunpunt
-        idx = np.abs(x - pos).argmin()
+    if len(supports) == 3:  # Specifiek voor 3 steunpunten
+        x1, _ = supports[0]  # Links
+        x2, _ = supports[1]  # Midden
+        x3, _ = supports[2]  # Rechts
         
-        if type.lower() == "inklemming":
-            # y = 0 en θ = 0
-            y_support = y[idx]
-            theta_support = theta[idx]
-            y -= y_support  # Verschuif doorbuiging
-            theta -= theta_support  # Verschuif rotatie
-        else:
-            # y = 0
-            y_support = y[idx]
-            y -= y_support  # Verschuif alleen doorbuiging
+        # Reactiekrachten (positief omhoog)
+        R1 = -reactions[x1]  # Links
+        R2 = -reactions[x2]  # Midden
+        R3 = -reactions[x3]  # Rechts
+        
+        # Initialiseer arrays
+        y = np.zeros_like(x)
+        theta = np.zeros_like(x)
+        
+        # Loop door alle belastingen
+        for load in loads:
+            pos, value, load_type, *rest = load
+            if load_type.lower() == "puntlast":
+                F = value  # Puntlast omlaag positief
+                a = pos   # Positie van de last
+                
+                # Voor elk punt x
+                for i, xi in enumerate(x):
+                    if xi <= x2:  # Eerste overspanning
+                        L = x2 - x1  # Lengte eerste overspanning
+                        if a <= x2:  # Last op eerste overspanning
+                            if xi <= a:
+                                # Links van de last
+                                y[i] = R1*xi/(6*EI)*(xi**2 - 3*L**2) + \
+                                      F*xi/(6*EI)*(3*a*(L-a) - xi**2) * (xi <= a)
+                            else:
+                                # Rechts van de last
+                                y[i] = R1*xi/(6*EI)*(xi**2 - 3*L**2) + \
+                                      F*a/(6*EI)*(3*xi*L - xi**2 - 2*a**2)
+                    else:  # Tweede overspanning
+                        L = x3 - x2  # Lengte tweede overspanning
+                        xi_rel = xi - x2  # Relatieve x vanaf steunpunt 2
+                        if a >= x2:  # Last op tweede overspanning
+                            a_rel = a - x2  # Relatieve a
+                            if xi_rel <= a_rel:
+                                # Links van de last
+                                y[i] = R2*xi_rel/(6*EI)*(xi_rel**2 - 3*L**2) + \
+                                      F*xi_rel/(6*EI)*(3*a_rel*(L-a_rel) - xi_rel**2)
+                            else:
+                                # Rechts van de last
+                                y[i] = R2*xi_rel/(6*EI)*(xi_rel**2 - 3*L**2) + \
+                                      F*a_rel/(6*EI)*(3*xi_rel*L - xi_rel**2 - 2*a_rel**2)
+        
+        # Bereken rotatie als afgeleide van doorbuiging
+        dx = x[1] - x[0]
+        theta[1:-1] = (y[2:] - y[:-2]) / (2*dx)
+        theta[0] = (y[1] - y[0]) / dx
+        theta[-1] = (y[-1] - y[-2]) / dx
+        
+        return y, theta
     
-    return y, theta
+    else:
+        # Voor andere gevallen, gebruik numerieke integratie
+        _, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
+        kappa = M / EI
+        dx = x[1] - x[0]
+        theta = np.cumsum(kappa) * dx
+        y = np.cumsum(theta) * dx
+        
+        # Pas randvoorwaarden toe
+        for pos, type in supports:
+            idx = np.abs(x - pos).argmin()
+            y_support = y[idx]
+            y -= y_support
+            
+            if type.lower() == "inklemming":
+                theta_support = theta[idx]
+                theta -= theta_support
+        
+        return y, theta
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
     """Analyseer de balk met de elementaire methode"""
@@ -592,112 +654,142 @@ def plot_beam_diagram(beam_length, supports, loads):
     
     return fig
 
-def plot_results(x, V, M, rotation, deflection):
-    """Plot alle resultaten in één figuur met subplots"""
-    # Maak subplot layout
+def plot_results(x, V, M, theta, y, beam_length, supports, loads):
+    """Plot resultaten in één figuur met subplots"""
+    
+    # Maak figuur met subplots
     fig = make_subplots(
         rows=4, cols=1,
-        subplot_titles=('Dwarskracht (kN)', 'Moment (kNm)', 'Rotatie (rad)', 'Doorbuiging (mm)'),
+        subplot_titles=(
+            "Dwarskracht [kN]",
+            "Moment [kNm]",
+            "Rotatie [rad]",
+            "Doorbuiging [mm]"
+        ),
         vertical_spacing=0.08,
-        shared_xaxes=True
+        row_heights=[0.25, 0.25, 0.25, 0.25]
     )
     
-    # Dwarskrachtenlijn (bovenste plot)
+    # Plot dwarskracht (bovenaan)
     fig.add_trace(
         go.Scatter(
-            x=x/1000,  # Convert to meters
-            y=[v/1000 for v in V],  # Convert to kN
+            x=x/1000, y=V/1000,
             mode='lines',
-            name='Dwarskracht',
-            line=dict(color='#27ae60', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(46, 204, 113, 0.3)'
+            name='V',
+            line=dict(color='green', width=2)
         ),
         row=1, col=1
     )
     
-    # Momentenlijn (tweede plot)
+    # Plot moment
     fig.add_trace(
         go.Scatter(
-            x=x/1000,  # Convert to meters
-            y=[m/1000000 for m in M],  # Convert to kNm
+            x=x/1000, y=M/1e6,
             mode='lines',
-            name='Moment',
-            line=dict(color='#8e44ad', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(142, 68, 173, 0.3)'
+            name='M',
+            line=dict(color='red', width=2)
         ),
         row=2, col=1
     )
     
-    # Rotatie (derde plot)
+    # Plot rotatie
     fig.add_trace(
         go.Scatter(
-            x=x/1000,  # Convert to meters
-            y=rotation,  # In radians
+            x=x/1000, y=theta,
             mode='lines',
-            name='Rotatie',
-            line=dict(color='#e67e22', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(230, 126, 34, 0.3)'
+            name='θ',
+            line=dict(color='orange', width=2)
         ),
         row=3, col=1
     )
     
-    # Doorbuiging (onderste plot)
+    # Plot doorbuiging
     fig.add_trace(
         go.Scatter(
-            x=x/1000,  # Convert to meters
-            y=deflection,  # Already in mm
+            x=x/1000, y=y,
             mode='lines',
-            name='Doorbuiging',
-            line=dict(color='#2980b9', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(41, 128, 185, 0.3)'
+            name='y',
+            line=dict(color='blue', width=2)
         ),
         row=4, col=1
     )
     
-    # Update layout voor professionele uitstraling
-    fig.update_layout(
-        height=900,
-        showlegend=True,
-        plot_bgcolor='white',
-        paper_bgcolor='white',
-        legend=dict(
-            yanchor="top",
-            y=0.99,
-            xanchor="right",
-            x=0.99,
-            bgcolor='rgba(255, 255, 255, 0.8)'
+    # Voeg steunpunten toe aan doorbuigingsgrafiek
+    for pos, type in supports:
+        marker = "triangle-up" if type.lower() != "inklemming" else "square"
+        fig.add_trace(
+            go.Scatter(
+                x=[pos/1000],
+                y=[0],
+                mode='markers',
+                name=type,
+                marker=dict(
+                    symbol=marker,
+                    size=12,
+                    color='black'
+                ),
+                showlegend=False
+            ),
+            row=4, col=1
         )
+    
+    # Voeg belastingen toe aan doorbuigingsgrafiek
+    for load in loads:
+        pos, value, load_type, *rest = load
+        if load_type.lower() == "puntlast":
+            # Puntlast pijl omlaag
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000],
+                    y=[2],  # Iets boven de balk
+                    mode='markers',
+                    name=f'{value/1000:.1f} kN',
+                    marker=dict(
+                        symbol='arrow-down',
+                        size=12,
+                        color='red'
+                    ),
+                    showlegend=False
+                ),
+                row=4, col=1
+            )
+        elif load_type.lower() == "verdeelde last":
+            # Verdeelde last als lijn met pijlen
+            length = rest[0]
+            start = pos/1000
+            end = (pos + length)/1000
+            fig.add_trace(
+                go.Scatter(
+                    x=[start, end],
+                    y=[2, 2],  # Iets boven de balk
+                    mode='lines',
+                    name=f'{value/1000:.1f} kN/m',
+                    line=dict(color='red', width=2),
+                    showlegend=False
+                ),
+                row=4, col=1
+            )
+    
+    # Update layout
+    fig.update_layout(
+        height=800,
+        showlegend=False,
+        margin=dict(t=60, b=20),
+        plot_bgcolor='white'
     )
     
-    # Update x-assen
+    # Update assen
     for i in range(1, 5):
         fig.update_xaxes(
-            row=i, col=1,
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(0,0,0,0.1)',
-            zeroline=True,
-            zerolinecolor='rgba(0,0,0,0.2)',
-            zerolinewidth=2,
-            dtick=1  # 1m intervallen
+            title="Positie [m]" if i == 4 else None,
+            gridcolor='lightgray',
+            zerolinecolor='black',
+            row=i, col=1
         )
-        if i == 4:  # Alleen x-as label op onderste plot
-            fig.update_xaxes(title_text="Positie (m)", row=i, col=1)
-    
-    # Update y-assen
-    for i in range(1, 5):
         fig.update_yaxes(
-            row=i, col=1,
-            showgrid=True,
-            gridwidth=1,
-            gridcolor='rgba(0,0,0,0.1)',
-            zeroline=True,
-            zerolinecolor='rgba(0,0,0,0.2)',
-            zerolinewidth=2
+            gridcolor='lightgray',
+            zerolinecolor='black',
+            row=i, col=1
         )
     
     return fig
@@ -1360,7 +1452,7 @@ def main():
     # Hoofdgedeelte
     if st.sidebar.button("Bereken", type="primary", use_container_width=True):
         # Voer analyse uit
-        x, V, M, rotation, deflection = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
+        x, V, M, theta, y = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
         
         # Teken balkschema
         beam_fig = plot_beam_diagram(beam_length, supports, loads)
@@ -1395,7 +1487,7 @@ def main():
         </div>
         """, unsafe_allow_html=True)
         
-        results_plot = plot_results(x, V, M, rotation, deflection)
+        results_plot = plot_results(x, V, M, theta, y, beam_length, supports, loads)
         st.plotly_chart(results_plot, use_container_width=True)
         
         # Maximale waarden en profiel eigenschappen
@@ -1411,8 +1503,8 @@ def main():
             max_vals = {
                 "Dwarskracht": [f"{max(abs(np.min(V)), abs(np.max(V)))/1000:.1f}", "kN"],
                 "Moment": [f"{max(abs(np.min(M)), abs(np.max(M)))/1e6:.1f}", "kNm"],
-                "Rotatie": [f"{max(abs(np.min(rotation)), abs(np.max(rotation))):.4f}", "rad"],
-                "Doorbuiging": [f"{max(abs(np.min(deflection)), abs(np.max(deflection))):.2f}", "mm"]
+                "Rotatie": [f"{max(abs(np.min(theta)), abs(np.max(theta))):.4f}", "rad"],
+                "Doorbuiging": [f"{max(abs(np.min(y)), abs(np.max(y))):.2f}", "mm"]
             }
             
             for key, (val, unit) in max_vals.items():
@@ -1453,8 +1545,8 @@ def main():
             "beam_length": beam_length,
             "supports": supports,
             "loads": loads,
-            "max_deflection": max(abs(np.min(deflection)), abs(np.max(deflection))),
-            "max_rotation": max(abs(np.min(rotation)), abs(np.max(rotation))),
+            "max_deflection": max(abs(np.min(y)), abs(np.max(y))),
+            "max_rotation": max(abs(np.min(theta)), abs(np.max(theta))),
             "max_shear": max(abs(np.min(V)), abs(np.max(V))),
             "max_moment": max(abs(np.min(M)), abs(np.max(M)))
         }
