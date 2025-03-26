@@ -554,40 +554,12 @@ def plot_results(x, V, M, rotation, deflection):
     # Maak subplot layout
     fig = make_subplots(
         rows=4, cols=1,
-        subplot_titles=('Doorbuiging (mm)', 'Rotatie (rad)', 'Dwarskracht (kN)', 'Moment (kNm)'),
+        subplot_titles=('Dwarskracht (kN)', 'Moment (kNm)', 'Rotatie (rad)', 'Doorbuiging (mm)'),
         vertical_spacing=0.08,
         shared_xaxes=True
     )
     
-    # Doorbuiging (bovenste plot)
-    fig.add_trace(
-        go.Scatter(
-            x=x/1000,  # Convert to meters
-            y=deflection,  # Already in mm
-            mode='lines',
-            name='Doorbuiging',
-            line=dict(color='#2980b9', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(41, 128, 185, 0.3)'
-        ),
-        row=1, col=1
-    )
-    
-    # Rotatie (tweede plot)
-    fig.add_trace(
-        go.Scatter(
-            x=x/1000,  # Convert to meters
-            y=rotation,  # In radians
-            mode='lines',
-            name='Rotatie',
-            line=dict(color='#e67e22', width=2),
-            fill='tozeroy',
-            fillcolor='rgba(230, 126, 34, 0.3)'
-        ),
-        row=2, col=1
-    )
-    
-    # Dwarskrachtenlijn (derde plot)
+    # Dwarskrachtenlijn (bovenste plot)
     fig.add_trace(
         go.Scatter(
             x=x/1000,  # Convert to meters
@@ -598,10 +570,10 @@ def plot_results(x, V, M, rotation, deflection):
             fill='tozeroy',
             fillcolor='rgba(46, 204, 113, 0.3)'
         ),
-        row=3, col=1
+        row=1, col=1
     )
     
-    # Momentenlijn (onderste plot)
+    # Momentenlijn (tweede plot)
     fig.add_trace(
         go.Scatter(
             x=x/1000,  # Convert to meters
@@ -611,6 +583,34 @@ def plot_results(x, V, M, rotation, deflection):
             line=dict(color='#8e44ad', width=2),
             fill='tozeroy',
             fillcolor='rgba(142, 68, 173, 0.3)'
+        ),
+        row=2, col=1
+    )
+    
+    # Rotatie (derde plot)
+    fig.add_trace(
+        go.Scatter(
+            x=x/1000,  # Convert to meters
+            y=rotation,  # In radians
+            mode='lines',
+            name='Rotatie',
+            line=dict(color='#e67e22', width=2),
+            fill='tozeroy',
+            fillcolor='rgba(230, 126, 34, 0.3)'
+        ),
+        row=3, col=1
+    )
+    
+    # Doorbuiging (onderste plot)
+    fig.add_trace(
+        go.Scatter(
+            x=x/1000,  # Convert to meters
+            y=deflection,  # Already in mm
+            mode='lines',
+            name='Doorbuiging',
+            line=dict(color='#2980b9', width=2),
+            fill='tozeroy',
+            fillcolor='rgba(41, 128, 185, 0.3)'
         ),
         row=4, col=1
     )
@@ -642,6 +642,8 @@ def plot_results(x, V, M, rotation, deflection):
             zerolinewidth=2,
             dtick=1  # 1m intervallen
         )
+        if i == 4:  # Alleen x-as label op onderste plot
+            fig.update_xaxes(title_text="Positie (m)", row=i, col=1)
     
     # Update y-assen
     for i in range(1, 5):
@@ -654,52 +656,6 @@ def plot_results(x, V, M, rotation, deflection):
             zerolinecolor='rgba(0,0,0,0.2)',
             zerolinewidth=2
         )
-    
-    # Voeg waarden toe bij belangrijke punten
-    max_defl_idx = np.argmax(np.abs(deflection))
-    max_rot_idx = np.argmax(np.abs(rotation))
-    max_v_idx = np.argmax(np.abs(V))
-    max_m_idx = np.argmax(np.abs(M))
-    
-    # Annotaties voor maximale waarden
-    fig.add_annotation(
-        x=x[max_defl_idx]/1000,
-        y=deflection[max_defl_idx],
-        text=f"{deflection[max_defl_idx]:.2f} mm",
-        showarrow=True,
-        arrowhead=2,
-        row=1, col=1
-    )
-    
-    fig.add_annotation(
-        x=x[max_rot_idx]/1000,
-        y=rotation[max_rot_idx],
-        text=f"{rotation[max_rot_idx]:.4f} rad",
-        showarrow=True,
-        arrowhead=2,
-        row=2, col=1
-    )
-    
-    fig.add_annotation(
-        x=x[max_v_idx]/1000,
-        y=V[max_v_idx]/1000,
-        text=f"{V[max_v_idx]/1000:.1f} kN",
-        showarrow=True,
-        arrowhead=2,
-        row=3, col=1
-    )
-    
-    fig.add_annotation(
-        x=x[max_m_idx]/1000,
-        y=M[max_m_idx]/1000000,
-        text=f"{M[max_m_idx]/1000000:.1f} kNm",
-        showarrow=True,
-        arrowhead=2,
-        row=4, col=1
-    )
-    
-    # Update x-as label alleen op onderste plot
-    fig.update_xaxes(title_text="Positie (m)", row=4, col=1)
     
     return fig
 
