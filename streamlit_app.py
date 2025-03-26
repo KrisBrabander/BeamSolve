@@ -112,6 +112,7 @@ def calculate_reactions(beam_length, supports, loads):
             
             for load in loads:
                 pos, value, load_type, *rest = load
+                
                 if load_type.lower() == "puntlast":
                     V_total += value
                     M_total += value * (pos - x_ref)
@@ -1719,4 +1720,4 @@ def main():
         
         # Toon voorbeeld afbeelding
         st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Beam_deflection.svg/800px-Beam_deflection.svg.png", 
-                 caption="Voorbeeld van balkdoorbuiging", width=600){{ ... }}
+                 caption="Voorbeeld van balkdoorbuiging", width=600)
