@@ -131,43 +131,47 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     return V, M
 
 def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
-    """Bereken doorbuiging met de elementaire methode"""
+    """Bereken doorbuiging met superpositie"""
     deflection = np.zeros_like(x)
     rotation = np.zeros_like(x)
     
-    # Sorteer steunpunten
+    # Sorteer steunpunten op positie
     sorted_supports = sorted(supports, key=lambda s: s[0])
     
-    # Voor elk punt x
-    for i, xi in enumerate(x):
-        # Voor elke puntlast (inclusief reactiekrachten)
-        for pos, type in sorted_supports:
-            R = reactions.get(pos, 0)
-            if R != 0:  # Alleen voor echte reactiekrachten
+    # Voor elke puntlast (inclusief reactiekrachten)
+    for pos, type in sorted_supports:
+        R = reactions.get(pos, 0)
+        if R != 0:  # Alleen voor echte reactiekrachten
+            # Bereken doorbuiging voor deze reactiekracht
+            for i, xi in enumerate(x):
                 if xi <= pos:
-                    deflection[i] += R * xi * (3*pos - xi) / (6*EI)
+                    deflection[i] += -R * xi**2 * (3*pos - xi) / (6*EI)
                 else:
-                    deflection[i] += R * pos * (3*xi - pos) / (6*EI)
-                
-        # Voor elke belasting
-        for load in loads:
-            pos, value, load_type, *rest = load
-            if load_type.lower() == "puntlast":
+                    deflection[i] += -R * pos**2 * (3*xi - pos) / (6*EI)
+    
+    # Voor elke belasting
+    for load in loads:
+        pos, value, load_type, *rest = load
+        if load_type.lower() == "puntlast":
+            # Bereken doorbuiging voor deze puntlast
+            for i, xi in enumerate(x):
                 if xi <= pos:
-                    deflection[i] -= value * xi * (3*pos - xi) / (6*EI)
+                    deflection[i] += value * xi**2 * (3*pos - xi) / (6*EI)
                 else:
-                    deflection[i] -= value * pos * (3*xi - pos) / (6*EI)
+                    deflection[i] += value * pos**2 * (3*xi - pos) / (6*EI)
                     
-            elif load_type.lower() == "verdeelde last":
-                length = rest[0]
-                q = value
-                end_pos = pos + length
+        elif load_type.lower() == "verdeelde last":
+            length = rest[0]
+            q = value
+            end_pos = pos + length
+            # Bereken doorbuiging voor verdeelde last
+            for i, xi in enumerate(x):
                 if xi <= pos:
-                    # Links van de last
-                    deflection[i] -= q * xi * (4*pos*pos - xi*xi) / (24*EI)
+                    deflection[i] += q * xi**2 * (6*pos**2 - 2*xi**2) / (24*EI)
                 elif xi <= end_pos:
-                    # Onder de last
-                    deflection[i] -= q * (xi - pos) * (4*pos*xi - xi*xi - pos*pos) / (24*EI)
+                    deflection[i] += q * (pos**4 - 4*pos**3*xi + 6*pos**2*xi**2 - 4*pos*xi**3 + xi**4) / (24*EI)
+                else:
+                    deflection[i] += q * length * (4*xi**3 - length**2*xi) / (24*EI)
     
     # Bereken rotatie als afgeleide van doorbuiging
     dx = x[1] - x[0]
@@ -181,6 +185,9 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
         deflection[idx] = 0.0
         if type.lower() == "inklemming":
             rotation[idx] = 0.0
+            
+    # Verschuif doorbuiging zodat minimum op 0 ligt
+    deflection -= np.min(deflection)
     
     return deflection, rotation
 
@@ -209,6 +216,13 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
     M = np.nan_to_num(M, 0)
     deflection = np.nan_to_num(deflection, 0)
     rotation = np.nan_to_num(rotation, 0)
+    
+    # Schaal de resultaten voor betere visualisatie
+    max_defl = np.max(np.abs(deflection))
+    if max_defl > 0:
+        scale = beam_length / (20 * max_defl)  # Schaal zodat max doorbuiging 5% van overspanning is
+        deflection *= scale
+        rotation *= scale
     
     return x, V, M, rotation, deflection
 
