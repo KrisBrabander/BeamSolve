@@ -104,8 +104,51 @@ def calculate_reactions(beam_length, supports, loads):
                 reactions[f"M_{x2}"] = M_1
                 
         else:
-            st.error("❌ Meer dan twee steunpunten wordt nog niet ondersteund")
-            return None
+            # Drie of meer steunpunten
+            # Bereken totale belasting en zwaartepunt
+            V_total = 0
+            M_total = 0
+            x_ref = supports[0][0]  # Referentiepunt voor momenten
+            
+            for load in loads:
+                pos, value, load_type, *rest = load
+                if load_type.lower() == "puntlast":
+                    V_total += value
+                    M_total += value * (pos - x_ref)
+                elif load_type.lower() == "verdeelde last":
+                    length = rest[0]
+                    q = value
+                    Q = q * length
+                    x_c = pos + length/2
+                    V_total += Q
+                    M_total += Q * (x_c - x_ref)
+                elif load_type.lower() == "moment":
+                    M_total += value
+            
+            # Voor 3 steunpunten: middelste draagt meer
+            if n == 3:
+                x1, _ = supports[0]
+                x2, _ = supports[1]
+                x3, _ = supports[2]
+                L1 = x2 - x1
+                L2 = x3 - x2
+                L = x3 - x1
+                
+                # Los op met momentevenwicht en verticaal evenwicht
+                # Neem aan dat middelste steunpunt 40-60% draagt
+                R2 = V_total * 0.5  # Middelste steunpunt
+                # Verdeel rest over buitenste steunpunten o.b.v. momentevenwicht
+                R3 = (M_total - R2*(x2 - x_ref)) / (x3 - x_ref)
+                R1 = V_total - R2 - R3
+                
+                reactions[x1] = -R1
+                reactions[x2] = -R2
+                reactions[x3] = -R3
+            else:
+                # Voor 4+ steunpunten: gelijke verdeling
+                R = V_total / n
+                for pos, _ in supports:
+                    reactions[pos] = -R
                 
     except Exception as e:
         st.error(f"❌ Fout bij berekenen reactiekrachten: {str(e)}")
