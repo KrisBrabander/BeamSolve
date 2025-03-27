@@ -11,6 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from scipy.integrate import cumtrapz
+from beam_solver import BeamSolver
 
 def _free_moment(x1, x2, loads):
     """Bereken vrije veldmoment tussen x1 en x2"""
@@ -424,6 +425,9 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     V = np.zeros_like(x)
     M = np.zeros_like(x)
     
+    # Verzamel steunpunt posities voor controle
+    support_positions = [pos for pos, _ in supports]
+    
     # Reactiekrachten
     for pos, R in reactions.items():
         if not pos.startswith("M_"):  # Alleen krachten, geen momenten
@@ -445,11 +449,17 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     for load in loads:
         pos, val, ltype, *rest = load
         
+        # Controleer of de last op een steunpunt valt
+        on_support = any(abs(pos - sp) < 1e-6 for sp in support_positions)
+        
         if ltype.lower() == "puntlast":
-            idx = np.searchsorted(x, pos)
-            if idx < len(x):
-                V[idx:] -= val
-                M[idx:] -= val * (x[idx:] - pos)
+            # Als de puntlast op een steunpunt valt, wordt deze direct opgenomen
+            # door het steunpunt en heeft geen effect op de interne krachten
+            if not on_support:
+                idx = np.searchsorted(x, pos)
+                if idx < len(x):
+                    V[idx:] -= val
+                    M[idx:] -= val * (x[idx:] - pos)
         elif ltype.lower() == "verdeelde last":
             length = rest[0]
             q = val
@@ -518,40 +528,34 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
     return theta, y_corrected
 
 def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E):
-    """Analyseer de balk met de verbeterde methode"""
+    """Analyseer de balk met de BeamSolver klasse"""
+    try:
+        # Bereken traagheidsmoment
+        I = calculate_moment_of_inertia(profile_type, height, width, wall_thickness, flange_thickness)
+        if I is None or I <= 0:
+            st.error("❌ Ongeldige profielafmetingen")
+            return None, None, None, None, None, None
+        
+        # Bereken buigstijfheid EI
+        EI = E * I
+        
+        # Gebruik de BeamSolver klasse voor de berekeningen
+        solver = BeamSolver(beam_length, supports, loads, EI)
+        results = solver.solve()
+        
+        # Haal resultaten op
+        x = results['x']
+        V = results['V']
+        M = results['M']
+        theta = results['theta']
+        y = results['y']
+        reactions = results['reactions']
+        
+        return x, V, M, theta, y, reactions
     
-    # Bereken traagheidsmoment
-    I = calculate_moment_of_inertia(profile_type, height, width, wall_thickness, flange_thickness)
-    
-    # Bereken buigstijfheid EI
-    EI = E * I
-    
-    # Bereken reactiekrachten
-    reactions = calculate_reactions(beam_length, supports, loads)
-    if reactions is None:
+    except Exception as e:
+        st.error(f"❌ Fout bij analyse: {str(e)}")
         return None, None, None, None, None, None
-    
-    # Genereer x-waarden voor berekening
-    num_points = 500
-    x = np.linspace(0, beam_length, num_points)
-    
-    # Bereken dwarskracht en moment
-    V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
-    if V is None or M is None:
-        return None, None, None, None, None, None
-    
-    # Bereken doorbuiging en hoekverdraaiing
-    theta, y = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
-    if theta is None or y is None:
-        return None, None, None, None, None, None
-    
-    # Vind maximale waarden
-    max_V = np.max(np.abs(V))
-    max_M = np.max(np.abs(M))
-    max_theta = np.max(np.abs(theta))
-    max_y = np.max(np.abs(y))
-    
-    return x, V, M, theta, y, reactions
 
 def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     """Analyseer de balk met de stijfheidsmethode"""
