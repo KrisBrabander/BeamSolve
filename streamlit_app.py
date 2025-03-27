@@ -174,9 +174,13 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         # 1. Verwerk reactiekrachten (positief omhoog)
         for pos, value in reactions.items():
             if not isinstance(pos, str):  # Skip moment reacties (M_x)
+                # Vind dichtstbijzijnde index
                 idx = np.abs(x - pos).argmin()
-                V[idx:] += value  # Dwarskrachtsprong
-                M[idx:] += value * (x[idx:] - pos)  # Momentbijdrage
+                # Dwarskrachtsprong bij steunpunt
+                V[idx:] += value
+                # Momentbijdrage: M = V * arm
+                for i in range(idx, len(x)):
+                    M[i] += value * (x[i] - pos)
         
         # 2. Verwerk uitwendige belasting
         for load in loads:
@@ -185,8 +189,11 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             if load_type.lower() == "puntlast":
                 # Puntlast (positief omlaag)
                 idx = np.abs(x - pos).argmin()
-                V[idx:] -= value  # Dwarskrachtsprong
-                M[idx:] -= value * (x[idx:] - pos)  # Momentbijdrage
+                # Dwarskrachtsprong bij puntlast
+                V[idx:] -= value
+                # Momentbijdrage: M = F * arm
+                for i in range(idx, len(x)):
+                    M[i] -= value * (x[i] - pos)
                 
             elif load_type.lower() == "verdeelde last":
                 # Verdeelde last (positief omlaag)
@@ -197,24 +204,29 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
                 start_idx = np.abs(x - pos).argmin()
                 end_idx = np.abs(x - (pos + length)).argmin()
                 
-                # Dwarskracht: lineair afnemend
-                V[start_idx:end_idx] -= q * (x[start_idx:end_idx] - pos)
-                V[end_idx:] -= q * length
-                
-                # Moment: kwadratisch
+                # Verwerk verdeelde last per punt
                 for i in range(start_idx, len(x)):
                     if i < end_idx:
-                        # Onder de last
-                        xi = x[i] - pos
-                        M[i] -= q * xi**2 / 2
+                        # Onder de last: dwarskracht neemt lineair toe
+                        V[i] -= q * (x[i] - pos)
+                        # Moment onder de last: kwadratisch verloop
+                        M[i] -= q * (x[i] - pos)**2 / 2
                     else:
-                        # Voorbij de last
+                        # Voorbij de last: constante dwarskrachtsprong
+                        V[i] -= q * length
+                        # Moment voorbij de last: lineair verloop
                         M[i] -= q * length * (x[i] - (pos + length/2))
                         
             elif load_type.lower() == "moment":
                 # Extern moment (positief rechtsom)
                 idx = np.abs(x - pos).argmin()
+                # Momentsprong bij aangrijpingspunt
                 M[idx:] += value
+                
+        # Controleer of de resultaten kloppen
+        if np.isnan(V).any() or np.isnan(M).any():
+            st.error("❌ Ongeldige waarden in berekening")
+            return None, None
                 
     except Exception as e:
         st.error(f"❌ Fout bij berekenen inwendige krachten: {str(e)}")
@@ -237,38 +249,56 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
         
         # Eerste integratie voor helling
         theta = np.zeros_like(x)
-        theta[1:] = np.cumsum(kappa[:-1]) * dx
+        for i in range(1, len(x)):
+            theta[i] = theta[i-1] + kappa[i-1] * dx
         
         # Tweede integratie voor doorbuiging
         y = np.zeros_like(x)
-        y[1:] = np.cumsum(theta[:-1]) * dx
+        for i in range(1, len(x)):
+            y[i] = y[i-1] + theta[i-1] * dx
         
-        # 3. Pas randvoorwaarden toe voor 3 steunpunten
-        if len(supports) == 3:
-            # Vind steunpunt indices
-            support_indices = []
-            for pos, _ in supports:
-                idx = np.abs(x - pos).argmin()
-                support_indices.append(idx)
+        # 3. Pas randvoorwaarden toe voor steunpunten
+        # Vind steunpunt indices
+        support_indices = []
+        for pos, _ in supports:
+            idx = np.abs(x - pos).argmin()
+            support_indices.append(idx)
+        
+        # Sorteer steunpunten op positie
+        support_indices.sort()
+        
+        # Pas randvoorwaarden toe: doorbuiging = 0 op steunpunten
+        if len(support_indices) >= 2:
+            # Bereken correcties met Hermite interpolatie
+            # Eerst de helling op het eerste steunpunt bepalen
+            slope_first = theta[support_indices[0]]
+            
+            # Bereken correctie voor doorbuiging
+            for i in range(len(x)):
+                correction = 0
                 
-            i1, i2, i3 = support_indices
+                # Bereken bijdrage van elk steunpunt
+                for j in range(len(support_indices)):
+                    idx = support_indices[j]
+                    pos = x[idx]
+                    
+                    # Bereken correctie op basis van afstand tot steunpunt
+                    if j == 0:  # Eerste steunpunt
+                        # Correctie met helling op eerste steunpunt
+                        correction += -y[idx] * (1 - (x[i] - pos) / beam_length)
+                    else:  # Overige steunpunten
+                        # Correctie voor doorbuiging = 0 op steunpunt
+                        correction += -y[idx] * (1 - abs(x[i] - pos) / beam_length)
+                
+                y[i] += correction
             
-            # Bereken correctie parameters
-            L1 = x[i2] - x[i1]  # Lengte eerste overspanning
-            L2 = x[i3] - x[i2]  # Lengte tweede overspanning
-            
-            # Correctie voor eerste overspanning (0 tot L1)
-            mask1 = (x >= x[i1]) & (x <= x[i2])
-            xi1 = (x[mask1] - x[i1]) / L1
-            y[mask1] = y[i1] + (y[i2] - y[i1]) * (3*xi1**2 - 2*xi1**3)
-            
-            # Correctie voor tweede overspanning (L1 tot L1+L2)
-            mask2 = (x > x[i2]) & (x <= x[i3])
-            xi2 = (x[mask2] - x[i2]) / L2
-            y[mask2] = y[i2] + (y[i3] - y[i2]) * (3*xi2**2 - 2*xi2**3)
+            # Zorg dat doorbuiging exact 0 is op steunpunten
+            for idx in support_indices:
+                y[idx] = 0
             
             # Update helling na correcties
-            theta[1:-1] = (y[2:] - y[:-2]) / (2*dx)
+            for i in range(1, len(x)-1):
+                theta[i] = (y[i+1] - y[i-1]) / (2*dx)
             theta[0] = (y[1] - y[0]) / dx
             theta[-1] = (y[-1] - y[-2]) / dx
         
@@ -284,17 +314,17 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
         # Controleer invoer
         if not all([beam_length, supports, loads, profile_type, height, width, wall_thickness, E]):
             st.error("❌ Vul alle velden in")
-            return None, None, None, None, None
+            return None, None, None, None, None, None
             
         if E <= 0:
             st.error("❌ E-modulus moet positief zijn")
-            return None, None, None, None, None
+            return None, None, None, None, None, None
             
         # Bereken profieleigenschappen
         I = calculate_I(profile_type, height, width, wall_thickness, flange_thickness)
         if I is None or I <= 0:
             st.error("❌ Ongeldige profielafmetingen")
-            return None, None, None, None, None
+            return None, None, None, None, None, None
             
         # Bereken buigstijfheid
         EI = E * I  # N·mm²
@@ -305,23 +335,23 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
         # Bereken reactiekrachten
         reactions = calculate_reactions(beam_length, supports, loads)
         if reactions is None:
-            return None, None, None, None, None
+            return None, None, None, None, None, None
             
         # Bereken inwendige krachten
         V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
         if V is None or M is None:
-            return None, None, None, None, None
+            return None, None, None, None, None, None
             
         # Bereken doorbuiging en rotatie
         y, theta = calculate_deflection(x, beam_length, supports, loads, reactions, EI)
         if y is None or theta is None:
-            return None, None, None, None, None
+            return None, None, None, None, None, None
             
-        return x, V, M, theta, y
+        return x, V, M, theta, y, reactions
         
     except Exception as e:
         st.error(f"❌ Fout bij analyse: {str(e)}")
-        return None, None, None, None, None
+        return None, None, None, None, None, None
 
 def analyze_beam_matrix(beam_length, supports, loads, EI, x):
     """Analyseer de balk met de stijfheidsmethode"""
@@ -1733,13 +1763,13 @@ def main():
     # Hoofdgedeelte
     if st.sidebar.button("Bereken", type="primary", use_container_width=True):
         # Voer analyse uit
-        x, V, M, theta, y = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
+        x, V, M, theta, y, reactions = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
         
         # Teken balkschema
         beam_fig = plot_beam_diagram(beam_length, supports, loads)
         
         # Toon resultaten als analyse succesvol was
-        if x is not None and V is not None and M is not None and theta is not None and y is not None:
+        if x is not None and V is not None and M is not None and theta is not None and y is not None and reactions is not None:
             # Resultaten tabs
             tab1, tab2, tab3 = st.tabs(["Grafieken", "Balkschema", "Resultaten"])
             
