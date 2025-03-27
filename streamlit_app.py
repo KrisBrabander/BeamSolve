@@ -1692,6 +1692,7 @@ def main():
                     # Download knop
                     now = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"beamsolve_rapport_{now}.pdf"
+                    nee geef me gewoon de code 
                     
                     # Converteer naar base64 voor download
                     b64 = base64.b64encode(report_content).decode()
