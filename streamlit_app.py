@@ -5,7 +5,6 @@ from plotly.subplots import make_subplots
 from datetime import datetime
 import os
 import base64
-from plotly.subplots import make_subplots
 
 def calculate_reactions(beam_length, supports, loads):
     """Bereken reactiekrachten voor verschillende steunpuntconfiguraties.
@@ -1692,8 +1691,6 @@ def main():
                     # Download knop
                     now = datetime.now().strftime("%Y%m%d_%H%M%S")
                     filename = f"beamsolve_rapport_{now}.pdf"
-                 
-
                     # Converteer naar base64 voor download
                     b64 = base64.b64encode(report_content).decode()
                     href = f'<a href="data:application/pdf;base64,{b64}" download="{filename}">Download PDF rapport</a>'
