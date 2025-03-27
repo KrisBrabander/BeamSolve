@@ -2,14 +2,14 @@ import streamlit as st
 import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import base64
+import io
+import os
+from datetime import datetime
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-import base64
-import io
-from datetime import datetime
-import os
 
 def calculate_reactions_matrix(beam_length, supports, loads):
     """Bereken reactiekrachten voor statisch onbepaalde systemen met matrixmethode.
@@ -978,6 +978,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
     # Voeg belastingen toe aan doorbuigingsgrafiek
     for load in loads:
         pos, value, load_type, *rest = load
+        
         if load_type.lower() == "puntlast":
             # Puntlast pijl omlaag
             fig.add_trace(
