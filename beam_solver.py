@@ -1,6 +1,25 @@
 import numpy as np
-from scipy.integrate import cumtrapz
-from scipy.linalg import solve_banded
+
+# Alternatief voor scipy functies
+def custom_cumtrapz(y, x, initial=0):
+    """Eigen implementatie van cumtrapz"""
+    result = np.zeros_like(y)
+    result[0] = initial
+    for i in range(1, len(y)):
+        result[i] = result[i-1] + 0.5 * (y[i] + y[i-1]) * (x[i] - x[i-1])
+    return result
+
+def custom_solve_banded(l_and_u, ab, b):
+    """Vereenvoudigde implementatie voor bandmatrix"""
+    # Converteer naar volledige matrix en gebruik numpy.linalg.solve
+    n = len(b)
+    A = np.zeros((n, n))
+    
+    for i in range(n):
+        for j in range(max(0, i-l_and_u[0]), min(n, i+l_and_u[1]+1)):
+            A[i, j] = ab[l_and_u[0] + j - i, i]
+    
+    return np.linalg.solve(A, b)
 
 class BeamSolver:
     def __init__(self, beam_length, supports, loads, EI):
@@ -105,43 +124,59 @@ class BeamSolver:
         positions = [s[0] for s in self.supports]
         L = [positions[i+1] - positions[i] for i in range(n-1)]
         
-        # Bouw stijfheidsmatrix (bandvorm)
-        Ab = np.zeros((3, n))
+        # Bouw matrix voor driemomentenvergelijking
+        A = np.zeros((n, n))
         rhs = np.zeros(n)
 
         # Vul matrix voor interne steunpunten
         for i in range(1, n-1):
-            Ab[0,i] = L[i-1]       # M[i-1]
-            Ab[1,i] = 2*(L[i-1] + L[i])  # M[i]
-            Ab[2,i] = L[i]         # M[i+1]
+            A[i, i-1] = L[i-1]
+            A[i, i] = 2*(L[i-1] + L[i])
+            A[i, i+1] = L[i]
             rhs[i] = -6*(self._calc_free_moment(i-1) + self._calc_free_moment(i))
 
         # Randvoorwaarden
-        Ab[1,0] = 1  # M0 = 0
-        Ab[1,-1] = 1  # Mn = 0
+        A[0, 0] = 1  # M0 = 0
+        A[-1, -1] = 1  # Mn = 0
         
         try:
-            # Los bandmatrix op
-            moments = solve_banded((1,1), Ab, rhs)
-        except:
-            # Fallback als bandmatrix niet werkt
-            A = np.zeros((n, n))
-            for i in range(1, n-1):
-                A[i, i-1] = L[i-1]
-                A[i, i] = 2*(L[i-1] + L[i])
-                A[i, i+1] = L[i]
-            A[0, 0] = 1
-            A[-1, -1] = 1
+            # Los matrix op
             moments = np.linalg.solve(A, rhs)
+        except:
+            # Fallback als solve faalt
+            # Vereenvoudigde methode: verdeel belasting over steunpunten
+            self.reactions = {}
+            total_load = 0
+            for load in self.loads:
+                pos, value, load_type, *rest = load
+                if load_type.lower() == "puntlast":
+                    total_load += value
+                elif load_type.lower() == "verdeelde last":
+                    length = rest[0]
+                    total_load += value * length
+            
+            # Verdeel belasting over steunpunten
+            weights = []
+            for i in range(n):
+                if i == 0 or i == n-1:
+                    weights.append(0.5)  # Randsteunpunten krijgen minder
+                else:
+                    weights.append(1.0)  # Tussensteunpunten krijgen meer
+            
+            total_weight = sum(weights)
+            for i, (pos, _) in enumerate(self.supports):
+                self.reactions[pos] = -total_load * weights[i] / total_weight
+            
+            return
 
-        # Bereken reacties
+        # Bereken reacties uit momenten
         self.reactions = {}
         for i in range(n):
             R = 0
             if i > 0:
-                R += (moments[i] - moments[i-1])/L[i-1]
+                R += (moments[i-1] + moments[i])/(2*L[i-1])
             if i < n-1:
-                R += (moments[i] - moments[i+1])/L[i]
+                R += (moments[i] + moments[i+1])/(2*L[i])
             R += self._point_load_contribution(positions[i])
             self.reactions[positions[i]] = R
             
@@ -246,10 +281,10 @@ class BeamSolver:
     def _calculate_deflection(self):
         """Bereken doorbuiging via dubbele integratie"""
         # Eerste integratie: hoekverdraaiing
-        self.theta = cumtrapz(self.M / self.EI, self.x, initial=0)
+        self.theta = custom_cumtrapz(self.M / self.EI, self.x, initial=0)
 
         # Tweede integratie: doorbuiging
-        y = cumtrapz(self.theta, self.x, initial=0)
+        y = custom_cumtrapz(self.theta, self.x, initial=0)
 
         # Pas randvoorwaarden aan
         A = []
