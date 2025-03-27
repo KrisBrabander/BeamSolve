@@ -533,7 +533,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             ))
             
             # Pijlen met variabele lengte
-            num_arrows = min(max(int(length*8), 4), 15)  # Meer pijlen voor vloeiender uiterlijk
+            num_arrows = min(max(int(length*8), 4), 15)  # Aantal pijlen afhankelijk van lengte
             for i in range(num_arrows):
                 rel_pos = i/(num_arrows-1)
                 arrow_x = x_pos + length * rel_pos
@@ -637,19 +637,6 @@ def plot_beam_diagram(beam_length, supports, loads):
 def plot_results(x, V, M, theta, y, beam_length, supports, loads):
     """Plot resultaten in één figuur met moderne styling"""
     
-    # Maak figuur met subplots
-    fig = make_subplots(
-        rows=4, cols=1,
-        subplot_titles=(
-            "Dwarskracht [kN]",
-            "Moment [kNm]",
-            "Rotatie [rad]",
-            "Doorbuiging [mm]"
-        ),
-        vertical_spacing=0.05,
-        row_heights=[0.25, 0.25, 0.25, 0.25]
-    )
-    
     # Kleurenpalet
     colors = {
         'shear': '#2ecc71',     # Groen
@@ -662,56 +649,43 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
         'load': '#e74c3c'       # Rood
     }
     
-    # Plot dwarskracht (bovenaan)
-    fig.add_trace(
-        go.Scatter(
-            x=x/1000, y=V/1000,
-            mode='lines',
-            name='Dwarskracht',
-            line=dict(color=colors['shear'], width=3),
-            fill='tozeroy',
-            fillcolor=f'rgba(46, 204, 113, 0.2)'
+    # Maak figuur met subplots - balk bovenaan en groter
+    fig = make_subplots(
+        rows=4, cols=1,
+        subplot_titles=(
+            "<b>Doorbuiging [mm]</b>",
+            "<b>Dwarskracht [kN]</b>",
+            "<b>Moment [kNm]</b>",
+            "<b>Rotatie [rad]</b>"
         ),
-        row=1, col=1
+        vertical_spacing=0.08,
+        row_heights=[0.4, 0.2, 0.2, 0.2]  # Balk krijgt meer ruimte
     )
     
-    # Plot moment
-    fig.add_trace(
-        go.Scatter(
-            x=x/1000, y=M/1e6,
-            mode='lines',
-            name='Moment',
-            line=dict(color=colors['moment'], width=3),
-            fill='tozeroy',
-            fillcolor=f'rgba(231, 76, 60, 0.2)'
-        ),
-        row=2, col=1
-    )
-    
-    # Plot rotatie
-    fig.add_trace(
-        go.Scatter(
-            x=x/1000, y=theta,
-            mode='lines',
-            name='Rotatie',
-            line=dict(color=colors['rotation'], width=3),
-            fill='tozeroy',
-            fillcolor=f'rgba(243, 156, 18, 0.2)'
-        ),
-        row=3, col=1
-    )
-    
-    # Plot doorbuiging
+    # Plot doorbuiging (nu bovenaan en groter)
     fig.add_trace(
         go.Scatter(
             x=x/1000, y=y,
             mode='lines',
             name='Doorbuiging',
-            line=dict(color=colors['deflection'], width=3),
+            line=dict(color=colors['deflection'], width=4),
             fill='tozeroy',
             fillcolor=f'rgba(52, 152, 219, 0.2)'
         ),
-        row=4, col=1
+        row=1, col=1
+    )
+    
+    # Teken de balk zelf als een lijn
+    fig.add_trace(
+        go.Scatter(
+            x=x/1000, 
+            y=[0] * len(x),
+            mode='lines',
+            name='Balk',
+            line=dict(color='black', width=2),
+            showlegend=False
+        ),
+        row=1, col=1
     )
     
     # Voeg steunpunten toe aan doorbuigingsgrafiek
@@ -725,13 +699,22 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
                 name=type,
                 marker=dict(
                     symbol=marker,
-                    size=14,
+                    size=16,
                     color=colors['support'],
                     line=dict(width=2, color='white')
                 ),
                 showlegend=False
             ),
-            row=4, col=1
+            row=1, col=1
+        )
+        # Voeg label toe voor steunpunttype
+        fig.add_annotation(
+            x=pos/1000,
+            y=-max(abs(min(y)), abs(max(y)))*0.2,
+            text=type,
+            showarrow=False,
+            font=dict(size=10, color=colors['support']),
+            row=1, col=1
         )
     
     # Voeg belastingen toe aan doorbuigingsgrafiek
@@ -742,88 +725,157 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[pos/1000],
-                    y=[min(y)*0.5],  # Boven de balk
+                    y=[max(y)*0.5 if max(y) > 0 else max(abs(min(y)))*0.5],  # Boven de balk
                     mode='markers',
                     name=f'{value/1000:.1f} kN',
                     marker=dict(
                         symbol='arrow-down',
-                        size=14,
+                        size=16,
                         color=colors['load']
                     ),
                     showlegend=False
                 ),
-                row=4, col=1
+                row=1, col=1
             )
             # Voeg waarde label toe
             fig.add_annotation(
                 x=pos/1000,
-                y=min(y)*0.3,
+                y=max(y)*0.7 if max(y) > 0 else max(abs(min(y)))*0.7,
                 text=f"{value/1000:.1f} kN",
                 showarrow=False,
-                font=dict(size=10, color=colors['load']),
-                row=4, col=1
+                font=dict(size=12, color=colors['load']),
+                row=1, col=1
             )
         elif load_type.lower() == "verdeelde last":
             # Verdeelde last als lijn met pijlen
             length = rest[0]
             start = pos/1000
             end = (pos + length)/1000
+            
+            # Teken verdeelde last lijn
             fig.add_trace(
                 go.Scatter(
                     x=[start, end],
-                    y=[min(y)*0.5, min(y)*0.5],  # Boven de balk
+                    y=[max(y)*0.5 if max(y) > 0 else max(abs(min(y)))*0.5] * 2,  # Boven de balk
                     mode='lines',
                     name=f'{value/1000:.1f} kN/m',
-                    line=dict(color=colors['load'], width=2),
+                    line=dict(color=colors['load'], width=3),
                     showlegend=False
                 ),
-                row=4, col=1
+                row=1, col=1
             )
-            # Voeg waarde label toe
+            
+            # Voeg pijlen toe langs de verdeelde last
+            num_arrows = min(int(length/500) + 2, 10)  # Aantal pijlen afhankelijk van lengte
+            for i in range(num_arrows):
+                arrow_pos = start + (end - start) * i / (num_arrows - 1)
+                fig.add_trace(
+                    go.Scatter(
+                        x=[arrow_pos],
+                        y=[max(y)*0.5 if max(y) > 0 else max(abs(min(y)))*0.5],
+                        mode='markers',
+                        marker=dict(
+                            symbol='arrow-down',
+                            size=12,
+                            color=colors['load']
+                        ),
+                        showlegend=False
+                    ),
+                    row=1, col=1
+                )
+            
+            # Voeg waarde label toe in het midden
             fig.add_annotation(
-                x=(start + end)/2,
-                y=min(y)*0.3,
+                x=(start + end) / 2,
+                y=max(y)*0.7 if max(y) > 0 else max(abs(min(y)))*0.7,
                 text=f"{value/1000:.1f} kN/m",
                 showarrow=False,
-                font=dict(size=10, color=colors['load']),
-                row=4, col=1
+                font=dict(size=12, color=colors['load']),
+                row=1, col=1
             )
     
-    # Update layout
+    # Plot dwarskracht (nu tweede)
+    fig.add_trace(
+        go.Scatter(
+            x=x/1000, y=V/1000,
+            mode='lines',
+            name='Dwarskracht',
+            line=dict(color=colors['shear'], width=3),
+            fill='tozeroy',
+            fillcolor=f'rgba(46, 204, 113, 0.2)'
+        ),
+        row=2, col=1
+    )
+    
+    # Plot moment (nu derde)
+    fig.add_trace(
+        go.Scatter(
+            x=x/1000, y=M/1e6,
+            mode='lines',
+            name='Moment',
+            line=dict(color=colors['moment'], width=3),
+            fill='tozeroy',
+            fillcolor=f'rgba(231, 76, 60, 0.2)'
+        ),
+        row=3, col=1
+    )
+    
+    # Plot rotatie (nu onderaan)
+    fig.add_trace(
+        go.Scatter(
+            x=x/1000, y=theta,
+            mode='lines',
+            name='Rotatie',
+            line=dict(color=colors['rotation'], width=3),
+            fill='tozeroy',
+            fillcolor=f'rgba(243, 156, 18, 0.2)'
+        ),
+        row=4, col=1
+    )
+    
+    # Verbeter layout
     fig.update_layout(
-        height=900,
-        showlegend=False,
-        margin=dict(t=60, b=20, l=50, r=20),
+        height=800,  # Groter figuur
+        margin=dict(l=50, r=50, t=50, b=50),
         plot_bgcolor='white',
-        font=dict(family="Arial, sans-serif", size=12),
-        title=dict(
-            text="BeamSolve Pro - Resultaten",
-            font=dict(size=24, family="Arial, sans-serif", color="#2c3e50")
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        ),
+        font=dict(
+            family="Arial, sans-serif",
+            size=14
         )
     )
     
-    # Update assen
+    # Update x-assen
     for i in range(1, 5):
         fig.update_xaxes(
-            title="Positie [m]" if i == 4 else None,
+            title_text="Positie [m]" if i == 4 else None,
             gridcolor=colors['grid'],
             zerolinecolor=colors['zero'],
             zerolinewidth=2,
-            showline=True,
-            linewidth=1,
-            linecolor='black',
-            mirror=True,
             row=i, col=1
         )
-        fig.update_yaxes(
-            gridcolor=colors['grid'],
-            zerolinecolor=colors['zero'],
-            zerolinewidth=2,
-            showline=True,
-            linewidth=1,
-            linecolor='black',
-            mirror=True,
-            row=i, col=1
+    
+    # Update y-assen
+    fig.update_yaxes(
+        gridcolor=colors['grid'],
+        zerolinecolor=colors['zero'],
+        zerolinewidth=2
+    )
+    
+    # Voeg nulpunten toe op steunpunten in doorbuigingsgrafiek
+    for pos, _ in supports:
+        fig.add_shape(
+            type="line",
+            x0=pos/1000, y0=-max(abs(min(y)), abs(max(y)))*0.05,
+            x1=pos/1000, y1=max(abs(min(y)), abs(max(y)))*0.05,
+            line=dict(color=colors['support'], width=1, dash="dot"),
+            row=1, col=1
         )
     
     return fig
@@ -1376,15 +1428,79 @@ def main():
     # Custom CSS voor moderne styling
     st.markdown("""
     <style>
-    .main .block-container {padding-top: 2rem;}
-    h1, h2, h3 {color: #2c3e50;}
-    .stButton>button {background-color: #3498db; color: white; border-radius: 5px; border: none; padding: 0.5rem 1rem;}
-    .stButton>button:hover {background-color: #2980b9;}
-    .css-1v3fvcr {background-color: #f8f9fa;}
-    .css-18e3th9 {padding-top: 2rem;}
-    .css-1kyxreq {justify-content: center;}
-    .stNumberInput input {border-radius: 5px;}
-    .stSelectbox div[data-baseweb="select"] {border-radius: 5px;}
+    .main .block-container {
+        padding-top: 2rem;
+        padding-bottom: 2rem;
+    }
+    h1, h2, h3 {
+        color: #2c3e50;
+    }
+    h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #3498db;
+        padding-bottom: 0.5rem;
+    }
+    .stButton>button {
+        background-color: #3498db;
+        color: white;
+        font-weight: 500;
+        border: none;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        transition: all 0.3s;
+    }
+    .stButton>button:hover {
+        background-color: #2980b9;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2px;
+    }
+    .stTabs [data-baseweb="tab"] {
+        background-color: #f8f9fa;
+        border-radius: 4px 4px 0 0;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: #3498db !important;
+        color: white !important;
+    }
+    .stMarkdown a {
+        color: #3498db;
+        text-decoration: none;
+    }
+    .stMarkdown a:hover {
+        text-decoration: underline;
+    }
+    .css-1y4p8pa {
+        max-width: 1200px;
+    }
+    .stExpander {
+        border: 1px solid #e6e9ef;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .stExpander [data-testid="stExpander"] {
+        background-color: #f8f9fa;
+        border-radius: 4px;
+    }
+    .stMetric {
+        background-color: #f8f9fa;
+        padding: 1rem;
+        border-radius: 6px;
+        box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+    }
+    .stMetric [data-testid="stMetricValue"] {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #2c3e50;
+    }
+    .stMetric [data-testid="stMetricLabel"] {
+        font-weight: 500;
+    }
     </style>
     """, unsafe_allow_html=True)
     
@@ -1712,7 +1828,7 @@ def main():
         4. Klik op 'Bereken'
         
         ### Mogelijkheden:
-        - Verschillende profieltypes en standaardprofielen
+        - Verschillende profieltypes (Koker, I-profiel, Rechthoek, Cirkel, HEA, HEB, IPE, UNP)
         - Meerdere steunpunten (2-5)
         - Verschillende belastingtypes
         - Visualisatie van dwarskracht, moment, rotatie en doorbuiging
