@@ -8,9 +8,160 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 import base64
 import io
-from matrix_solver import calculate_reactions_matrix
 from datetime import datetime
 import os
+
+def calculate_reactions_matrix(beam_length, supports, loads):
+    """Bereken reactiekrachten voor statisch onbepaalde systemen met matrixmethode.
+    Specifiek geoptimaliseerd voor 3 steunpunten."""
+    
+    # Sorteer steunpunten
+    supports = sorted(supports, key=lambda x: x[0])
+    n = len(supports)
+    
+    if n != 3:
+        return None  # Deze functie is alleen voor 3 steunpunten
+    
+    try:
+        # Haal posities en types op
+        pos1, type1 = supports[0]
+        pos2, type2 = supports[1]
+        pos3, type3 = supports[2]
+        
+        # Bereken lengtes van overspanningen
+        L1 = pos2 - pos1
+        L2 = pos3 - pos2
+        
+        # Stel stijfheidsmatrix op voor 3 steunpunten
+        # Voor eenvoud: we nemen aan dat EI constant is over de balk
+        
+        # Compatibiliteitsmatrix voor 3 steunpunten
+        # [ a11 a12 a13 ] [ R1 ]   [ d1 ]
+        # [ a21 a22 a23 ] [ R2 ] = [ d2 ]
+        # [ a31 a32 a33 ] [ R3 ]   [ d3 ]
+        
+        # Flexibiliteitscoëfficiënten (invloedsgetallen)
+        # a_ij = doorbuiging op punt i door eenheidslast op punt j
+        
+        # Voor een balk met 3 steunpunten:
+        a11 = L1**3 / 3  # Doorbuiging op punt 1 door eenheidslast op punt 1
+        a12 = L1**2 * L2 / 2  # Doorbuiging op punt 1 door eenheidslast op punt 2
+        a13 = L1 * L2**2 / 2  # Doorbuiging op punt 1 door eenheidslast op punt 3
+        
+        a21 = L1**2 * L2 / 2  # Doorbuiging op punt 2 door eenheidslast op punt 1
+        a22 = (L1 + L2)**3 / 3  # Doorbuiging op punt 2 door eenheidslast op punt 2
+        a23 = L2**2 * L1 / 2  # Doorbuiging op punt 2 door eenheidslast op punt 3
+        
+        a31 = L1 * L2**2 / 2  # Doorbuiging op punt 3 door eenheidslast op punt 1
+        a32 = L2**2 * L1 / 2  # Doorbuiging op punt 3 door eenheidslast op punt 2
+        a33 = L2**3 / 3  # Doorbuiging op punt 3 door eenheidslast op punt 3
+        
+        # Stel matrix op
+        A = np.array([
+            [a11, a12, a13],
+            [a21, a22, a23],
+            [a31, a32, a33]
+        ])
+        
+        # Bereken belastingsvector (doorbuigingen door externe belasting)
+        d = np.zeros(3)
+        
+        # Verwerk belastingen
+        for load in loads:
+            pos, value, load_type, *rest = load
+            
+            if load_type.lower() == "puntlast":
+                # Puntlast: bereken doorbuiging op elk steunpunt
+                for i, (sp, _) in enumerate(supports):
+                    if pos < sp:
+                        # Last links van steunpunt
+                        d[i] += value * (pos - pos1) * (sp - pos)**2 / 6
+                    else:
+                        # Last rechts van steunpunt
+                        d[i] += value * (pos3 - pos) * (pos - sp)**2 / 6
+                        
+            elif load_type.lower() == "verdeelde last":
+                length = rest[0]
+                q = value
+                
+                # Verdeelde last: bereken doorbuiging op elk steunpunt
+                start = pos
+                end = pos + length
+                
+                for i, (sp, _) in enumerate(supports):
+                    # Complexe integratie voor doorbuiging door verdeelde last
+                    # Vereenvoudigde benadering: vervang door equivalente puntlast
+                    equiv_pos = (start + end) / 2
+                    equiv_val = q * length
+                    
+                    if equiv_pos < sp:
+                        # Last links van steunpunt
+                        d[i] += equiv_val * (equiv_pos - pos1) * (sp - equiv_pos)**2 / 6
+                    else:
+                        # Last rechts van steunpunt
+                        d[i] += equiv_val * (pos3 - equiv_pos) * (equiv_pos - sp)**2 / 6
+        
+        # Los matrix op: A * R = d
+        # Omdat we doorbuiging = 0 willen op steunpunten, is d = 0
+        # Maar we hebben evenwichtsvergelijking nodig: som krachten = som belastingen
+        
+        # Bereken totale belasting
+        total_load = 0
+        for load in loads:
+            pos, value, load_type, *rest = load
+            if load_type.lower() == "puntlast":
+                total_load += value
+            elif load_type.lower() == "verdeelde last":
+                length = rest[0]
+                total_load += value * length
+        
+        # Evenwichtsvergelijking: R1 + R2 + R3 = total_load
+        # Vervang laatste rij door evenwichtsvergelijking
+        A[2] = np.array([1, 1, 1])
+        d[2] = total_load
+        
+        # Los matrix op
+        R = np.linalg.solve(A, d)
+        
+        # Maak reactions dictionary
+        reactions = {}
+        for i, (pos, _) in enumerate(supports):
+            reactions[pos] = -R[i]  # Negatief omdat reacties omhoog positief zijn
+        
+        # Voeg inklemming momenten toe indien nodig
+        if type1.lower() == "inklemming":
+            # Bereken moment in inklemming
+            M1 = 0
+            for load in loads:
+                pos_load, value, load_type, *rest = load
+                if load_type.lower() == "puntlast":
+                    M1 += value * (pos_load - pos1)
+                elif load_type.lower() == "verdeelde last":
+                    length = rest[0]
+                    q = value
+                    x_c = pos_load + length/2
+                    M1 += q * length * (x_c - pos1)
+            reactions[f"M_{pos1}"] = -M1
+            
+        if type3.lower() == "inklemming":
+            # Bereken moment in inklemming
+            M3 = 0
+            for load in loads:
+                pos_load, value, load_type, *rest = load
+                if load_type.lower() == "puntlast":
+                    M3 += value * (pos3 - pos_load)
+                elif load_type.lower() == "verdeelde last":
+                    length = rest[0]
+                    q = value
+                    x_c = pos_load + length/2
+                    M3 += q * length * (pos3 - x_c)
+            reactions[f"M_{pos3}"] = M3
+        
+        return reactions
+        
+    except Exception as e:
+        st.error(f"❌ Fout bij matrixberekening: {str(e)}")
+        return None
 
 def calculate_reactions(beam_length, supports, loads):
     """Bereken reactiekrachten voor verschillende steunpuntconfiguraties.
