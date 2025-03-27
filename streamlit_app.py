@@ -11,7 +11,7 @@ from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, 
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 # from scipy.integrate import cumtrapz
-from beam_solver import BeamSolver
+# from beam_solver import BeamSolver
 
 # Alternatief voor cumtrapz als scipy niet beschikbaar is
 def custom_cumtrapz(y, x, initial=0):
@@ -21,6 +21,254 @@ def custom_cumtrapz(y, x, initial=0):
     for i in range(1, len(y)):
         result[i] = result[i-1] + 0.5 * (y[i] + y[i-1]) * (x[i] - x[i-1])
     return result
+
+# Geïntegreerde BeamSolver klasse
+class BeamSolver:
+    def __init__(self, beam_length, supports, loads, EI):
+        self.L = beam_length
+        self.supports = sorted(supports, key=lambda x: x[0])
+        self.loads = loads
+        self.EI = EI
+        self.x = np.linspace(0, beam_length, 500)
+        self._validate_input()
+
+    def _validate_input(self):
+        """Controleer invoerconsistentie"""
+        if any(pos < 0 or pos > self.L for pos, _ in self.supports):
+            raise ValueError("Ongeldige steunpuntpositie")
+        if self.EI <= 0:
+            raise ValueError("Buigstijfheid moet positief zijn")
+
+    def solve(self):
+        """Hoofdberekeningsroutine"""
+        self._calculate_reactions()
+        self._calculate_internal_forces()
+        self._calculate_deflection()
+        return self.get_results()
+
+    def get_results(self):
+        return {
+            'x': self.x,
+            'V': self.V,
+            'M': self.M,
+            'y': self.y,
+            'theta': self.theta,
+            'reactions': self.reactions
+        }
+
+    def _calculate_reactions(self):
+        """Bepaal reactiekrachten met drie-momentenvergelijking"""
+        n = len(self.supports)
+        support_pos = [s[0] for s in self.supports]
+
+        if n == 1:  # Inklemming
+            self._fixed_support_reactions()
+        elif n == 2:  # Statisch bepaald
+            self._simple_beam_reactions()
+        else:  # Statisch onbepaald
+            self._continuous_beam_reactions()
+
+    def _fixed_support_reactions(self):
+        """Reacties voor ingeklemde balk"""
+        pos = self.supports[0][0]
+        V_total = 0
+        M_total = 0
+
+        for load in self.loads:
+            p, val, ltype, *rest = load
+            if ltype.lower() == "puntlast":
+                V_total += val
+                M_total += val * (p - pos)
+            elif ltype.lower() == "verdeelde last":
+                length = rest[0]
+                q = val
+                V_total += q * length
+                M_total += q * length * (p + length/2 - pos)
+            elif ltype.lower() == "moment":
+                M_total += val
+
+        self.reactions = {pos: -V_total, f"M_{pos}": -M_total}
+
+    def _simple_beam_reactions(self):
+        """Statisch bepaalde ligger met 2 steunpunten"""
+        a, b = [s[0] for s in self.supports]
+        L = b - a
+        R_a, R_b = 0, 0
+        M_a, M_b = 0, 0
+
+        for load in self.loads:
+            p, val, ltype, *rest = load
+            if ltype.lower() == "puntlast":
+                R_a += val * (b - p)/L
+                R_b += val * (p - a)/L
+            elif ltype.lower() == "verdeelde last":
+                q, length = val, rest[0]
+                x1 = max(a, p)
+                x2 = min(b, p + length)
+                if x1 < x2:
+                    R_a += q * ((x2**2 - x1**2)/(2*L) - a*(x2 - x1)/L)
+                    R_b += q * (b*(x2 - x1)/L - (x2**2 - x1**2)/(2*L))
+            elif ltype.lower() == "moment":
+                M_a += val * (b - p)/L
+                M_b += val * (p - a)/L
+
+        self.reactions = {a: R_a, b: R_b}
+        
+        # Voeg inklemming momenten toe indien nodig
+        if self.supports[0][1].lower() == "inklemming":
+            self.reactions[f"M_{a}"] = M_a
+        if self.supports[1][1].lower() == "inklemming":
+            self.reactions[f"M_{b}"] = M_b
+
+    def _continuous_beam_reactions(self):
+        """Statisch onbepaalde ligger met meer dan 2 steunpunten"""
+        n = len(self.supports)
+        support_pos = [s[0] for s in self.supports]
+        reactions = {}
+
+        for i in range(n-1):
+            a, b = support_pos[i], support_pos[i+1]
+            L = b - a
+            R_a, R_b = 0, 0
+            M_a, M_b = 0, 0
+
+            for load in self.loads:
+                p, val, ltype, *rest = load
+                if ltype.lower() == "puntlast":
+                    if a <= p <= b:
+                        R_a += val * (b - p)/L
+                        R_b += val * (p - a)/L
+                elif ltype.lower() == "verdeelde last":
+                    q, length = val, rest[0]
+                    x1 = max(a, p)
+                    x2 = min(b, p + length)
+                    if x1 < x2:
+                        R_a += q * ((x2**2 - x1**2)/(2*L) - a*(x2 - x1)/L)
+                        R_b += q * (b*(x2 - x1)/L - (x2**2 - x1**2)/(2*L))
+                elif ltype.lower() == "moment":
+                    if a <= p <= b:
+                        M_a += val * (b - p)/L
+                        M_b += val * (p - a)/L
+
+            reactions[a] = R_a
+            reactions[b] = R_b
+
+            # Voeg inklemming momenten toe indien nodig
+            if self.supports[i][1].lower() == "inklemming":
+                reactions[f"M_{a}"] = M_a
+            if self.supports[i+1][1].lower() == "inklemming":
+                reactions[f"M_{b}"] = M_b
+
+        self.reactions = reactions
+
+    def _calculate_internal_forces(self):
+        """Gecorrigeerde integratie met superpositie"""
+        V = np.zeros_like(self.x)
+        M = np.zeros_like(self.x)
+        
+        # Verzamel steunpunt posities voor controle
+        support_positions = [pos for pos, _ in self.supports]
+        
+        # Reactiekrachten
+        for pos, R in self.reactions.items():
+            if not pos.startswith("M_"):  # Alleen krachten, geen momenten
+                idx = np.searchsorted(self.x, float(pos))
+                if idx < len(self.x):
+                    V[idx:] += R
+                    M[idx:] += R * (self.x[idx:] - float(pos))
+        
+        # Reactiemomenten
+        for key, val in self.reactions.items():
+            if key.startswith("M_"):
+                pos = float(key.split("_")[1])
+                idx = np.searchsorted(self.x, pos)
+                if idx < len(self.x):
+                    # Moment heeft geen effect op dwarskracht, alleen op moment
+                    M[idx:] += val
+        
+        # Uitwendige belastingen
+        for load in self.loads:
+            pos, val, ltype, *rest = load
+            
+            # Controleer of de last op een steunpunt valt
+            on_support = any(abs(pos - sp) < 1e-6 for sp in support_positions)
+            
+            if ltype.lower() == "puntlast":
+                # Als de puntlast op een steunpunt valt, wordt deze direct opgenomen
+                # door het steunpunt en heeft geen effect op de interne krachten
+                if not on_support:
+                    idx = np.searchsorted(self.x, pos)
+                    if idx < len(self.x):
+                        V[idx:] -= val
+                        M[idx:] -= val * (self.x[idx:] - pos)
+            elif ltype.lower() == "verdeelde last":
+                length = rest[0]
+                q = val
+                start_idx = np.searchsorted(self.x, pos)
+                end_idx = np.searchsorted(self.x, pos + length)
+                
+                # Punten binnen de verdeelde last
+                for i in range(start_idx, min(end_idx, len(self.x))):
+                    dx = self.x[i] - pos
+                    V[i] -= q * dx
+                    M[i] -= q * dx**2 / 2
+                
+                # Punten voorbij de verdeelde last
+                if end_idx < len(self.x):
+                    V[end_idx:] -= q * length
+                    M[end_idx:] -= q * length * (self.x[end_idx:] - pos - length/2)
+            elif ltype.lower() == "moment":
+                idx = np.searchsorted(self.x, pos)
+                if idx < len(self.x):
+                    # Extern moment heeft geen effect op dwarskracht, alleen op moment
+                    M[idx:] -= val
+        
+        self.V = V
+        self.M = M
+
+    def _calculate_deflection(self):
+        """Dubbele integratie met correcte randvoorwaarden"""
+        # Bereken dwarskracht en moment
+        V, M = self.V, self.M
+        
+        # Eerste integratie: hoekverdraaiing
+        theta = custom_cumtrapz(M/self.EI, self.x, initial=0)
+        
+        # Tweede integratie: doorbuiging
+        y = custom_cumtrapz(theta, self.x, initial=0)
+        
+        # Pas randvoorwaarden aan
+        support_positions = [s[0] for s in self.supports]
+        support_indices = [np.abs(self.x - pos).argmin() for pos in support_positions]
+        
+        # Stel lineair systeem op voor correctie
+        A = []
+        b = []
+        
+        for idx in support_indices:
+            A.append([1, self.x[idx]])
+            b.append(-y[idx])
+        
+        # Los op met least squares
+        A = np.array(A)
+        b = np.array(b)
+        
+        if len(A) >= 2:  # Minstens 2 steunpunten nodig voor unieke oplossing
+            try:
+                C, _, _, _ = np.linalg.lstsq(A, b, rcond=None)
+                # Corrigeer doorbuiging
+                y_corrected = y + C[0] + C[1] * self.x
+            except:
+                # Fallback als lstsq faalt
+                st.warning("⚠️ Randvoorwaarden konden niet exact worden toegepast")
+                # Eenvoudige correctie: verschuif zodat eerste steunpunt op 0 ligt
+                y_corrected = y - y[support_indices[0]]
+        else:
+            # Eén steunpunt: verschuif zodat dat punt op 0 ligt
+            y_corrected = y - y[support_indices[0]]
+        
+        self.theta = theta
+        self.y = y_corrected
 
 def _free_moment(x1, x2, loads):
     """Bereken vrije veldmoment tussen x1 en x2"""
@@ -2041,8 +2289,6 @@ def main():
         - Export naar PDF rapport
         """)
         
-        # Toon voorbeeld afbeelding
-        st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Beam_deflection.svg/800px-Beam_deflection.svg.png", 
-                 caption="Voorbeeld van balkdoorbuiging", width=600)
+       
 if __name__ == "__main__":
     main()
