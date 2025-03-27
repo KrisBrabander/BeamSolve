@@ -1720,3 +1720,5 @@ def main():
         # Toon voorbeeld afbeelding
         st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/5/5f/Beam_deflection.svg/800px-Beam_deflection.svg.png", 
                  caption="Voorbeeld van balkdoorbuiging", width=600)
+if __name__ == "__main__":
+    main()
