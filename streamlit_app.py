@@ -1359,9 +1359,9 @@ def calculate_A(profile_type, h, b, t_w, t_f=None):
         return A_f + A_w
     return 0
 
+
 def main():
-    """Hoofdfunctie voor de Streamlit app"""
-        st.set_page_config(
+    st.set_page_config(
         page_title="BeamSolved",
         page_icon="🔧",
         layout="wide",
@@ -1369,6 +1369,7 @@ def main():
     )
     
     st.write("✅ App is gestart")
+
 
     # App configuratie
 
