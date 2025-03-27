@@ -533,7 +533,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             ))
             
             # Pijlen met variabele lengte
-            num_arrows = min(max(int(length*8), 4), 15)  # Aantal pijlen afhankelijk van lengte
+            num_arrows = min(int(length*8), 15)  # Aantal pijlen afhankelijk van lengte
             for i in range(num_arrows):
                 rel_pos = i/(num_arrows-1)
                 arrow_x = x_pos + length * rel_pos
@@ -725,7 +725,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[pos/1000],
-                    y=[max(y)*0.5 if max(y) > 0 else max(abs(min(y)))*0.5],  # Boven de balk
+                    y=[max(abs(min(y)), abs(max(y)))*0.5 if any(y) else 10.0],  # Veilige offset boven de balk
                     mode='markers',
                     name=f'{value/1000:.1f} kN',
                     marker=dict(
@@ -740,7 +740,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
             # Voeg waarde label toe
             fig.add_annotation(
                 x=pos/1000,
-                y=max(y)*0.7 if max(y) > 0 else max(abs(min(y)))*0.7,
+                y=max(abs(min(y)), abs(max(y)))*0.7 if any(y) else 14.0,
                 text=f"{value/1000:.1f} kN",
                 showarrow=False,
                 font=dict(size=12, color=colors['load']),
@@ -756,7 +756,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[start, end],
-                    y=[max(y)*0.5 if max(y) > 0 else max(abs(min(y)))*0.5] * 2,  # Boven de balk
+                    y=[max(abs(min(y)), abs(max(y)))*0.5 if any(y) else 10.0, max(abs(min(y)), abs(max(y)))*0.5 if any(y) else 10.0],  # Veilige offset boven de balk
                     mode='lines',
                     name=f'{value/1000:.1f} kN/m',
                     line=dict(color=colors['load'], width=3),
@@ -772,7 +772,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
                 fig.add_trace(
                     go.Scatter(
                         x=[arrow_pos],
-                        y=[max(y)*0.5 if max(y) > 0 else max(abs(min(y)))*0.5],
+                        y=[max(abs(min(y)), abs(max(y)))*0.5 if any(y) else 10.0],
                         mode='markers',
                         marker=dict(
                             symbol='arrow-down',
@@ -787,7 +787,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
             # Voeg waarde label toe in het midden
             fig.add_annotation(
                 x=(start + end) / 2,
-                y=max(y)*0.7 if max(y) > 0 else max(abs(min(y)))*0.7,
+                y=max(abs(min(y)), abs(max(y)))*0.7 if any(y) else 14.0,
                 text=f"{value/1000:.1f} kN/m",
                 showarrow=False,
                 font=dict(size=12, color=colors['load']),
@@ -872,8 +872,8 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
     for pos, _ in supports:
         fig.add_shape(
             type="line",
-            x0=pos/1000, y0=-max(abs(min(y)), abs(max(y)))*0.05,
-            x1=pos/1000, y1=max(abs(min(y)), abs(max(y)))*0.05,
+            x0=pos/1000, y0=-max(abs(min(y)), abs(max(y)))*0.05 if any(y) else -5.0,
+            x1=pos/1000, y1=max(abs(min(y)), abs(max(y)))*0.05 if any(y) else 5.0,
             line=dict(color=colors['support'], width=1, dash="dot"),
             row=1, col=1
         )
