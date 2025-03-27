@@ -3,6 +3,7 @@ streamlit>=1.22.0
 
 # Data processing & berekeningen
 numpy>=1.24.0
+scipy>=1.10.0
 
 # Visualisatie
 plotly>=5.14.0
