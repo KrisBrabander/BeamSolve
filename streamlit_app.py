@@ -10,8 +10,17 @@ from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
-from scipy.integrate import cumtrapz
+# from scipy.integrate import cumtrapz
 from beam_solver import BeamSolver
+
+# Alternatief voor cumtrapz als scipy niet beschikbaar is
+def custom_cumtrapz(y, x, initial=0):
+    """Eigen implementatie van cumtrapz voor het geval scipy niet beschikbaar is"""
+    result = np.zeros_like(y)
+    result[0] = initial
+    for i in range(1, len(y)):
+        result[i] = result[i-1] + 0.5 * (y[i] + y[i-1]) * (x[i] - x[i-1])
+    return result
 
 def _free_moment(x1, x2, loads):
     """Bereken vrije veldmoment tussen x1 en x2"""
@@ -490,10 +499,10 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
     # Eerste integratie: hoekverdraaiing
-    theta = cumtrapz(M/EI, x, initial=0)
+    theta = custom_cumtrapz(M/EI, x, initial=0)
     
     # Tweede integratie: doorbuiging
-    y = cumtrapz(theta, x, initial=0)
+    y = custom_cumtrapz(theta, x, initial=0)
     
     # Pas randvoorwaarden aan
     support_positions = [s[0] for s in supports]
