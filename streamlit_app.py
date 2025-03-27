@@ -1361,16 +1361,17 @@ def calculate_A(profile_type, h, b, t_w, t_f=None):
 
 def main():
     """Hoofdfunctie voor de Streamlit app"""
-    st.write("✅ App is gestart")
-
-    # App configuratie
-    st.set_page_config(
+        st.set_page_config(
         page_title="BeamSolved",
         page_icon="🔧",
         layout="wide",
         initial_sidebar_state="expanded"
     )
     
+    st.write("✅ App is gestart")
+
+    # App configuratie
+
     # Custom CSS voor moderne styling
     st.markdown("""
     <style>
