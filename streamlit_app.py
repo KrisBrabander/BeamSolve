@@ -1802,6 +1802,11 @@ def calculate_moment_of_inertia(profile_type, h, b, t_w, t_f=None):
             st.error("❌ Wanddikte te groot voor profiel")
             return None
             
+        # Controleer of profile_type een string is
+        if not isinstance(profile_type, str):
+            st.error(f"❌ Ongeldig profieltype: {profile_type} (type: {type(profile_type)})")
+            return None
+            
         # Bereken traagheidsmoment
         if profile_type.lower() == "koker":
             # Koker: I = (BH³ - bh³)/12
