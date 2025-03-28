@@ -2282,6 +2282,349 @@ def main():
         - Je kunt de balklengte bovenaan aanpassen
         - Configureer het profiel in de zijbalk
         """)
+import numpy as np
+import plotly.graph_objects as go
+
+def plot_interactive_beam(beam_length, supports, loads):
+    """Teken interactieve balk met steunpunten en belastingen"""
+    
+    # Sorteer steunpunten op positie
+    sorted_supports = sorted(supports, key=lambda s: s[0])
+    
+    # Bepaal uiterste x-coördinaten (voor overhang)
+    min_x = min(0, min([s[0] for s in sorted_supports])) if sorted_supports else 0
+    max_x = max(beam_length, max([s[0] for s in sorted_supports])) if sorted_supports else beam_length
+    
+    # Extra marge toevoegen
+    span = max_x - min_x
+    min_x -= 0.05 * span
+    max_x += 0.05 * span
+    
+    # Bereken y-waarden voor visualisatie
+    beam_y = 0
+    beam_height = 0.1 * span
+    
+    # Colorscheme
+    colors = {
+        'beam': '#2c3e50',
+        'support': '#3498db', 
+        'load': '#e74c3c',
+        'moment': '#9b59b6',
+        'dimension': '#7f8c8d',
+        'text': '#2c3e50',
+        'grid': '#ecf0f1'
+    }
+    
+    # Creëer figuur
+    fig = go.Figure()
+    
+    # Voeg balk toe
+    fig.add_trace(
+        go.Scatter(
+            x=[min_x/1000, max_x/1000],  # Converteer naar meters voor weergave
+            y=[beam_y, beam_y],
+            mode='lines',
+            name='Balk',
+            line=dict(
+                color=colors['beam'],
+                width=5
+            )
+        )
+    )
+    
+    # Teken steunpunten
+    for pos, support_type in sorted_supports:
+        if support_type.lower() == "scharnier":
+            # Driehoek symbool voor scharnier
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000],  # Converteer naar meters
+                    y=[beam_y - beam_height/2],
+                    mode='markers',
+                    name=f'Scharnier op {pos} mm',
+                    marker=dict(
+                        symbol='triangle-up',
+                        size=15,
+                        color=colors['support']
+                    )
+                )
+            )
+            # Verticale lijn naar beneden vanaf de balk
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000, pos/1000],
+                    y=[beam_y, beam_y - beam_height],
+                    mode='lines',
+                    line=dict(color=colors['support'], width=2),
+                    showlegend=False
+                )
+            )
+        elif support_type.lower() == "rol":
+            # Cirkel symbool voor rol
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000],
+                    y=[beam_y - beam_height/2],
+                    mode='markers',
+                    name=f'Rol op {pos} mm',
+                    marker=dict(
+                        symbol='circle',
+                        size=12,
+                        color=colors['support']
+                    )
+                )
+            )
+            # Verticale lijn naar beneden vanaf de balk
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000, pos/1000],
+                    y=[beam_y, beam_y - beam_height],
+                    mode='lines',
+                    line=dict(color=colors['support'], width=2),
+                    showlegend=False
+                )
+            )
+        elif support_type.lower() == "inklemming":
+            # Rechthoek voor inklemming
+            fig.add_shape(
+                type="rect",
+                x0=pos/1000 - beam_height/4/1000,
+                y0=beam_y - beam_height,
+                x1=pos/1000 + beam_height/4/1000,
+                y1=beam_y + beam_height,
+                line=dict(color=colors['support']),
+                fillcolor=colors['support'],
+                opacity=0.7,
+                name=f'Inklemming op {pos} mm'
+            )
+            # Legenda-item
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000],
+                    y=[beam_y],
+                    mode='markers',
+                    marker=dict(size=0.1, color=colors['support']),
+                    name=f'Inklemming op {pos} mm',
+                    showlegend=True
+                )
+            )
+    
+    # Voeg belastingen toe
+    for load in loads:
+        pos = load[0]
+        value = load[1]
+        load_type = load[2]
+        
+        # Bepaal richting op basis van teken van de belasting
+        direction = -1 if value > 0 else 1  # Positief is naar beneden
+        
+        if load_type.lower() == "puntlast":
+            # Pijl voor puntlast
+            arrow_length = 1.5 * beam_height
+            arrow_head_length = arrow_length * 0.2
+            
+            # Pijlsteel
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000, pos/1000],
+                    y=[beam_y, beam_y + direction * (arrow_length - arrow_head_length)],
+                    mode='lines',
+                    line=dict(color=colors['load'], width=2),
+                    showlegend=False
+                )
+            )
+            
+            # Pijlpunt
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000 - arrow_head_length/2/1000, pos/1000, pos/1000 + arrow_head_length/2/1000],
+                    y=[beam_y + direction * (arrow_length - arrow_head_length), 
+                       beam_y + direction * arrow_length, 
+                       beam_y + direction * (arrow_length - arrow_head_length)],
+                    mode='lines',
+                    line=dict(color=colors['load'], width=2),
+                    fill="toself",
+                    fillcolor=colors['load'],
+                    showlegend=False
+                )
+            )
+            
+            # Label
+            fig.add_annotation(
+                x=pos/1000,
+                y=beam_y + direction * arrow_length + direction * beam_height*0.5,
+                text=f"{abs(value)/1000:.1f} kN",
+                showarrow=False,
+                font=dict(size=10, color=colors['load'])
+            )
+            
+            # Legenda-item
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos/1000],
+                    y=[beam_y + direction * arrow_length/2],
+                    mode='markers',
+                    marker=dict(size=0.1, color=colors['load']),
+                    name=f'Puntlast {abs(value)/1000:.1f} kN op {pos} mm',
+                    showlegend=True
+                )
+            )
+        
+        elif load_type.lower() == "verdeelde last":
+            length = load[3]
+            start_pos = pos/1000
+            end_pos = (pos + length)/1000
+            
+            # Hoogte van pijlen
+            arrow_height = 1.5 * beam_height
+            
+            # Lijn bovenaan
+            fig.add_trace(
+                go.Scatter(
+                    x=[start_pos, end_pos],
+                    y=[beam_y + direction * arrow_height, beam_y + direction * arrow_height],
+                    mode='lines',
+                    line=dict(color=colors['load'], width=2),
+                    showlegend=False
+                )
+            )
+            
+            # Meerdere pijlen tekenen
+            num_arrows = max(3, min(10, int(length/300) + 2))
+            x_arrows = np.linspace(start_pos, end_pos, num_arrows)
+            
+            for x_arrow in x_arrows:
+                # Pijlsteel
+                fig.add_trace(
+                    go.Scatter(
+                        x=[x_arrow, x_arrow],
+                        y=[beam_y + direction * arrow_height, beam_y],
+                        mode='lines',
+                        line=dict(color=colors['load'], width=1.5),
+                        showlegend=False
+                    )
+                )
+                
+                # Pijlpunt (klein driehoekje)
+                arrow_head_size = arrow_height * 0.12
+                fig.add_trace(
+                    go.Scatter(
+                        x=[x_arrow - arrow_head_size/2/1000, x_arrow, x_arrow + arrow_head_size/2/1000],
+                        y=[beam_y + direction * arrow_head_size, beam_y, beam_y + direction * arrow_head_size],
+                        mode='lines',
+                        line=dict(color=colors['load'], width=1.5),
+                        fill="toself",
+                        fillcolor=colors['load'],
+                        showlegend=False
+                    )
+                )
+            
+            # Label in het midden
+            fig.add_annotation(
+                x=(start_pos + end_pos)/2,
+                y=beam_y + direction * arrow_height + direction * beam_height*0.5,
+                text=f"{abs(value)/1000:.1f} kN/m",
+                showarrow=False,
+                font=dict(size=10, color=colors['load'])
+            )
+            
+            # Legenda-item
+            fig.add_trace(
+                go.Scatter(
+                    x=[(start_pos + end_pos)/2],
+                    y=[beam_y + direction * arrow_height/2],
+                    mode='markers',
+                    marker=dict(size=0.1, color=colors['load']),
+                    name=f'Verdeelde last {abs(value)/1000:.1f} kN/m op {pos}-{pos+length} mm',
+                    showlegend=True
+                )
+            )
+    
+    # Annotatie voor balklengte
+    fig.add_annotation(
+        x=(0 + beam_length/1000) / 2,
+        y=beam_y - 2 * beam_height,
+        text=f"Balklengte: {beam_length} mm",
+        showarrow=False,
+        font=dict(size=12, color=colors['text'])
+    )
+    
+    # Styling en layout
+    fig.update_layout(
+        title="Klik op de balk om elementen toe te voegen",
+        xaxis_title="Positie (m)",
+        yaxis_title=None,
+        font=dict(
+            family="Arial, sans-serif",
+            size=12,
+            color=colors['text']
+        ),
+        showlegend=True,
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="center",
+            x=0.5
+        ),
+        autosize=True,
+        margin=dict(l=20, r=20, t=60, b=20),
+        plot_bgcolor='white',
+        xaxis=dict(
+            showgrid=True,
+            gridcolor=colors['grid'],
+            tickformat='.1f',
+            zeroline=True,
+            zerolinecolor=colors['grid'],
+            zerolinewidth=1
+        ),
+        yaxis=dict(
+            showgrid=False,
+            zeroline=False,
+            showticklabels=False,
+            scaleanchor="x",
+            scaleratio=1,
+        )
+    )
+    
+    # Zet gelijke assen om vervorming van vorm te voorkomen
+    height_range = beam_height * 5
+    y_min = beam_y - 2.5 * beam_height
+    y_max = beam_y + 2.5 * beam_height
+    
+    fig.update_yaxes(range=[y_min, y_max])
+    
+    # Maak de figuur interactief voor klikken
+    fig.update_layout(clickmode='event')
+    
+    return fig
+
+def find_nearest_element(x_click, supports, loads):
+    """Vind het dichtstbijzijnde element bij een klik op positie x_click"""
+    min_distance = float('inf')
+    nearest_element = None
+    
+    # Controleer steunpunten
+    for i, (pos, type) in enumerate(supports):
+        distance = abs(pos - x_click)
+        if distance < min_distance:
+            min_distance = distance
+            nearest_element = ('support', i, pos, type)
+    
+    # Controleer belastingen
+    for i, load in enumerate(loads):
+        pos = load[0]
+        distance = abs(pos - x_click)
+        if distance < min_distance:
+            min_distance = distance
+            nearest_element = ('load', i, load)
+    
+    # Alleen selecteren als de afstand redelijk is (binnen 5% van balklengte)
+    threshold = 100  # mm
+    if min_distance <= threshold:
+        return nearest_element
+    else:
+        return None
 
 if __name__ == "__main__":
     main()
