@@ -171,15 +171,16 @@ class BeamSolver:
         
         # Reactiekrachten
         for pos, R in self.reactions.items():
-            if not pos.startswith("M_"):  # Alleen krachten, geen momenten
-                idx = np.searchsorted(self.x, float(pos))
-                if idx < len(self.x):
-                    V[idx:] += R
-                    M[idx:] += R * (self.x[idx:] - float(pos))
+            if isinstance(pos, str) and pos.startswith("M_"):  # Alleen krachten, geen momenten
+                continue
+            idx = np.searchsorted(self.x, float(pos))
+            if idx < len(self.x):
+                V[idx:] += R
+                M[idx:] += R * (self.x[idx:] - float(pos))
         
         # Reactiemomenten
         for key, val in self.reactions.items():
-            if key.startswith("M_"):
+            if isinstance(key, str) and key.startswith("M_"):
                 pos = float(key.split("_")[1])
                 idx = np.searchsorted(self.x, pos)
                 if idx < len(self.x):
@@ -687,15 +688,16 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     
     # Reactiekrachten
     for pos, R in reactions.items():
-        if not pos.startswith("M_"):  # Alleen krachten, geen momenten
-            idx = np.searchsorted(x, float(pos))
-            if idx < len(x):
-                V[idx:] += R
-                M[idx:] += R * (x[idx:] - float(pos))
+        if isinstance(pos, str) and pos.startswith("M_"):  # Alleen krachten, geen momenten
+            continue
+        idx = np.searchsorted(x, float(pos))
+        if idx < len(x):
+            V[idx:] += R
+            M[idx:] += R * (x[idx:] - float(pos))
     
     # Reactiemomenten
     for key, val in reactions.items():
-        if key.startswith("M_"):
+        if isinstance(key, str) and key.startswith("M_"):
             pos = float(key.split("_")[1])
             idx = np.searchsorted(x, pos)
             if idx < len(x):
