@@ -2019,7 +2019,25 @@ def main():
         st.title("BeamSolved")
         st.markdown("#### Geavanceerde balkberekeningen voor constructeurs")
     
-    # Sidebar voor invoer
+    # Sessie state initialiseren voor interactieve elementen
+    if 'beam_length' not in st.session_state:
+        st.session_state.beam_length = 2000  # standaard balklengte in mm
+    
+    if 'supports' not in st.session_state:
+        # Standaard twee steunpunten: (positie, type)
+        st.session_state.supports = [(0, "Scharnier"), (st.session_state.beam_length, "Rol")]
+    
+    if 'loads' not in st.session_state:
+        # Standaard geen belastingen: (positie, waarde, type, [lengte voor verdeelde last])
+        st.session_state.loads = []
+    
+    if 'selected_element' not in st.session_state:
+        st.session_state.selected_element = None
+    
+    if 'interaction_mode' not in st.session_state:
+        st.session_state.interaction_mode = "select"  # 'select', 'add_support', 'add_load'
+    
+    # Sidebar voor profiel en materiaal
     with st.sidebar:
         st.header("Invoergegevens")
         
@@ -2051,226 +2069,164 @@ def main():
                     if flange_thickness:
                         st.metric("Flensdikte", f"{flange_thickness} mm")
             else:
+                # Toon invoervelden voor handmatige dimensies
                 col1, col2 = st.columns(2)
                 with col1:
-                    height = st.number_input(
-                        "Hoogte", 
-                        value=100.0,
-                        min_value=10.0,
-                        step=10.0,
-                        format="%.1f",
-                        help="mm"
-                    )
-                with col2:
-                    width = st.number_input(
-                        "Breedte", 
-                        value=50.0,
-                        min_value=10.0,
-                        step=10.0,
-                        format="%.1f",
-                        help="mm"
-                    )
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    wall_thickness = st.number_input(
-                        "Wanddikte", 
-                        value=5.0,
-                        min_value=1.0,
-                        step=0.5,
-                        format="%.1f",
-                        help="mm"
-                    )
-                with col2:
-                    if profile_type == "I-profiel":
-                        flange_thickness = st.number_input(
-                            "Flensdikte", 
-                            value=8.0,
-                            min_value=1.0,
-                            step=0.5,
-                            format="%.1f",
-                            help="mm"
-                        )
+                    height = st.number_input("Hoogte (mm)", min_value=10.0, max_value=1000.0, value=100.0, step=10.0)
+                    if profile_type in ["I-profiel", "U-profiel"]:
+                        flange_thickness = st.number_input("Flensdikte (mm)", min_value=1.0, max_value=50.0, value=5.0, step=0.5)
                     else:
                         flange_thickness = None
-            
-            # Materiaal eigenschappen
-            E = st.number_input(
-                "E-modulus", 
-                value=210000.0,
-                min_value=1000.0,
-                step=1000.0,
-                format="%.1f",
-                help="N/mm²"
-            )
-            
-            # Bereken en toon eigenschappen
-            if profile_type != "Standaard profiel":
-                I = calculate_moment_of_inertia(profile_type, height, width, wall_thickness, flange_thickness)
-                A = calculate_A(profile_type, height, width, wall_thickness, flange_thickness)
-                
-                if I is not None and A is not None:
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        st.metric("I", f"{I:.2e} mm⁴")
-                    with col2:
-                        st.metric("A", f"{A:.1f} mm²")
-        
-        # Balk tab
-        with st.expander("Balk", expanded=True):
-            beam_length = st.number_input(
-                "Overspanning", 
-                value=3000.0,
-                min_value=100.0,
-                step=100.0,
-                format="%.0f",
-                help="mm"
-            )
-            
-            # Steunpunten
-            st.subheader("Steunpunten")
-            
-            # Vervang slider door numerieke invoer met + en - knoppen
-            col1, col2, col3 = st.columns([1,1,3])
-            with col1:
-                st.markdown("**Aantal steunpunten**")
-            with col2:
-                num_supports = st.number_input("", min_value=2, max_value=5, value=2, 
-                                              step=1, label_visibility="collapsed", key="num_supports_input")
-            with col3:
-                st.markdown("*<span style='color:#0066CC; font-size:0.8em'>Configuratie met overhang mogelijk</span>*", unsafe_allow_html=True)
-            
-            supports = []
-            for i in range(num_supports):
-                col1, col2 = st.columns(2)
-                with col1:
-                    if i == 0:
-                        # Eerste steunpunt kan ook voorbij 0 worden geplaatst voor overhang
-                        pos = st.number_input(
-                            f"Positie {i+1}", 
-                            value=0.0,
-                            min_value=-0.5*beam_length,  # Sta negatieve waarden toe voor overhang aan begin
-                            max_value=beam_length,
-                            step=100.0,
-                            format="%.0f",
-                            help="mm",
-                            key=f"support_pos_{i}"
-                        )
-                    elif i == num_supports - 1:
-                        # Laatste steunpunt kan ook voor beam_length worden geplaatst voor overhang
-                        pos = st.number_input(
-                            f"Positie {i+1}", 
-                            value=beam_length,
-                            min_value=0.0,
-                            max_value=1.5*beam_length,  # Sta waarden toe voorbij balklengte voor overhang aan eind
-                            step=100.0,
-                            format="%.0f",
-                            help="mm",
-                            key=f"support_pos_{i}"
-                        )
-                    else:
-                        pos = st.number_input(
-                            f"Positie {i+1}", 
-                            value=i * beam_length / (num_supports - 1),
-                            min_value=0.0,
-                            max_value=beam_length,
-                            step=100.0,
-                            format="%.0f",
-                            help="mm",
-                            key=f"support_pos_{i}"
-                        )
                 with col2:
-                    type = st.selectbox(
-                        f"Type {i+1}",
-                        ["Scharnier", "Rol", "Inklemming"],
-                        key=f"support_type_{i}"
-                    )
-                supports.append((pos, type))
+                    width = st.number_input("Breedte (mm)", min_value=10.0, max_value=1000.0, value=50.0, step=10.0)
+                    wall_thickness = st.number_input("Wanddikte (mm)", min_value=1.0, max_value=50.0, value=5.0, step=0.5)
             
-            # Belastingen
-            st.subheader("Belastingen")
-            
-            # Vervang slider door numerieke invoer met + en - knoppen
-            col1, col2, col3 = st.columns([1,1,3])
-            with col1:
-                st.markdown("**Aantal belastingen**")
-            with col2:
-                num_loads = st.number_input("", min_value=0, max_value=5, value=1, 
-                                          step=1, label_visibility="collapsed", key="num_loads_input")
-            with col3:
-                st.markdown("*<span style='color:#0066CC; font-size:0.8em'>0-5 belastingen mogelijk</span>*", unsafe_allow_html=True)
-            
-            loads = []
-            for i in range(num_loads):
-                st.markdown(f"**Belasting {i+1}**")
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    load_type = st.selectbox(
-                        "Type",
-                        ["Puntlast", "Verdeelde last", "Moment", "Driehoekslast"],
-                        key=f"load_type_{i}"
-                    )
-                with col2:
-                    if load_type == "Moment":
-                        unit = "Nmm"
-                    elif load_type in ["Verdeelde last", "Driehoekslast"]:
-                        unit = "N/mm"
-                    else:
-                        unit = "N"
-                        
-                    value = st.number_input(
-                        f"Waarde ({unit})",
-                        value=1000.0,
-                        step=100.0,
-                        format="%.1f",
-                        key=f"load_value_{i}"
-                    )
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    position = st.number_input(
-                        "Positie", 
-                        value=0.0,
-                        min_value=0.0,
-                        max_value=beam_length,
-                        step=100.0,
-                        format="%.0f",
-                        help="mm",
-                        key=f"load_pos_{i}"
-                    )
-                with col2:
-                    if load_type in ["Verdeelde last", "Driehoekslast"]:
-                        length = st.number_input(
-                            "Lengte",
-                            value=1000.0,
-                            min_value=0.0,
-                            max_value=beam_length,
-                            step=100.0,
-                            format="%.0f",
-                            help="mm",
-                            key=f"load_length_{i}"
-                        )
-                        loads.append((position, value, load_type, length))
-                    else:
-                        loads.append((position, value, load_type))
+            # Materiaal
+            E = st.number_input("E-modulus (N/mm²)", min_value=1000.0, max_value=300000.0, value=210000.0, step=1000.0)
     
-    # Hoofdgedeelte
-    if st.sidebar.button("Bereken", type="primary", use_container_width=True):
-        # Voer analyse uit
-        x, V, M, theta, y, reactions = analyze_beam(beam_length, supports, loads, profile_type, height, width, wall_thickness, flange_thickness, E)
+    # Hoofdgedeelte - Interactieve balk
+    st.header("Interactieve Balk")
+    
+    # Balklengte instellen
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        st.markdown("**Balklengte (mm)**")
+    with col2:
+        beam_length = st.number_input(
+            "", 
+            min_value=500, 
+            max_value=10000, 
+            value=st.session_state.beam_length,
+            step=100,
+            label_visibility="collapsed",
+            key="beam_length_input"
+        )
+        st.session_state.beam_length = beam_length
+    
+    # Interactie knoppen
+    st.markdown("### Interactie")
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        if st.button("🖱️ Selecteren", use_container_width=True):
+            st.session_state.interaction_mode = "select"
+    with col2:
+        if st.button("➕ Steunpunt", use_container_width=True):
+            st.session_state.interaction_mode = "add_support"
+    with col3:
+        if st.button("⬇️ Puntlast", use_container_width=True):
+            st.session_state.interaction_mode = "add_point_load"
+    with col4:
+        if st.button("📏 Verdeelde last", use_container_width=True):
+            st.session_state.interaction_mode = "add_distributed_load"
+    
+    # Toon de huidige interactiemodus
+    st.info(f"Huidige modus: {st.session_state.interaction_mode}")
+    
+    # Teken de interactieve balk (met Plotly)
+    beam_fig = plot_interactive_beam(
+        beam_length=st.session_state.beam_length,
+        supports=st.session_state.supports,
+        loads=st.session_state.loads
+    )
+    
+    # Maak de plot interactief
+    beam_plot = st.plotly_chart(
+        beam_fig, 
+        use_container_width=True,
+        config={
+            'displayModeBar': True,
+            'scrollZoom': True,
+            'modeBarButtonsToRemove': ['lasso2d', 'select2d']
+        }
+    )
+    
+    # Verwerk klikken op de balk
+    if beam_fig.data and hasattr(beam_fig, '_click_data') and beam_fig._click_data:
+        click_data = beam_fig._click_data
+        x_click = click_data['points'][0]['x'] * 1000  # Converteer naar mm
         
-        # Teken balkschema
-        beam_fig = plot_beam_diagram(beam_length, supports, loads)
+        if st.session_state.interaction_mode == "select":
+            # Vind het dichtstbijzijnde element
+            selected = find_nearest_element(x_click, st.session_state.supports, st.session_state.loads)
+            if selected:
+                st.session_state.selected_element = selected
+                st.write(f"Geselecteerd: {selected}")
         
-        # Toon resultaten als analyse succesvol was
-        if x is not None and V is not None and M is not None and theta is not None and y is not None and reactions is not None:
-            # Resultaten tabs
-            tab1, tab2, tab3 = st.tabs(["Grafieken", "Balkschema", "Resultaten"])
+        elif st.session_state.interaction_mode == "add_support":
+            # Voeg een nieuw steunpunt toe
+            st.session_state.supports.append((x_click, "Scharnier"))
+            st.experimental_rerun()
+        
+        elif st.session_state.interaction_mode == "add_point_load":
+            # Voeg een nieuwe puntlast toe
+            st.session_state.loads.append((x_click, 1000, "Puntlast"))  # 1 kN standaard
+            st.experimental_rerun()
+        
+        elif st.session_state.interaction_mode == "add_distributed_load":
+            # Voeg een nieuwe verdeelde last toe
+            st.session_state.loads.append((x_click, 1, "Verdeelde last", 500))  # 1 N/mm over 500mm
+            st.experimental_rerun()
+    
+    # Toon de huidige elementen
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        st.subheader("Steunpunten")
+        for i, (pos, type) in enumerate(st.session_state.supports):
+            st.write(f"{i+1}. {type} op {pos:.0f} mm")
+    
+    with col2:
+        st.subheader("Belastingen")
+        for i, load in enumerate(st.session_state.loads):
+            if load[2] == "Puntlast":
+                st.write(f"{i+1}. {load[2]} van {load[1]/1000:.1f} kN op {load[0]:.0f} mm")
+            elif load[2] == "Verdeelde last":
+                st.write(f"{i+1}. {load[2]} van {load[1]/1000:.1f} kN/m over {load[3]:.0f} mm vanaf {load[0]:.0f} mm")
+    
+    # Berekeningsknop
+    if st.button("Bereken", type="primary", use_container_width=True):
+        # Controleer of er genoeg steunpunten zijn
+        if len(st.session_state.supports) < 2:
+            st.error("❌ Er zijn minimaal 2 steunpunten nodig.")
+            return
+        
+        try:
+            # Bereken traagheidsmoment
+            I = calculate_moment_of_inertia(profile_type, height, width, wall_thickness, flange_thickness)
+            if I is None:
+                return
             
-            with tab1:
-                # Plot resultaten
-                results_fig = plot_results(x, V, M, theta, y, beam_length, supports, loads)
+            # Bereken interne krachten en doorbuiging
+            x, V, M, theta, y, reactions = analyze_beam(
+                beam_length, 
+                st.session_state.supports, 
+                st.session_state.loads, 
+                profile_type, 
+                height, 
+                width, 
+                wall_thickness, 
+                flange_thickness, 
+                E
+            )
+            
+            if x is not None:
+                # Toon resultaten
+                st.header("Resultaten")
+                
+                # Toon reactiekrachten
+                st.subheader("Reactiekrachten")
+                reaction_data = []
+                for pos, val in reactions.items():
+                    if isinstance(pos, str) and pos.startswith("M_"):
+                        pos_val = float(pos.split("_")[1])
+                        reaction_data.append(["Moment", f"{pos_val:.0f} mm", f"{val/1e6:.2f} kNm"])
+                    else:
+                        reaction_data.append(["Kracht", f"{pos:.0f} mm", f"{val/1000:.2f} kN"])
+                
+                st.table(reaction_data)
+                
+                # Toon grafieken
+                results_fig = plot_results(x, V, M, theta, y, beam_length, st.session_state.supports, st.session_state.loads)
                 st.plotly_chart(results_fig, use_container_width=True)
                 
                 # Toon maximale waarden
@@ -2287,79 +2243,43 @@ def main():
                 with col4:
                     max_y = np.max(np.abs(y))
                     st.metric("Max. doorbuiging", f"{max_y:.2f} mm")
-            
-            with tab2:
-                # Toon balkschema
-                st.plotly_chart(beam_fig, use_container_width=True)
-            
-            with tab3:
-                # Toon reactiekrachten
-                st.subheader("Reactiekrachten")
-                reaction_data = []
-                for pos, support_type in supports:
-                    reaction = 0
-                    if pos in reactions:
-                        reaction = -reactions[pos]  # Negatief omdat reacties omhoog positief zijn
-                    reaction_data.append([f"{pos:.0f} mm", support_type, f"{reaction/1000:.2f} kN"])
                 
-                st.table({
-                    "Positie": [row[0] for row in reaction_data],
-                    "Type": [row[1] for row in reaction_data],
-                    "Reactiekracht": [row[2] for row in reaction_data]
-                })
-                
-                # Toon PDF export optie
-                if st.button("Exporteer rapport (PDF)", use_container_width=True):
-                    # Verzamel data voor rapport
-                    beam_data = {
-                        "profile_type": profile_type,
-                        "height": height,
-                        "width": width,
-                        "wall_thickness": wall_thickness,
-                        "flange_thickness": flange_thickness,
-                        "beam_length": beam_length,
-                        "supports": supports,
-                        "loads": loads,
-                        "reactions": reactions,
-                        "max_values": {
-                            "V": max_V,
-                            "M": max_M,
-                            "theta": max_theta,
-                            "y": max_y
-                        }
-                    }
+                # Export knop
+                if st.button("Exporteer naar PDF"):
+                    pdf_bytes = generate_report(
+                        beam_length, st.session_state.supports, st.session_state.loads, 
+                        profile_type, height, width, wall_thickness, flange_thickness, 
+                        E, I, reactions, x, V, M, theta, y
+                    )
                     
-                    # Genereer rapport
-                    report_content = generate_pdf_report(beam_data, results_fig)
-                    
-                    # Download knop
-                    now = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename = f"beamsolve_rapport_{now}.pdf"
-                    # Converteer naar base64 voor download
-                    b64 = base64.b64encode(report_content).decode()
-                    href = f'<a href="data:application/pdf;base64,{b64}" download="{filename}">Download PDF rapport</a>'
-                    st.markdown(href, unsafe_allow_html=True)
+                    # Download link
+                    st.download_button(
+                        label="Download PDF",
+                        data=pdf_bytes,
+                        file_name=f"balkberekening_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf"
+                    )
+        
+        except Exception as e:
+            st.error(f"❌ Berekeningsfout: {str(e)}")
+    
+    # Toon welkomstscherm als er nog geen berekening is uitgevoerd
     else:
-        # Toon welkomstscherm
         st.markdown("""
-        ## Welkom bij BeamSolved
+        ## Welkom bij de interactieve BeamSolved
         
-        Dit is een geavanceerde tool voor het analyseren van balken en liggers.
+        Deze tool stelt je in staat om direct op de balk te klikken om elementen toe te voegen:
         
-        ### Hoe te gebruiken:
-        1. Configureer het profiel in de sidebar
-        2. Definieer de balk en steunpunten
-        3. Voeg belastingen toe
-        4. Klik op 'Bereken'
+        1. Klik op de gewenste interactiemodus (Selecteren, Steunpunt, Puntlast, Verdeelde last)
+        2. Klik op de balk om het element toe te voegen
+        3. Configureer het profiel in de sidebar
+        4. Klik op 'Bereken' om de resultaten te zien
         
-        ### Mogelijkheden:
-        - Verschillende profieltypes (Koker, I-profiel, Rechthoek, Cirkel, HEA, HEB, IPE, UNP)
-        - Meerdere steunpunten (2-5)
-        - Verschillende belastingtypes
-        - Visualisatie van dwarskracht, moment, rotatie en doorbuiging
-        - Export naar PDF rapport
+        ### Tips:
+        - Gebruik de selecteermodus om elementen te selecteren en aan te passen
+        - Je kunt de balklengte bovenaan aanpassen
+        - Configureer het profiel in de zijbalk
         """)
-        
-       
+
 if __name__ == "__main__":
     main()
