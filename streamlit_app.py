@@ -85,7 +85,8 @@ class BeamSolver:
                 length = rest[0]
                 q = val
                 V_total += q * length
-                M_total += q * length * (p + length/2 - pos)
+                x_c = p + length/2
+                M_total += q * length * (x_c - pos)
             elif ltype.lower() == "moment":
                 M_total += val
 
@@ -2217,7 +2218,7 @@ def main():
             )
             if st.button("Steunpunt toevoegen"):
                 st.session_state.supports.append((position, support_type))
-                st.experimental_rerun()
+                st.rerun()
     
         elif element_type == "Puntlast":
             load_value = st.number_input(
@@ -2229,7 +2230,7 @@ def main():
             )
             if st.button("Puntlast toevoegen"):
                 st.session_state.loads.append((position, load_value * 1000, "Puntlast"))
-                st.experimental_rerun()
+                st.rerun()
     
         elif element_type == "Verdeelde last":
             load_value = st.number_input(
@@ -2247,7 +2248,7 @@ def main():
             )
             if st.button("Verdeelde last toevoegen"):
                 st.session_state.loads.append((position, load_value, "Verdeelde last", load_length))
-                st.experimental_rerun()
+                st.rerun()
 
     # Berekeningsknop
     if st.button("Bereken", type="primary", use_container_width=True):
