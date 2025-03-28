@@ -3,15 +3,17 @@ import numpy as np
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import base64
-import io
+from io import BytesIO
 import os
+import tempfile
 from datetime import datetime
 from reportlab.lib.pagesizes import A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Image, Table, TableStyle
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
-from reportlab.lib.styles import getSampleStyleSheet
-# from scipy.integrate import cumtrapz
-# from beam_solver import BeamSolver
+from reportlab.lib.units import mm
+from reportlab.graphics import renderPM
+from plot_interactive_beam import plot_interactive_beam, find_nearest_element
 
 # Alternatief voor cumtrapz als scipy niet beschikbaar is
 def custom_cumtrapz(y, x, initial=0):
