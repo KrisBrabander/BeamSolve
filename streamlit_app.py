@@ -2147,7 +2147,7 @@ def main():
     )
     
     # Maak de plot interactief
-    click_data = st.plotly_chart(
+    st.plotly_chart(
         beam_fig, 
         use_container_width=True,
         config={
@@ -2157,31 +2157,8 @@ def main():
         }
     )
     
-    # Verwerk klikken op de balk
-    if click_data and click_data['points']:
-        x_click = click_data['points'][0]['x'] * 1000  # Converteer naar mm
-        
-        if st.session_state.interaction_mode == "select":
-            # Vind het dichtstbijzijnde element
-            selected = find_nearest_element(x_click, st.session_state.supports, st.session_state.loads)
-            if selected:
-                st.session_state.selected_element = selected
-                st.write(f"Geselecteerd: {selected}")
-        
-        elif st.session_state.interaction_mode == "add_support":
-            # Voeg een nieuw steunpunt toe
-            st.session_state.supports.append((x_click, "Scharnier"))
-            st.experimental_rerun()
-        
-        elif st.session_state.interaction_mode == "add_point_load":
-            # Voeg een nieuwe puntlast toe
-            st.session_state.loads.append((x_click, 1000, "Puntlast"))  # 1 kN standaard
-            st.experimental_rerun()
-        
-        elif st.session_state.interaction_mode == "add_distributed_load":
-            # Voeg een nieuwe verdeelde last toe
-            st.session_state.loads.append((x_click, 1, "Verdeelde last", 500))  # 1 N/mm over 500mm
-            st.experimental_rerun()
+    # Opmerking over interactiviteit
+    st.info("Gebruik het handmatige invoerformulier hieronder om elementen toe te voegen aan de balk.")
     
     # Toon de huidige elementen
     col1, col2 = st.columns(2)
