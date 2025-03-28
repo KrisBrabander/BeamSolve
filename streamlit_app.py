@@ -232,74 +232,43 @@ class BeamSolver:
         # Bereken dwarskracht en moment
         V, M = self.V, self.M
         
-        # In mechanica: positief moment geeft doorbuiging naar beneden (negatieve y)
-        # Pas tekenconventie aan: vermenigvuldig M met -1 voor correcte richting
-        M_signed = -M  # Negatief moment geeft positieve doorbuiging (naar beneden)
+        # Eerste integratie: rotatie (positief is rechtsom)
+        theta = np.zeros_like(self.x)
+        for i in range(1, len(self.x)):
+            theta[i] = theta[i-1] + (M[i-1] + M[i])*(self.x[i] - self.x[i-1])/(2*self.EI)
         
-        # Eerste integratie: hoekverdraaiing
-        theta = custom_cumtrapz(M_signed/self.EI, self.x, initial=0)
+        # Tweede integratie: doorbuiging (positief is naar beneden)
+        y = np.zeros_like(self.x)
+        for i in range(1, len(self.x)):
+            y[i] = y[i-1] + (theta[i-1] + theta[i])*(self.x[i] - self.x[i-1])/2
         
-        # Tweede integratie: doorbuiging
-        y = custom_cumtrapz(theta, self.x, initial=0)
-        
-        # Pas randvoorwaarden toe voor correcte doorbuiging bij steunpunten
+        # Pas randvoorwaarden toe
         support_positions = [s[0] for s in self.supports]
         support_indices = [np.abs(self.x - pos).argmin() for pos in support_positions]
         
-        # Bij meer dan 2 steunpunten, gebruik nauwkeurigere methode
-        if len(support_indices) == 2:
-            # Voor 2 steunpunten: eenvoudige lineaire correctie
-            i1, i2 = support_indices
+        # Bepaal correctie voor doorbuiging
+        if len(support_indices) >= 2:
+            # Bepaal correctielijn door eerste en laatste steunpunt
+            first_idx = support_indices[0]
+            last_idx = support_indices[-1]
             
-            # Bereken correctieparameters
-            if i1 != i2:  # Voorkom deling door nul
-                slope = (y[i2] - y[i1]) / (self.x[i2] - self.x[i1])
-                intercept = y[i1] - slope * self.x[i1]
+            if first_idx != last_idx:
+                # Bereken helling en snijpunt van correctielijn
+                slope = (y[last_idx] - y[first_idx]) / (self.x[last_idx] - self.x[first_idx])
+                intercept = y[first_idx] - slope * self.x[first_idx]
                 
                 # Pas correctie toe
                 y_corrected = y - (intercept + slope * self.x)
-            else:
-                y_corrected = y - y[i1]
-        else:
-            # Voor meer dan 2 steunpunten of 1 steunpunt
-            # Gebruik weighted least squares voor betere stabiliteit
-            A = np.ones((len(support_indices), 2))
-            b = np.zeros(len(support_indices))
-            
-            for i, idx in enumerate(support_indices):
-                A[i, 1] = self.x[idx]
-                b[i] = -y[idx]
-            
-            try:
-                # Gewogen least squares oplossing
-                weights = np.ones(len(support_indices))
                 
-                # Geef meer gewicht aan het eerste en laatste steunpunt
-                if len(weights) > 2:
-                    weights[0] *= 2
-                    weights[-1] *= 2
-                    
-                weighted_A = A * weights[:, np.newaxis]
-                weighted_b = b * weights
-                
-                C, residuals, rank, s = np.linalg.lstsq(weighted_A, weighted_b, rcond=None)
-                
-                # Corrigeer doorbuiging
-                y_corrected = y + C[0] + C[1] * self.x
-                
-                # Extra stap: zorg dat alle steunpunten op y=0 liggen
-                for idx in support_indices:
-                    if abs(y_corrected[idx]) > 1e-6:
-                        st.info(f"⚠️ Correctie bij steunpunt op x={self.x[idx]:.1f}mm: {y_corrected[idx]:.6f}mm → 0mm")
-                
-                # Extra correctie voor statische bepaaldheid
+                # Zorg dat alle steunpunten exact op 0 liggen
                 for idx in support_indices:
                     y_corrected[idx] = 0.0
-                    
-            except Exception as e:
-                st.warning(f"⚠️ Randvoorwaarden konden niet exact worden toegepast: {str(e)}")
-                # Eenvoudige correctie: verschuif zodat eerste steunpunt op 0 ligt
-                y_corrected = y - y[support_indices[0]]
+            else:
+                # Als er maar één uniek steunpunt is, verschuif alles
+                y_corrected = y - y[first_idx]
+        else:
+            # Bij één steunpunt, verschuif alles
+            y_corrected = y - y[support_indices[0]]
         
         self.theta = theta
         self.y = y_corrected
@@ -720,13 +689,15 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     # Verzamel steunpunt posities voor controle
     support_positions = [pos for pos, _ in supports]
     
-    # Reactiekrachten
+    # Reactiekrachten (positief naar boven)
     for pos, R in reactions.items():
-        if isinstance(pos, str) and pos.startswith("M_"):  # Alleen krachten, geen momenten
+        if isinstance(pos, str) and pos.startswith("M_"):
             continue
         idx = np.searchsorted(x, float(pos))
         if idx < len(x):
+            # Positieve reactiekracht is naar boven gericht
             V[idx:] += R
+            # Positieve reactiekracht naar boven geeft positief moment (rechtsom)
             M[idx:] += R * (x[idx:] - float(pos))
     
     # Reactiemomenten
@@ -735,7 +706,7 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
             pos = float(key.split("_")[1])
             idx = np.searchsorted(x, pos)
             if idx < len(x):
-                # Moment heeft geen effect op dwarskracht, alleen op moment
+                # Positief moment is rechtsom
                 M[idx:] += val
     
     # Uitwendige belastingen
@@ -746,34 +717,44 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
         on_support = any(abs(pos - sp) < 1e-6 for sp in support_positions)
         
         if ltype.lower() == "puntlast":
-            # Als de puntlast op een steunpunt valt, wordt deze direct opgenomen
-            # door het steunpunt en heeft geen effect op de interne krachten
+            # Positieve puntlast is naar beneden gericht
             if not on_support:
                 idx = np.searchsorted(x, pos)
                 if idx < len(x):
+                    # Puntlast naar beneden geeft negatieve dwarskracht
                     V[idx:] -= val
+                    # Puntlast naar beneden geeft negatief moment links van de last
                     M[idx:] -= val * (x[idx:] - pos)
+        
         elif ltype.lower() == "verdeelde last":
             length = rest[0]
-            q = val
-            start_idx = np.searchsorted(x, pos)
-            end_idx = np.searchsorted(x, pos + length)
+            q = val  # Positieve q is naar beneden gericht
+            start_pos = pos
+            end_pos = pos + length
             
-            # Punten binnen de verdeelde last
-            for i in range(start_idx, min(end_idx, len(x))):
-                dx = x[i] - pos
-                V[i] -= q * dx
-                M[i] -= q * dx**2 / 2
-            
-            # Punten voorbij de verdeelde last
+            # Bereken effect op punten na de verdeelde last
+            end_idx = np.searchsorted(x, end_pos)
             if end_idx < len(x):
+                # Totale kracht = q * length (naar beneden)
                 V[end_idx:] -= q * length
-                M[end_idx:] -= q * length * (x[end_idx:] - pos - length/2)
+                # Moment = q * length * arm (arm = afstand tot zwaartepunt van de last)
+                M[end_idx:] -= q * length * (x[end_idx:] - (start_pos + length/2))
+            
+            # Bereken effect binnen de verdeelde last
+            for i in range(len(x)):
+                if x[i] >= start_pos and x[i] < end_pos:
+                    # Belasting tot aan dit punt
+                    load_width = x[i] - start_pos
+                    # Dwarskracht = -q * breedte
+                    V[i] -= q * load_width
+                    # Moment = -q * breedte * arm (arm = helft van de breedte)
+                    M[i] -= q * load_width * (load_width/2)
+        
         elif ltype.lower() == "moment":
             idx = np.searchsorted(x, pos)
             if idx < len(x):
-                # Extern moment heeft geen effect op dwarskracht, alleen op moment
-                M[idx:] -= val
+                # Extern moment (positief is rechtsom)
+                M[idx:] -= val  # Negatief teken omdat externe belasting tegengesteld werkt
     
     return V, M
 
@@ -782,74 +763,45 @@ def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
     # Bereken dwarskracht en moment
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
-    # In mechanica: positief moment geeft doorbuiging naar beneden (negatieve y)
-    # Pas tekenconventie aan: vermenigvuldig M met -1 voor correcte richting
-    M_signed = -M  # Negatief moment geeft positieve doorbuiging (naar beneden)
+    # Eerste integratie: rotatie (positief is rechtsom)
+    # Positief moment geeft positieve rotatie
+    theta = np.zeros_like(x)
+    for i in range(1, len(x)):
+        theta[i] = theta[i-1] + (M[i-1] + M[i])*(x[i] - x[i-1])/(2*EI)
     
-    # Eerste integratie: hoekverdraaiing
-    theta = custom_cumtrapz(M_signed/EI, x, initial=0)
+    # Tweede integratie: doorbuiging (positief is naar beneden)
+    # Positieve rotatie geeft positieve doorbuiging
+    y = np.zeros_like(x)
+    for i in range(1, len(x)):
+        y[i] = y[i-1] + (theta[i-1] + theta[i])*(x[i] - x[i-1])/2
     
-    # Tweede integratie: doorbuiging
-    y = custom_cumtrapz(theta, x, initial=0)
-    
-    # Pas randvoorwaarden toe voor correcte doorbuiging bij steunpunten
+    # Pas randvoorwaarden toe
     support_positions = [s[0] for s in supports]
     support_indices = [np.abs(x - pos).argmin() for pos in support_positions]
     
-    # Bij meer dan 2 steunpunten, gebruik nauwkeurigere methode
-    if len(support_indices) == 2:
-        # Voor 2 steunpunten: eenvoudige lineaire correctie
-        i1, i2 = support_indices
+    # Bepaal correctie voor doorbuiging
+    if len(support_indices) >= 2:
+        # Bepaal correctielijn door eerste en laatste steunpunt
+        first_idx = support_indices[0]
+        last_idx = support_indices[-1]
         
-        # Bereken correctieparameters
-        if i1 != i2:  # Voorkom deling door nul
-            slope = (y[i2] - y[i1]) / (x[i2] - x[i1])
-            intercept = y[i1] - slope * x[i1]
+        if first_idx != last_idx:
+            # Bereken helling en snijpunt van correctielijn
+            slope = (y[last_idx] - y[first_idx]) / (x[last_idx] - x[first_idx])
+            intercept = y[first_idx] - slope * x[first_idx]
             
             # Pas correctie toe
             y_corrected = y - (intercept + slope * x)
-        else:
-            y_corrected = y - y[i1]
-    else:
-        # Voor meer dan 2 steunpunten of 1 steunpunt
-        # Gebruik weighted least squares voor betere stabiliteit
-        A = np.ones((len(support_indices), 2))
-        b = np.zeros(len(support_indices))
-        
-        for i, idx in enumerate(support_indices):
-            A[i, 1] = x[idx]
-            b[i] = -y[idx]
-        
-        try:
-            # Gewogen least squares oplossing
-            weights = np.ones(len(support_indices))
             
-            # Geef meer gewicht aan het eerste en laatste steunpunt
-            if len(weights) > 2:
-                weights[0] *= 2
-                weights[-1] *= 2
-                
-            weighted_A = A * weights[:, np.newaxis]
-            weighted_b = b * weights
-            
-            C, residuals, rank, s = np.linalg.lstsq(weighted_A, weighted_b, rcond=None)
-            
-            # Corrigeer doorbuiging
-            y_corrected = y + C[0] + C[1] * x
-            
-            # Extra stap: zorg dat alle steunpunten op y=0 liggen
-            for idx in support_indices:
-                if abs(y_corrected[idx]) > 1e-6:
-                    st.info(f"⚠️ Correctie bij steunpunt op x={x[idx]:.1f}mm: {y_corrected[idx]:.6f}mm → 0mm")
-            
-            # Extra correctie voor statische bepaaldheid
+            # Zorg dat alle steunpunten exact op 0 liggen
             for idx in support_indices:
                 y_corrected[idx] = 0.0
-                
-        except Exception as e:
-            st.warning(f"⚠️ Randvoorwaarden konden niet exact worden toegepast: {str(e)}")
-            # Eenvoudige correctie: verschuif zodat eerste steunpunt op 0 ligt
-            y_corrected = y - y[support_indices[0]]
+        else:
+            # Als er maar één uniek steunpunt is, verschuif alles
+            y_corrected = y - y[first_idx]
+    else:
+        # Bij één steunpunt, verschuif alles
+        y_corrected = y - y[support_indices[0]]
     
     return theta, y_corrected
 
@@ -1278,10 +1230,17 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
         row_heights=[0.4, 0.2, 0.2, 0.2]  # Balk krijgt meer ruimte
     )
     
+    # Bereken x-as in meters voor betere weergave
+    x_m = x/1000
+    
+    # Bepaal x-as grenzen
+    x_min = 0
+    x_max = beam_length/1000
+    
     # Plot doorbuiging (nu bovenaan en groter)
     fig.add_trace(
         go.Scatter(
-            x=x/1000, y=y,
+            x=x_m, y=y,
             mode='lines',
             name='Doorbuiging',
             line=dict(color=colors['deflection'], width=4),
@@ -1294,7 +1253,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
     # Teken de balk zelf als een lijn
     fig.add_trace(
         go.Scatter(
-            x=x/1000, 
+            x=x_m, 
             y=[0] * len(x),
             mode='lines',
             name='Balk',
@@ -1336,7 +1295,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
     # Plot dwarskracht (nu tweede)
     fig.add_trace(
         go.Scatter(
-            x=x/1000, y=V/1000,
+            x=x_m, y=V/1000,  # kN
             mode='lines',
             name='Dwarskracht',
             line=dict(color=colors['shear'], width=3),
@@ -1349,7 +1308,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
     # Plot moment (nu derde)
     fig.add_trace(
         go.Scatter(
-            x=x/1000, y=M/1e6,
+            x=x_m, y=M/1e6,  # kNm
             mode='lines',
             name='Moment',
             line=dict(color=colors['moment'], width=3),
@@ -1362,7 +1321,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
     # Plot rotatie (nu onderaan)
     fig.add_trace(
         go.Scatter(
-            x=x/1000, y=theta,
+            x=x_m, y=theta,  # rad
             mode='lines',
             name='Rotatie',
             line=dict(color=colors['rotation'], width=3),
@@ -1371,6 +1330,52 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
         ),
         row=4, col=1
     )
+    
+    # Voeg belastingen toe als annotaties in de doorbuigingsgrafiek
+    for load in loads:
+        pos, val, load_type, *rest = load
+        if load_type.lower() == "puntlast":
+            # Pijl voor puntlast
+            arrow_length = 0.1 * max(abs(min(y)), abs(max(y)))
+            direction = -1 if val > 0 else 1  # Positief is naar beneden
+            
+            fig.add_annotation(
+                x=pos/1000,
+                y=direction * arrow_length,
+                text=f"{abs(val)/1000:.1f} kN",
+                showarrow=True,
+                arrowhead=2,
+                arrowsize=1,
+                arrowwidth=2,
+                arrowcolor=colors['load'],
+                ax=0,
+                ay=direction * 30,
+                row=1, col=1
+            )
+        elif load_type.lower() == "verdeelde last":
+            length = rest[0]
+            start_pos = pos/1000
+            end_pos = (pos + length)/1000
+            mid_pos = (start_pos + end_pos)/2
+            
+            # Tekst voor verdeelde last
+            fig.add_annotation(
+                x=mid_pos,
+                y=0.15 * max(abs(min(y)), abs(max(y))),
+                text=f"{abs(val)/1000:.1f} kN/m",
+                showarrow=False,
+                font=dict(size=10, color=colors['load']),
+                row=1, col=1
+            )
+            
+            # Lijn voor verdeelde last
+            fig.add_shape(
+                type="line",
+                x0=start_pos, y0=0,
+                x1=end_pos, y1=0,
+                line=dict(color=colors['load'], width=4, dash="dashdot"),
+                row=1, col=1
+            )
     
     # Verbeter layout
     fig.update_layout(
@@ -1390,13 +1395,14 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
         )
     )
     
-    # Update x-assen
+    # Update x-assen - zorg dat ze allemaal dezelfde grenzen hebben
     for i in range(1, 5):
         fig.update_xaxes(
             title_text="Positie [m]" if i == 4 else None,
             gridcolor=colors['grid'],
             zerolinecolor=colors['zero'],
             zerolinewidth=2,
+            range=[x_min, x_max],  # Zelfde bereik voor alle grafieken
             row=i, col=1
         )
     
@@ -1407,14 +1413,14 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
         zerolinewidth=2
     )
     
-    # Voeg nulpunten toe op steunpunten in doorbuigingsgrafiek
-    for pos, _ in supports:
+    # Voeg horizontale nullijn toe aan elke grafiek
+    for i in range(1, 5):
         fig.add_shape(
             type="line",
-            x0=pos/1000, y0=-max(abs(min(y)), abs(max(y)))*0.05 if any(y) else -5.0,
-            x1=pos/1000, y1=max(abs(min(y)), abs(max(y)))*0.05 if any(y) else 5.0,
-            line=dict(color=colors['support'], width=1, dash="dot"),
-            row=1, col=1
+            x0=x_min, y0=0,
+            x1=x_max, y1=0,
+            line=dict(color=colors['zero'], width=1.5),
+            row=i, col=1
         )
     
     return fig
