@@ -171,13 +171,15 @@ class BeamSolver:
         # Verzamel steunpunt posities voor controle
         support_positions = [pos for pos, _ in self.supports]
         
-        # Reactiekrachten
+        # Reactiekrachten (positief naar boven)
         for pos, R in self.reactions.items():
             if isinstance(pos, str) and pos.startswith("M_"):  # Alleen krachten, geen momenten
                 continue
             idx = np.searchsorted(self.x, float(pos))
             if idx < len(self.x):
+                # Positieve reactiekracht is naar boven gericht
                 V[idx:] += R
+                # Positieve reactiekracht naar boven geeft positief moment (rechtsom)
                 M[idx:] += R * (self.x[idx:] - float(pos))
         
         # Reactiemomenten
@@ -186,9 +188,9 @@ class BeamSolver:
                 pos = float(key.split("_")[1])
                 idx = np.searchsorted(self.x, pos)
                 if idx < len(self.x):
-                    # Moment heeft geen effect op dwarskracht, alleen op moment
+                    # Positief moment is rechtsom
                     M[idx:] += val
-        
+    
         # Uitwendige belastingen
         for load in self.loads:
             pos, val, ltype, *rest = load
@@ -197,34 +199,44 @@ class BeamSolver:
             on_support = any(abs(pos - sp) < 1e-6 for sp in support_positions)
             
             if ltype.lower() == "puntlast":
-                # Als de puntlast op een steunpunt valt, wordt deze direct opgenomen
-                # door het steunpunt en heeft geen effect op de interne krachten
+                # Positieve puntlast is naar beneden gericht
                 if not on_support:
                     idx = np.searchsorted(self.x, pos)
                     if idx < len(self.x):
+                        # Puntlast naar beneden geeft negatieve dwarskracht
                         V[idx:] -= val
+                        # Puntlast naar beneden geeft negatief moment links van de last
                         M[idx:] -= val * (self.x[idx:] - pos)
+        
             elif ltype.lower() == "verdeelde last":
                 length = rest[0]
-                q = val
-                start_idx = np.searchsorted(self.x, pos)
-                end_idx = np.searchsorted(self.x, pos + length)
+                q = val  # Positieve q is naar beneden gericht
+                start_pos = pos
+                end_pos = pos + length
                 
-                # Punten binnen de verdeelde last
-                for i in range(start_idx, min(end_idx, len(self.x))):
-                    dx = self.x[i] - pos
-                    V[i] -= q * dx
-                    M[i] -= q * dx**2 / 2
-                
-                # Punten voorbij de verdeelde last
+                # Bereken effect op punten na de verdeelde last
+                end_idx = np.searchsorted(self.x, end_pos)
                 if end_idx < len(self.x):
+                    # Totale kracht = q * length (naar beneden)
                     V[end_idx:] -= q * length
-                    M[end_idx:] -= q * length * (self.x[end_idx:] - pos - length/2)
+                    # Moment = q * length * arm (arm = afstand tot zwaartepunt van de last)
+                    M[end_idx:] -= q * length * (self.x[end_idx:] - (start_pos + length/2))
+            
+                # Bereken effect binnen de verdeelde last
+                for i in range(len(self.x)):
+                    if self.x[i] >= start_pos and self.x[i] < end_pos:
+                        # Belasting tot aan dit punt
+                        load_width = self.x[i] - start_pos
+                        # Dwarskracht = -q * breedte
+                        V[i] -= q * load_width
+                        # Moment = -q * breedte * arm (arm = helft van de breedte)
+                        M[i] -= q * load_width * (load_width/2)
+        
             elif ltype.lower() == "moment":
                 idx = np.searchsorted(self.x, pos)
                 if idx < len(self.x):
-                    # Extern moment heeft geen effect op dwarskracht, alleen op moment
-                    M[idx:] -= val
+                    # Extern moment (positief is rechtsom)
+                    M[idx:] -= val  # Negatief teken omdat externe belasting tegengesteld werkt
     
         self.V = V
         self.M = M
@@ -235,11 +247,13 @@ class BeamSolver:
         V, M = self.V, self.M
         
         # Eerste integratie: rotatie (positief is rechtsom)
+        # Positief moment geeft positieve rotatie
         theta = np.zeros_like(self.x)
         for i in range(1, len(self.x)):
             theta[i] = theta[i-1] + (M[i-1] + M[i])*(self.x[i] - self.x[i-1])/(2*self.EI)
         
         # Tweede integratie: doorbuiging (positief is naar beneden)
+        # Positieve rotatie geeft positieve doorbuiging
         y = np.zeros_like(self.x)
         for i in range(1, len(self.x)):
             y[i] = y[i-1] + (theta[i-1] + theta[i])*(self.x[i] - self.x[i-1])/2
@@ -301,6 +315,7 @@ def _point_load_contribution(x, loads):
     R = 0
     for load in loads:
         pos, value, load_type, *rest = load
+        
         if load_type.lower() == "puntlast" and abs(pos - x) < 1e-6:
             R += value
         elif load_type.lower() == "verdeelde last":
@@ -1014,9 +1029,7 @@ def plot_beam_diagram(beam_length, supports, loads):
     
     # Voeg belastingen toe
     for load in loads:
-        pos = load[0]
-        value = load[1]
-        load_type = load[2]
+        pos, val, load_type, *rest = load
         
         if load_type.lower() == "puntlast":
             # Pijl omlaag voor puntlast (let op: positieve waarde is nu naar beneden gericht)
@@ -1025,7 +1038,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             
             # Bepaal richting op basis van teken van de belasting
             # Positieve waarde wijst naar beneden (in negatieve y-richting)
-            direction = -1 if value > 0 else 1
+            direction = -1 if val > 0 else 1
             
             # Pijlsteel
             fig.add_trace(
@@ -1057,7 +1070,7 @@ def plot_beam_diagram(beam_length, supports, loads):
             fig.add_annotation(
                 x=pos,
                 y=beam_y + direction * arrow_length + direction * beam_height*0.5,
-                text=f"{abs(value)/1000:.1f} kN",
+                text=f"{abs(val)/1000:.1f} kN",
                 showarrow=False,
                 font=dict(size=10, color=colors['load'])
             )
@@ -1069,28 +1082,24 @@ def plot_beam_diagram(beam_length, supports, loads):
                     y=[beam_y + direction * arrow_length/2],
                     mode='markers',
                     marker=dict(size=0.1, color=colors['load']),
-                    name=f'Puntlast {abs(value)/1000:.1f} kN op {pos} mm',
+                    name=f'Puntlast {abs(val)/1000:.1f} kN op {pos} mm',
                     showlegend=True
                 )
             )
         
         elif load_type.lower() == "verdeelde last":
-            length = load[3]
+            length = rest[0]
             start_pos = pos
             end_pos = pos + length
             
             # Hoogte van pijlen
             arrow_height = 1.5 * beam_height
             
-            # Bepaal richting op basis van teken van de belasting
-            # Positieve waarde wijst naar beneden (in negatieve y-richting)
-            direction = -1 if value > 0 else 1
-            
             # Lijn bovenaan
             fig.add_trace(
                 go.Scatter(
                     x=[start_pos, end_pos],
-                    y=[beam_y + direction * arrow_height, beam_y + direction * arrow_height],
+                    y=[beam_y + arrow_height, beam_y + arrow_height],
                     mode='lines',
                     line=dict(color=colors['load'], width=2),
                     showlegend=False
@@ -1106,7 +1115,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 fig.add_trace(
                     go.Scatter(
                         x=[x_arrow, x_arrow],
-                        y=[beam_y + direction * arrow_height, beam_y],
+                        y=[beam_y + arrow_height, beam_y],
                         mode='lines',
                         line=dict(color=colors['load'], width=1.5),
                         showlegend=False
@@ -1118,7 +1127,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 fig.add_trace(
                     go.Scatter(
                         x=[x_arrow - arrow_head_size/2, x_arrow, x_arrow + arrow_head_size/2],
-                        y=[beam_y + direction * arrow_head_size, beam_y, beam_y + direction * arrow_head_size],
+                        y=[beam_y + arrow_head_size, beam_y, beam_y + arrow_head_size],
                         mode='lines',
                         line=dict(color=colors['load'], width=1.5),
                         fill="toself",
@@ -1130,8 +1139,8 @@ def plot_beam_diagram(beam_length, supports, loads):
             # Label in het midden
             fig.add_annotation(
                 x=(start_pos + end_pos)/2,
-                y=beam_y + direction * arrow_height + direction * beam_height*0.5,
-                text=f"{abs(value)/1000:.1f} kN/m",
+                y=beam_y + arrow_height + beam_height*0.5,
+                text=f"{abs(val)/1000:.1f} kN/m",
                 showarrow=False,
                 font=dict(size=10, color=colors['load'])
             )
@@ -1140,10 +1149,10 @@ def plot_beam_diagram(beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[(start_pos + end_pos)/2],
-                    y=[beam_y + direction * arrow_height/2],
+                    y=[beam_y + arrow_height/2],
                     mode='markers',
                     marker=dict(size=0.1, color=colors['load']),
-                    name=f'Verdeelde last {abs(value)/1000:.1f} kN/m op {start_pos}-{end_pos} mm',
+                    name=f'Verdeelde last {abs(val)/1000:.1f} kN/m op {start_pos}-{end_pos} mm',
                     showlegend=True
                 )
             )
@@ -2134,16 +2143,24 @@ def main():
     
     # Configureer plot voor betere zichtbaarheid
     beam_fig.update_layout(
-        height=400,  # Grotere hoogte voor betere zichtbaarheid
-        margin=dict(l=20, r=20, t=20, b=20),
+        height=500,  # Grotere hoogte voor betere zichtbaarheid
+        autosize=False,
+        margin=dict(l=50, r=50, t=50, b=50, pad=4),
         xaxis=dict(
-            range=[-0.1, st.session_state.beam_length/1000 + 0.1],  # Zoom op de balk
+            title="Positie (m)",
+            range=[-0.1, st.session_state.beam_length/1000 + 0.1],  # Vaste weergave
+            fixedrange=True,  # Voorkom zoom op x-as
             constrain="domain"
         ),
         yaxis=dict(
-            scaleanchor="x",  # Behoud aspect ratio
-            scaleratio=0.5,   # Maak y-as relatief kleiner
-        )
+            title="",
+            range=[-0.1, 0.1],
+            fixedrange=True,  # Voorkom zoom op y-as
+            scaleanchor="x",
+            scaleratio=0.5,
+        ),
+        dragmode=False,  # Schakel slepen uit
+        showlegend=False  # Verberg de legenda voor meer ruimte
     )
     
     # Maak de plot interactief
@@ -2346,12 +2363,12 @@ def plot_interactive_beam(beam_length, supports, loads):
     
     # Extra marge toevoegen
     span = max_x - min_x
-    min_x -= 0.05 * span
-    max_x += 0.05 * span
+    min_x -= 0.1 * span
+    max_x += 0.1 * span
     
     # Bereken y-waarden voor visualisatie
     beam_y = 0
-    beam_height = 0.1 * span
+    beam_height = 0.2 * span  # Grotere beam_height voor betere zichtbaarheid
     
     # Colorscheme
     colors = {
@@ -2376,7 +2393,7 @@ def plot_interactive_beam(beam_length, supports, loads):
             name='Balk',
             line=dict(
                 color=colors['beam'],
-                width=5
+                width=8  # Dikkere lijn voor de balk
             )
         )
     )
@@ -2393,7 +2410,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                     name=f'Scharnier op {pos} mm',
                     marker=dict(
                         symbol='triangle-up',
-                        size=15,
+                        size=20,  # Grotere marker
                         color=colors['support']
                     )
                 )
@@ -2404,7 +2421,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                     x=[pos/1000, pos/1000],
                     y=[beam_y, beam_y - beam_height],
                     mode='lines',
-                    line=dict(color=colors['support'], width=2),
+                    line=dict(color=colors['support'], width=3),  # Dikkere lijn
                     showlegend=False
                 )
             )
@@ -2418,7 +2435,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                     name=f'Rol op {pos} mm',
                     marker=dict(
                         symbol='circle',
-                        size=12,
+                        size=20,  # Grotere marker
                         color=colors['support']
                     )
                 )
@@ -2429,7 +2446,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                     x=[pos/1000, pos/1000],
                     y=[beam_y, beam_y - beam_height],
                     mode='lines',
-                    line=dict(color=colors['support'], width=2),
+                    line=dict(color=colors['support'], width=3),  # Dikkere lijn
                     showlegend=False
                 )
             )
@@ -2437,15 +2454,16 @@ def plot_interactive_beam(beam_length, supports, loads):
             # Rechthoek voor inklemming
             fig.add_shape(
                 type="rect",
-                x0=pos/1000 - beam_height/4/1000,
+                x0=pos/1000 - beam_height/3/1000,
                 y0=beam_y - beam_height,
-                x1=pos/1000 + beam_height/4/1000,
+                x1=pos/1000 + beam_height/3/1000,
                 y1=beam_y + beam_height,
-                line=dict(color=colors['support']),
+                line=dict(color=colors['support'], width=3),  # Dikkere lijn
                 fillcolor=colors['support'],
                 opacity=0.7,
                 name=f'Inklemming op {pos} mm'
             )
+            
             # Legenda-item
             fig.add_trace(
                 go.Scatter(
@@ -2469,7 +2487,7 @@ def plot_interactive_beam(beam_length, supports, loads):
         
         if load_type.lower() == "puntlast":
             # Pijl voor puntlast
-            arrow_length = 1.5 * beam_height
+            arrow_length = 1.8 * beam_height  # Grotere pijl
             arrow_head_length = arrow_length * 0.2
             
             # Pijlsteel
@@ -2478,7 +2496,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                     x=[pos/1000, pos/1000],
                     y=[beam_y, beam_y + direction * (arrow_length - arrow_head_length)],
                     mode='lines',
-                    line=dict(color=colors['load'], width=2),
+                    line=dict(color=colors['load'], width=3),  # Dikkere lijn
                     showlegend=False
                 )
             )
@@ -2491,7 +2509,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                        beam_y + direction * arrow_length, 
                        beam_y + direction * (arrow_length - arrow_head_length)],
                     mode='lines',
-                    line=dict(color=colors['load'], width=2),
+                    line=dict(color=colors['load'], width=3),  # Dikkere lijn
                     fill="toself",
                     fillcolor=colors['load'],
                     showlegend=False
@@ -2504,7 +2522,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                 y=beam_y + direction * arrow_length + direction * beam_height*0.5,
                 text=f"{abs(value)/1000:.1f} kN",
                 showarrow=False,
-                font=dict(size=10, color=colors['load'])
+                font=dict(size=12, color=colors['load'])  # Grotere tekst
             )
             
             # Legenda-item
@@ -2525,7 +2543,7 @@ def plot_interactive_beam(beam_length, supports, loads):
             end_pos = (pos + length)/1000
             
             # Hoogte van pijlen
-            arrow_height = 1.5 * beam_height
+            arrow_height = 1.8 * beam_height  # Grotere pijlen
             
             # Lijn bovenaan
             fig.add_trace(
@@ -2533,7 +2551,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                     x=[start_pos, end_pos],
                     y=[beam_y + direction * arrow_height, beam_y + direction * arrow_height],
                     mode='lines',
-                    line=dict(color=colors['load'], width=2),
+                    line=dict(color=colors['load'], width=3),  # Dikkere lijn
                     showlegend=False
                 )
             )
@@ -2549,7 +2567,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                         x=[x_arrow, x_arrow],
                         y=[beam_y + direction * arrow_height, beam_y],
                         mode='lines',
-                        line=dict(color=colors['load'], width=1.5),
+                        line=dict(color=colors['load'], width=2),  # Dikkere lijn
                         showlegend=False
                     )
                 )
@@ -2561,7 +2579,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                         x=[x_arrow - arrow_head_size/2/1000, x_arrow, x_arrow + arrow_head_size/2/1000],
                         y=[beam_y + direction * arrow_head_size, beam_y, beam_y + direction * arrow_head_size],
                         mode='lines',
-                        line=dict(color=colors['load'], width=1.5),
+                        line=dict(color=colors['load'], width=2),  # Dikkere lijn
                         fill="toself",
                         fillcolor=colors['load'],
                         showlegend=False
@@ -2574,7 +2592,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                 y=beam_y + direction * arrow_height + direction * beam_height*0.5,
                 text=f"{abs(value)/1000:.1f} kN/m",
                 showarrow=False,
-                font=dict(size=10, color=colors['load'])
+                font=dict(size=12, color=colors['load'])  # Grotere tekst
             )
             
             # Legenda-item
@@ -2595,84 +2613,45 @@ def plot_interactive_beam(beam_length, supports, loads):
         y=beam_y - 2 * beam_height,
         text=f"Balklengte: {beam_length} mm",
         showarrow=False,
-        font=dict(size=12, color=colors['text'])
-    )
-    
-    # Styling en layout
-    fig.update_layout(
-        title="Klik op de balk om elementen toe te voegen",
-        xaxis_title="Positie (m)",
-        yaxis_title=None,
-        font=dict(
-            family="Arial, sans-serif",
-            size=12,
-            color=colors['text']
-        ),
-        showlegend=True,
-        legend=dict(
-            orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="center",
-            x=0.5
-        ),
-        autosize=True,
-        margin=dict(l=20, r=20, t=60, b=20),
-        plot_bgcolor='white',
-        xaxis=dict(
-            showgrid=True,
-            gridcolor=colors['grid'],
-            tickformat='.1f',
-            zeroline=True,
-            zerolinecolor=colors['grid'],
-            zerolinewidth=1
-        ),
-        yaxis=dict(
-            showgrid=False,
-            zeroline=False,
-            showticklabels=False,
-            scaleanchor="x",
-            scaleratio=1,
-        )
+        font=dict(size=14, color=colors['text'])  # Grotere tekst
     )
     
     # Zet gelijke assen om vervorming van vorm te voorkomen
-    height_range = beam_height * 5
-    y_min = beam_y - 2.5 * beam_height
-    y_max = beam_y + 2.5 * beam_height
+    height_range = beam_height * 6  # Grotere range
+    y_min = beam_y - 3 * beam_height
+    y_max = beam_y + 3 * beam_height
     
-    fig.update_yaxes(range=[y_min, y_max])
-    
-    # Maak de figuur interactief voor klikken
-    fig.update_layout(clickmode='event')
+    # Styling en layout
+    fig.update_layout(
+        height=600,  # Nog grotere hoogte
+        autosize=False,
+        title="Balkvisualisatie",
+        title_font=dict(size=16),
+        margin=dict(l=50, r=50, t=50, b=50, pad=4),
+        xaxis=dict(
+            title="Positie (m)",
+            title_font=dict(size=14),
+            range=[min_x/1000, max_x/1000],  # Vaste weergave
+            fixedrange=True,  # Voorkom zoom op x-as
+            constrain="domain",
+            showgrid=True,
+            gridcolor=colors['grid'],
+            tickfont=dict(size=12)
+        ),
+        yaxis=dict(
+            showticklabels=False,
+            range=[y_min, y_max],  # Vaste y-range
+            fixedrange=True,  # Voorkom zoom op y-as
+            scaleanchor="x",
+            scaleratio=0.5
+        ),
+        dragmode=False,  # Schakel slepen uit
+        showlegend=False,  # Verberg de legenda voor meer ruimte
+        paper_bgcolor='white',
+        plot_bgcolor='white'
+    )
     
     return fig
 
-def find_nearest_element(x_click, supports, loads):
-    """Vind het dichtstbijzijnde element bij een klik op positie x_click"""
-    min_distance = float('inf')
-    nearest_element = None
-    
-    # Controleer steunpunten
-    for i, (pos, type) in enumerate(supports):
-        distance = abs(pos - x_click)
-        if distance < min_distance:
-            min_distance = distance
-            nearest_element = ('support', i, pos, type)
-    
-    # Controleer belastingen
-    for i, load in enumerate(loads):
-        pos = load[0]
-        distance = abs(pos - x_click)
-        if distance < min_distance:
-            min_distance = distance
-            nearest_element = ('load', i, load)
-    
-    # Alleen selecteren als de afstand redelijk is (binnen 5% van balklengte)
-    threshold = 100  # mm
-    if min_distance <= threshold:
-        return nearest_element
-    else:
-        return None
 if __name__ == "__main__":
     main()
