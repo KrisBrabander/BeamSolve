@@ -228,45 +228,78 @@ class BeamSolver:
         self.M = M
 
     def _calculate_deflection(self):
-        """Dubbele integratie met correcte randvoorwaarden"""
+        """Dubbele integratie met correcte randvoorwaarden en consistente tekenconventie"""
         # Bereken dwarskracht en moment
         V, M = self.V, self.M
         
+        # In mechanica: positief moment geeft doorbuiging naar beneden (negatieve y)
+        # Pas tekenconventie aan: vermenigvuldig M met -1 voor correcte richting
+        M_signed = -M  # Negatief moment geeft positieve doorbuiging (naar beneden)
+        
         # Eerste integratie: hoekverdraaiing
-        theta = custom_cumtrapz(M/self.EI, self.x, initial=0)
+        theta = custom_cumtrapz(M_signed/self.EI, self.x, initial=0)
         
         # Tweede integratie: doorbuiging
         y = custom_cumtrapz(theta, self.x, initial=0)
         
-        # Pas randvoorwaarden aan
+        # Pas randvoorwaarden toe voor correcte doorbuiging bij steunpunten
         support_positions = [s[0] for s in self.supports]
         support_indices = [np.abs(self.x - pos).argmin() for pos in support_positions]
         
-        # Stel lineair systeem op voor correctie
-        A = []
-        b = []
-        
-        for idx in support_indices:
-            A.append([1, self.x[idx]])
-            b.append(-y[idx])
-        
-        # Los op met least squares
-        A = np.array(A)
-        b = np.array(b)
-        
-        if len(A) >= 2:  # Minstens 2 steunpunten nodig voor unieke oplossing
+        # Bij meer dan 2 steunpunten, gebruik nauwkeurigere methode
+        if len(support_indices) == 2:
+            # Voor 2 steunpunten: eenvoudige lineaire correctie
+            i1, i2 = support_indices
+            
+            # Bereken correctieparameters
+            if i1 != i2:  # Voorkom deling door nul
+                slope = (y[i2] - y[i1]) / (self.x[i2] - self.x[i1])
+                intercept = y[i1] - slope * self.x[i1]
+                
+                # Pas correctie toe
+                y_corrected = y - (intercept + slope * self.x)
+            else:
+                y_corrected = y - y[i1]
+        else:
+            # Voor meer dan 2 steunpunten of 1 steunpunt
+            # Gebruik weighted least squares voor betere stabiliteit
+            A = np.ones((len(support_indices), 2))
+            b = np.zeros(len(support_indices))
+            
+            for i, idx in enumerate(support_indices):
+                A[i, 1] = self.x[idx]
+                b[i] = -y[idx]
+            
             try:
-                C, _, _, _ = np.linalg.lstsq(A, b, rcond=None)
+                # Gewogen least squares oplossing
+                weights = np.ones(len(support_indices))
+                
+                # Geef meer gewicht aan het eerste en laatste steunpunt
+                if len(weights) > 2:
+                    weights[0] *= 2
+                    weights[-1] *= 2
+                    
+                weighted_A = A * weights[:, np.newaxis]
+                weighted_b = b * weights
+                
+                C, residuals, rank, s = np.linalg.lstsq(weighted_A, weighted_b, rcond=None)
+                
                 # Corrigeer doorbuiging
                 y_corrected = y + C[0] + C[1] * self.x
-            except:
-                # Fallback als lstsq faalt
-                st.warning("⚠️ Randvoorwaarden konden niet exact worden toegepast")
+                
+                # Extra stap: zorg dat alle steunpunten op y=0 liggen
+                for idx in support_indices:
+                    if abs(y_corrected[idx]) > 1e-6:
+                        st.info(f"⚠️ Correctie bij steunpunt op x={self.x[idx]:.1f}mm: {y_corrected[idx]:.6f}mm → 0mm")
+                
+                # Extra correctie voor statische bepaaldheid
+                for idx in support_indices:
+                    y_corrected[idx] = 0.0
+                    
+            except Exception as e:
+                st.warning(f"⚠️ Randvoorwaarden konden niet exact worden toegepast: {str(e)}")
                 # Eenvoudige correctie: verschuif zodat eerste steunpunt op 0 ligt
                 y_corrected = y - y[support_indices[0]]
-        else:
-            # Eén steunpunt: verschuif zodat dat punt op 0 ligt
-            y_corrected = y - y[support_indices[0]]
         
         self.theta = theta
         self.y = y_corrected
@@ -284,6 +317,7 @@ def _free_moment(x1, x2, loads):
             length = rest[0]
             start = max(x1, pos)
             end = min(x2, pos + length)
+            
             if start < end:
                 a = start - x1
                 b = end - x1
@@ -744,45 +778,78 @@ def calculate_internal_forces(x, beam_length, supports, loads, reactions):
     return V, M
 
 def calculate_deflection(x, beam_length, supports, loads, reactions, EI):
-    """Dubbele integratie met correcte randvoorwaarden"""
+    """Dubbele integratie met correcte randvoorwaarden en consistente tekenconventie"""
     # Bereken dwarskracht en moment
     V, M = calculate_internal_forces(x, beam_length, supports, loads, reactions)
     
+    # In mechanica: positief moment geeft doorbuiging naar beneden (negatieve y)
+    # Pas tekenconventie aan: vermenigvuldig M met -1 voor correcte richting
+    M_signed = -M  # Negatief moment geeft positieve doorbuiging (naar beneden)
+    
     # Eerste integratie: hoekverdraaiing
-    theta = custom_cumtrapz(M/EI, x, initial=0)
+    theta = custom_cumtrapz(M_signed/EI, x, initial=0)
     
     # Tweede integratie: doorbuiging
     y = custom_cumtrapz(theta, x, initial=0)
     
-    # Pas randvoorwaarden aan
+    # Pas randvoorwaarden toe voor correcte doorbuiging bij steunpunten
     support_positions = [s[0] for s in supports]
     support_indices = [np.abs(x - pos).argmin() for pos in support_positions]
     
-    # Stel lineair systeem op voor correctie
-    A = []
-    b = []
-    
-    for idx in support_indices:
-        A.append([1, x[idx]])
-        b.append(-y[idx])
-    
-    # Los op met least squares
-    A = np.array(A)
-    b = np.array(b)
-    
-    if len(A) >= 2:  # Minstens 2 steunpunten nodig voor unieke oplossing
+    # Bij meer dan 2 steunpunten, gebruik nauwkeurigere methode
+    if len(support_indices) == 2:
+        # Voor 2 steunpunten: eenvoudige lineaire correctie
+        i1, i2 = support_indices
+        
+        # Bereken correctieparameters
+        if i1 != i2:  # Voorkom deling door nul
+            slope = (y[i2] - y[i1]) / (x[i2] - x[i1])
+            intercept = y[i1] - slope * x[i1]
+            
+            # Pas correctie toe
+            y_corrected = y - (intercept + slope * x)
+        else:
+            y_corrected = y - y[i1]
+    else:
+        # Voor meer dan 2 steunpunten of 1 steunpunt
+        # Gebruik weighted least squares voor betere stabiliteit
+        A = np.ones((len(support_indices), 2))
+        b = np.zeros(len(support_indices))
+        
+        for i, idx in enumerate(support_indices):
+            A[i, 1] = x[idx]
+            b[i] = -y[idx]
+        
         try:
-            C, _, _, _ = np.linalg.lstsq(A, b, rcond=None)
+            # Gewogen least squares oplossing
+            weights = np.ones(len(support_indices))
+            
+            # Geef meer gewicht aan het eerste en laatste steunpunt
+            if len(weights) > 2:
+                weights[0] *= 2
+                weights[-1] *= 2
+                
+            weighted_A = A * weights[:, np.newaxis]
+            weighted_b = b * weights
+            
+            C, residuals, rank, s = np.linalg.lstsq(weighted_A, weighted_b, rcond=None)
+            
             # Corrigeer doorbuiging
             y_corrected = y + C[0] + C[1] * x
-        except:
-            # Fallback als lstsq faalt
-            st.warning("⚠️ Randvoorwaarden konden niet exact worden toegepast")
+            
+            # Extra stap: zorg dat alle steunpunten op y=0 liggen
+            for idx in support_indices:
+                if abs(y_corrected[idx]) > 1e-6:
+                    st.info(f"⚠️ Correctie bij steunpunt op x={x[idx]:.1f}mm: {y_corrected[idx]:.6f}mm → 0mm")
+            
+            # Extra correctie voor statische bepaaldheid
+            for idx in support_indices:
+                y_corrected[idx] = 0.0
+                
+        except Exception as e:
+            st.warning(f"⚠️ Randvoorwaarden konden niet exact worden toegepast: {str(e)}")
             # Eenvoudige correctie: verschuif zodat eerste steunpunt op 0 ligt
             y_corrected = y - y[support_indices[0]]
-    else:
-        # Eén steunpunt: verschuif zodat dat punt op 0 ligt
-        y_corrected = y - y[support_indices[0]]
     
     return theta, y_corrected
 
