@@ -810,8 +810,15 @@ def analyze_beam(beam_length, supports, loads, profile_type, height, width, wall
         max_support_pos = max([s[0] for s in sorted_supports])
         
         # Berekeningsrooster extenden zodat overhang wordt meegenomen
-        x_start = min(0, min_support_pos - 0.2*beam_length)
-        x_end = max(beam_length, max_support_pos + 0.2*beam_length)
+        has_overhang = min_support_pos < 0 or max_support_pos > beam_length
+        x_start = 0
+        x_end = beam_length
+        
+        # Alleen uitbreiden als er daadwerkelijk overhang is
+        if has_overhang:
+            x_start = min(0, min_support_pos - 0.05*beam_length)
+            x_end = max(beam_length, max_support_pos + 0.05*beam_length)
+            
         x = np.linspace(x_start, x_end, 500)
         
         # Bereken reactiekrachten met verbeterde mechanica
@@ -991,15 +998,19 @@ def plot_beam_diagram(beam_length, supports, loads):
         load_type = load[2]
         
         if load_type.lower() == "puntlast":
-            # Pijl omlaag voor puntlast
+            # Pijl omlaag voor puntlast (let op: positieve waarde is nu naar beneden gericht)
             arrow_length = 1.5 * beam_height
             arrow_head_length = arrow_length * 0.2
+            
+            # Bepaal richting op basis van teken van de belasting
+            # Positieve waarde wijst naar beneden (in negatieve y-richting)
+            direction = -1 if value > 0 else 1
             
             # Pijlsteel
             fig.add_trace(
                 go.Scatter(
                     x=[pos, pos],
-                    y=[beam_y + arrow_length - arrow_head_length, beam_y],
+                    y=[beam_y, beam_y + direction * (arrow_length - arrow_head_length)],
                     mode='lines',
                     line=dict(color=colors['load'], width=2),
                     showlegend=False
@@ -1010,7 +1021,9 @@ def plot_beam_diagram(beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[pos - arrow_head_length/2, pos, pos + arrow_head_length/2],
-                    y=[beam_y + arrow_length - arrow_head_length, beam_y + arrow_length, beam_y + arrow_length - arrow_head_length],
+                    y=[beam_y + direction * (arrow_length - arrow_head_length), 
+                       beam_y + direction * arrow_length, 
+                       beam_y + direction * (arrow_length - arrow_head_length)],
                     mode='lines',
                     line=dict(color=colors['load'], width=2),
                     fill="toself",
@@ -1022,8 +1035,8 @@ def plot_beam_diagram(beam_length, supports, loads):
             # Label
             fig.add_annotation(
                 x=pos,
-                y=beam_y + arrow_length + beam_height*0.5,
-                text=f"{value/1000:.1f} kN",
+                y=beam_y + direction * arrow_length + direction * beam_height*0.5,
+                text=f"{abs(value)/1000:.1f} kN",
                 showarrow=False,
                 font=dict(size=10, color=colors['load'])
             )
@@ -1032,10 +1045,10 @@ def plot_beam_diagram(beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[pos],
-                    y=[beam_y + arrow_length/2],
+                    y=[beam_y + direction * arrow_length/2],
                     mode='markers',
                     marker=dict(size=0.1, color=colors['load']),
-                    name=f'Puntlast {value/1000:.1f} kN op {pos} mm',
+                    name=f'Puntlast {abs(value)/1000:.1f} kN op {pos} mm',
                     showlegend=True
                 )
             )
@@ -1048,11 +1061,15 @@ def plot_beam_diagram(beam_length, supports, loads):
             # Hoogte van pijlen
             arrow_height = 1.5 * beam_height
             
+            # Bepaal richting op basis van teken van de belasting
+            # Positieve waarde wijst naar beneden (in negatieve y-richting)
+            direction = -1 if value > 0 else 1
+            
             # Lijn bovenaan
             fig.add_trace(
                 go.Scatter(
                     x=[start_pos, end_pos],
-                    y=[beam_y + arrow_height, beam_y + arrow_height],
+                    y=[beam_y + direction * arrow_height, beam_y + direction * arrow_height],
                     mode='lines',
                     line=dict(color=colors['load'], width=2),
                     showlegend=False
@@ -1068,7 +1085,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 fig.add_trace(
                     go.Scatter(
                         x=[x_arrow, x_arrow],
-                        y=[beam_y + arrow_height, beam_y],
+                        y=[beam_y + direction * arrow_height, beam_y],
                         mode='lines',
                         line=dict(color=colors['load'], width=1.5),
                         showlegend=False
@@ -1080,7 +1097,7 @@ def plot_beam_diagram(beam_length, supports, loads):
                 fig.add_trace(
                     go.Scatter(
                         x=[x_arrow - arrow_head_size/2, x_arrow, x_arrow + arrow_head_size/2],
-                        y=[beam_y + arrow_head_size, beam_y, beam_y + arrow_head_size],
+                        y=[beam_y + direction * arrow_head_size, beam_y, beam_y + direction * arrow_head_size],
                         mode='lines',
                         line=dict(color=colors['load'], width=1.5),
                         fill="toself",
@@ -1092,8 +1109,8 @@ def plot_beam_diagram(beam_length, supports, loads):
             # Label in het midden
             fig.add_annotation(
                 x=(start_pos + end_pos)/2,
-                y=beam_y + arrow_height + beam_height*0.5,
-                text=f"{value/1000:.1f} kN/m",
+                y=beam_y + direction * arrow_height + direction * beam_height*0.5,
+                text=f"{abs(value)/1000:.1f} kN/m",
                 showarrow=False,
                 font=dict(size=10, color=colors['load'])
             )
@@ -1102,10 +1119,10 @@ def plot_beam_diagram(beam_length, supports, loads):
             fig.add_trace(
                 go.Scatter(
                     x=[(start_pos + end_pos)/2],
-                    y=[beam_y + arrow_height/2],
+                    y=[beam_y + direction * arrow_height/2],
                     mode='markers',
                     marker=dict(size=0.1, color=colors['load']),
-                    name=f'Verdeelde last {value/1000:.1f} kN/m op {start_pos}-{end_pos} mm',
+                    name=f'Verdeelde last {abs(value)/1000:.1f} kN/m op {start_pos}-{end_pos} mm',
                     showlegend=True
                 )
             )
