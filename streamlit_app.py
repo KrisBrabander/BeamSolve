@@ -13,8 +13,8 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.graphics import renderPM
-from plot_interactive_beam import plot_interactive_beam, find_nearest_element
 
+# Kopieer hier de volledige inhoud van je streamlit_app.py bestand
 # Alternatief voor cumtrapz als scipy niet beschikbaar is
 def custom_cumtrapz(y, x, initial=0):
     """Eigen implementatie van cumtrapz voor het geval scipy niet beschikbaar is"""
@@ -1336,6 +1336,7 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
     # Voeg belastingen toe als annotaties in de doorbuigingsgrafiek
     for load in loads:
         pos, val, load_type, *rest = load
+        
         if load_type.lower() == "puntlast":
             # Pijl voor puntlast
             arrow_length = 0.1 * max(abs(min(y)), abs(max(y)))
@@ -2282,8 +2283,10 @@ def main():
         - Je kunt de balklengte bovenaan aanpassen
         - Configureer het profiel in de zijbalk
         """)
-import numpy as np
-import plotly.graph_objects as go
+
+
+# Voeg aan het einde van het bestand, vlak voor if __name__ == "__main__": 
+# de volgende functies toe:
 
 def plot_interactive_beam(beam_length, supports, loads):
     """Teken interactieve balk met steunpunten en belastingen"""
@@ -2625,6 +2628,5 @@ def find_nearest_element(x_click, supports, loads):
         return nearest_element
     else:
         return None
-
 if __name__ == "__main__":
     main()
