@@ -300,14 +300,14 @@ def _point_load_contribution(x, loads):
     """Bereken de bijdrage van puntlasten op positie x"""
     R = 0
     for load in loads:
-        pos, val, ltype, *rest = load
-        if ltype.lower() == "puntlast" and abs(pos - x) < 1e-6:
-            R += val
-        elif ltype.lower() == "verdeelde last":
+        pos, value, load_type, *rest = load
+        if load_type.lower() == "puntlast" and abs(pos - x) < 1e-6:
+            R += value
+        elif load_type.lower() == "verdeelde last":
             length = rest[0]
             if x >= pos and x <= pos + length:
                 # Punt ligt binnen de verdeelde last
-                R += val * (min(x + 1e-6, pos + length) - max(x - 1e-6, pos))
+                R += value * (min(x + 1e-6, pos + length) - max(x - 1e-6, pos))
     return R
 
 def calculate_reactions_matrix(beam_length, supports, loads):
@@ -2132,8 +2132,22 @@ def main():
         loads=st.session_state.loads
     )
     
+    # Configureer plot voor betere zichtbaarheid
+    beam_fig.update_layout(
+        height=400,  # Grotere hoogte voor betere zichtbaarheid
+        margin=dict(l=20, r=20, t=20, b=20),
+        xaxis=dict(
+            range=[-0.1, st.session_state.beam_length/1000 + 0.1],  # Zoom op de balk
+            constrain="domain"
+        ),
+        yaxis=dict(
+            scaleanchor="x",  # Behoud aspect ratio
+            scaleratio=0.5,   # Maak y-as relatief kleiner
+        )
+    )
+    
     # Maak de plot interactief
-    beam_plot = st.plotly_chart(
+    click_data = st.plotly_chart(
         beam_fig, 
         use_container_width=True,
         config={
@@ -2144,8 +2158,7 @@ def main():
     )
     
     # Verwerk klikken op de balk
-    if beam_fig.data and hasattr(beam_fig, '_click_data') and beam_fig._click_data:
-        click_data = beam_fig._click_data
+    if click_data and click_data['points']:
         x_click = click_data['points'][0]['x'] * 1000  # Converteer naar mm
         
         if st.session_state.interaction_mode == "select":
@@ -2186,6 +2199,62 @@ def main():
             elif load[2] == "Verdeelde last":
                 st.write(f"{i+1}. {load[2]} van {load[1]/1000:.1f} kN/m over {load[3]:.0f} mm vanaf {load[0]:.0f} mm")
     
+    # Handmatige invoermogelijkheden
+    st.markdown("### Handmatige element toevoegen")
+    col1, col2 = st.columns(2)
+
+    with col1:
+        element_type = st.radio(
+            "Type element",
+            ["Steunpunt", "Puntlast", "Verdeelde last"]
+        )
+        position = st.slider(
+            "Positie (mm)",
+            0, 
+            st.session_state.beam_length,
+            st.session_state.beam_length // 2
+        )
+
+    with col2:
+        if element_type == "Steunpunt":
+            support_type = st.selectbox(
+                "Type steunpunt",
+                ["Scharnier", "Rol", "Inklemming"]
+            )
+            if st.button("Steunpunt toevoegen"):
+                st.session_state.supports.append((position, support_type))
+                st.experimental_rerun()
+    
+        elif element_type == "Puntlast":
+            load_value = st.number_input(
+                "Waarde (kN)", 
+                min_value=0.1, 
+                max_value=100.0, 
+                value=1.0, 
+                step=0.1
+            )
+            if st.button("Puntlast toevoegen"):
+                st.session_state.loads.append((position, load_value * 1000, "Puntlast"))
+                st.experimental_rerun()
+    
+        elif element_type == "Verdeelde last":
+            load_value = st.number_input(
+                "Waarde (kN/m)", 
+                min_value=0.1, 
+                max_value=100.0, 
+                value=1.0, 
+                step=0.1
+            )
+            load_length = st.slider(
+                "Lengte (mm)",
+                100, 
+                st.session_state.beam_length,
+                min(500, st.session_state.beam_length // 2)
+            )
+            if st.button("Verdeelde last toevoegen"):
+                st.session_state.loads.append((position, load_value, "Verdeelde last", load_length))
+                st.experimental_rerun()
+
     # Berekeningsknop
     if st.button("Bereken", type="primary", use_container_width=True):
         # Controleer of er genoeg steunpunten zijn
