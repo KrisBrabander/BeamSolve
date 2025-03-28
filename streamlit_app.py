@@ -2364,8 +2364,8 @@ def plot_interactive_beam(beam_length, supports, loads):
     
     # Extra marge toevoegen
     span = max_x - min_x
-    min_x -= 0.1 * span
-    max_x += 0.1 * span
+    min_x -= 0.05 * span
+    max_x += 0.05 * span
     
     # Bereken y-waarden voor visualisatie
     beam_y = 0
@@ -2375,6 +2375,7 @@ def plot_interactive_beam(beam_length, supports, loads):
     colors = {
         'beam': '#2c3e50',
         'support': '#3498db', 
+        'support_fill': '#3498db',
         'load': '#e74c3c',
         'moment': '#9b59b6',
         'dimension': '#7f8c8d',
@@ -2401,81 +2402,123 @@ def plot_interactive_beam(beam_length, supports, loads):
     
     # Teken steunpunten
     for pos, support_type in sorted_supports:
+        # Exact op eindpositie zorgen
+        pos_exact = pos
+        
         if support_type.lower() == "scharnier":
             # Driehoek symbool voor scharnier
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos/1000],  # Converteer naar meters
-                    y=[beam_y - beam_height/2],
-                    mode='markers',
-                    name=f'Scharnier op {pos} mm',
-                    marker=dict(
-                        symbol='triangle-up',
-                        size=20,  # Grotere marker
-                        color=colors['support']
-                    )
-                )
+            triangle_size = beam_height/2
+            
+            # Voeg driehoek toe
+            fig.add_shape(
+                type="path",
+                path=f"M {pos_exact/1000-triangle_size/2000},{beam_y-beam_height*0.1} L {pos_exact/1000+triangle_size/2000},{beam_y-beam_height*0.1} L {pos_exact/1000},{beam_y-beam_height*0.7} Z",
+                line=dict(color=colors['support'], width=3),
+                fillcolor=colors['support_fill'],
+                opacity=0.8
             )
-            # Verticale lijn naar beneden vanaf de balk
+            
+            # Verticale lijn van balk naar scharnier
             fig.add_trace(
                 go.Scatter(
-                    x=[pos/1000, pos/1000],
-                    y=[beam_y, beam_y - beam_height],
+                    x=[pos_exact/1000, pos_exact/1000],
+                    y=[beam_y, beam_y-beam_height*0.1],
                     mode='lines',
-                    line=dict(color=colors['support'], width=3),  # Dikkere lijn
+                    line=dict(color=colors['support'], width=3),
                     showlegend=False
                 )
             )
+            
+            # Horizontale lijn onder driehoek
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos_exact/1000-triangle_size/1000, pos_exact/1000+triangle_size/1000],
+                    y=[beam_y-beam_height*0.7, beam_y-beam_height*0.7],
+                    mode='lines',
+                    line=dict(color=colors['support'], width=3),
+                    showlegend=False
+                )
+            )
+        
         elif support_type.lower() == "rol":
-            # Cirkel symbool voor rol
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos/1000],
-                    y=[beam_y - beam_height/2],
-                    mode='markers',
-                    name=f'Rol op {pos} mm',
-                    marker=dict(
-                        symbol='circle',
-                        size=20,  # Grotere marker
-                        color=colors['support']
-                    )
-                )
+            # Driehoek met rollen symbool voor rol
+            triangle_size = beam_height/2
+            
+            # Voeg driehoek toe (smaller)
+            fig.add_shape(
+                type="path",
+                path=f"M {pos_exact/1000-triangle_size/2000},{beam_y-beam_height*0.1} L {pos_exact/1000+triangle_size/2000},{beam_y-beam_height*0.1} L {pos_exact/1000},{beam_y-beam_height*0.5} Z",
+                line=dict(color=colors['support'], width=3),
+                fillcolor=colors['support_fill'],
+                opacity=0.8
             )
-            # Verticale lijn naar beneden vanaf de balk
+            
+            # Verticale lijn van balk naar rol
             fig.add_trace(
                 go.Scatter(
-                    x=[pos/1000, pos/1000],
-                    y=[beam_y, beam_y - beam_height],
+                    x=[pos_exact/1000, pos_exact/1000],
+                    y=[beam_y, beam_y-beam_height*0.1],
                     mode='lines',
-                    line=dict(color=colors['support'], width=3),  # Dikkere lijn
+                    line=dict(color=colors['support'], width=3),
                     showlegend=False
                 )
             )
+            
+            # Drie cirkels onder driehoek voor rol
+            rol_radius = triangle_size/6000
+            for i in range(3):
+                x_offset = (i-1) * rol_radius * 4
+                fig.add_shape(
+                    type="circle",
+                    x0=(pos_exact/1000+x_offset)-rol_radius,
+                    y0=(beam_y-beam_height*0.7)-rol_radius,
+                    x1=(pos_exact/1000+x_offset)+rol_radius,
+                    y1=(beam_y-beam_height*0.7)+rol_radius,
+                    line=dict(color=colors['support'], width=2),
+                    fillcolor=colors['support_fill']
+                )
+            
+            # Horizontale lijn onder driehoek
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos_exact/1000-triangle_size/1200, pos_exact/1000+triangle_size/1200],
+                    y=[beam_y-beam_height*0.85, beam_y-beam_height*0.85],
+                    mode='lines',
+                    line=dict(color=colors['support'], width=3),
+                    showlegend=False
+                )
+            )
+            
         elif support_type.lower() == "inklemming":
+            # Inklemming als rechthoek met verticale strepen
+            rect_width = beam_height/3
+            rect_height = beam_height*1.4
+            
             # Rechthoek voor inklemming
             fig.add_shape(
                 type="rect",
-                x0=pos/1000 - beam_height/3/1000,
-                y0=beam_y - beam_height,
-                x1=pos/1000 + beam_height/3/1000,
-                y1=beam_y + beam_height,
-                line=dict(color=colors['support'], width=3),  # Dikkere lijn
-                fillcolor=colors['support'],
-                opacity=0.7,
-                name=f'Inklemming op {pos} mm'
+                x0=pos_exact/1000 - rect_width/2000,
+                y0=beam_y - rect_height/2,
+                x1=pos_exact/1000 + rect_width/2000,
+                y1=beam_y + rect_height/2,
+                line=dict(color=colors['support'], width=3),
+                fillcolor='white',
+                opacity=1.0
             )
             
-            # Legenda-item
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos/1000],
-                    y=[beam_y],
-                    mode='markers',
-                    marker=dict(size=0.1, color=colors['support']),
-                    name=f'Inklemming op {pos} mm',
-                    showlegend=True
+            # Verticale strepen in rechthoek (7 strepen)
+            num_stripes = 7
+            stripe_width = rect_width / (num_stripes + 1)
+            for i in range(1, num_stripes + 1):
+                stripe_x = pos_exact/1000 - rect_width/2000 + i * stripe_width/1000
+                fig.add_shape(
+                    type="line",
+                    x0=stripe_x,
+                    y0=beam_y - rect_height/2,
+                    x1=stripe_x,
+                    y1=beam_y + rect_height/2,
+                    line=dict(color=colors['support'], width=2)
                 )
-            )
     
     # Voeg belastingen toe
     for load in loads:
@@ -2644,7 +2687,7 @@ def plot_interactive_beam(beam_length, supports, loads):
             range=[y_min, y_max],  # Vaste y-range
             fixedrange=True,  # Voorkom zoom op y-as
             scaleanchor="x",
-            scaleratio=0.5
+            scaleratio=1.0,  # 1:1 verhouding voor betere weergave
         ),
         dragmode=False,  # Schakel slepen uit
         showlegend=False,  # Verberg de legenda voor meer ruimte
