@@ -2395,7 +2395,7 @@ def plot_interactive_beam(beam_length, supports, loads):
             name='Balk',
             line=dict(
                 color=colors['beam'],
-                width=8  # Dikkere lijn voor de balk
+                width=10  # Nog dikkere lijn voor de balk
             )
         )
     )
@@ -2407,86 +2407,108 @@ def plot_interactive_beam(beam_length, supports, loads):
         
         if support_type.lower() == "scharnier":
             # Driehoek symbool voor scharnier
-            triangle_size = beam_height/2
-            
-            # Voeg driehoek toe
-            fig.add_shape(
-                type="path",
-                path=f"M {pos_exact/1000-triangle_size/2000},{beam_y-beam_height*0.1} L {pos_exact/1000+triangle_size/2000},{beam_y-beam_height*0.1} L {pos_exact/1000},{beam_y-beam_height*0.7} Z",
-                line=dict(color=colors['support'], width=3),
-                fillcolor=colors['support_fill'],
-                opacity=0.8
-            )
+            # Maak de driehoek groter en duidelijker
+            triangle_height = beam_height * 0.8
+            triangle_width = beam_height * 0.6
             
             # Verticale lijn van balk naar scharnier
             fig.add_trace(
                 go.Scatter(
                     x=[pos_exact/1000, pos_exact/1000],
-                    y=[beam_y, beam_y-beam_height*0.1],
+                    y=[beam_y, beam_y - triangle_height * 0.2],
                     mode='lines',
-                    line=dict(color=colors['support'], width=3),
+                    line=dict(color=colors['support'], width=4),
                     showlegend=False
                 )
             )
             
-            # Horizontale lijn onder driehoek
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos_exact/1000-triangle_size/1000, pos_exact/1000+triangle_size/1000],
-                    y=[beam_y-beam_height*0.7, beam_y-beam_height*0.7],
-                    mode='lines',
-                    line=dict(color=colors['support'], width=3),
-                    showlegend=False
-                )
-            )
-        
-        elif support_type.lower() == "rol":
-            # Driehoek met rollen symbool voor rol
-            triangle_size = beam_height/2
-            
-            # Voeg driehoek toe (smaller)
+            # Driehoek voor scharnier
             fig.add_shape(
                 type="path",
-                path=f"M {pos_exact/1000-triangle_size/2000},{beam_y-beam_height*0.1} L {pos_exact/1000+triangle_size/2000},{beam_y-beam_height*0.1} L {pos_exact/1000},{beam_y-beam_height*0.5} Z",
+                path=f"M {pos_exact/1000-triangle_width/2000},{beam_y-triangle_height*0.2} L {pos_exact/1000+triangle_width/2000},{beam_y-triangle_height*0.2} L {pos_exact/1000},{beam_y-triangle_height} Z",
                 line=dict(color=colors['support'], width=3),
                 fillcolor=colors['support_fill'],
                 opacity=0.8
             )
             
-            # Verticale lijn van balk naar rol
+            # Horizontale lijn onder driehoek
             fig.add_trace(
                 go.Scatter(
-                    x=[pos_exact/1000, pos_exact/1000],
-                    y=[beam_y, beam_y-beam_height*0.1],
+                    x=[pos_exact/1000-triangle_width/1500, pos_exact/1000+triangle_width/1500],
+                    y=[beam_y-triangle_height, beam_y-triangle_height],
                     mode='lines',
-                    line=dict(color=colors['support'], width=3),
+                    line=dict(color=colors['support'], width=4),
                     showlegend=False
                 )
             )
             
-            # Drie cirkels onder driehoek voor rol
-            rol_radius = triangle_size/6000
+            # Label
+            fig.add_annotation(
+                x=pos_exact/1000,
+                y=beam_y-triangle_height*1.2,
+                text=f"Scharnier ({pos_exact} mm)",
+                showarrow=False,
+                font=dict(size=12, color=colors['support'])
+            )
+        
+        elif support_type.lower() == "rol":
+            # Driehoek met rollen symbool voor rol
+            triangle_height = beam_height * 0.6
+            triangle_width = beam_height * 0.6
+            
+            # Verticale lijn van balk naar rol
+            fig.add_trace(
+                go.Scatter(
+                    x=[pos_exact/1000, pos_exact/1000],
+                    y=[beam_y, beam_y-triangle_height*0.2],
+                    mode='lines',
+                    line=dict(color=colors['support'], width=4),
+                    showlegend=False
+                )
+            )
+            
+            # Driehoek voor rol
+            fig.add_shape(
+                type="path",
+                path=f"M {pos_exact/1000-triangle_width/2000},{beam_y-triangle_height*0.2} L {pos_exact/1000+triangle_width/2000},{beam_y-triangle_height*0.2} L {pos_exact/1000},{beam_y-triangle_height*0.8} Z",
+                line=dict(color=colors['support'], width=3),
+                fillcolor=colors['support_fill'],
+                opacity=0.8
+            )
+            
+            # Cirkels voor rol (3 cirkels)
+            rol_radius = triangle_width/6000
+            circle_y = beam_y-triangle_height*0.9
             for i in range(3):
-                x_offset = (i-1) * rol_radius * 4
+                x_offset = (i-1) * rol_radius * 5
                 fig.add_shape(
                     type="circle",
                     x0=(pos_exact/1000+x_offset)-rol_radius,
-                    y0=(beam_y-beam_height*0.7)-rol_radius,
+                    y0=circle_y-rol_radius,
                     x1=(pos_exact/1000+x_offset)+rol_radius,
-                    y1=(beam_y-beam_height*0.7)+rol_radius,
+                    y1=circle_y+rol_radius,
                     line=dict(color=colors['support'], width=2),
                     fillcolor=colors['support_fill']
                 )
             
-            # Horizontale lijn onder driehoek
+            # Horizontale lijn onder de cirkels
             fig.add_trace(
                 go.Scatter(
-                    x=[pos_exact/1000-triangle_size/1200, pos_exact/1000+triangle_size/1200],
-                    y=[beam_y-beam_height*0.85, beam_y-beam_height*0.85],
+                    x=[pos_exact/1000-triangle_width/1200, pos_exact/1000+triangle_width/1200],
+                    y=[circle_y-rol_radius*2, circle_y-rol_radius*2],
                     mode='lines',
-                    line=dict(color=colors['support'], width=3),
+                    line=dict(color=colors['support'], width=4),
                     showlegend=False
                 )
+            )
+            
+            # Label
+            fig.add_annotation(
+                x=pos_exact/1000,
+                y=circle_y-rol_radius*4,
+                text=f"Rol ({pos_exact} mm)",
+                showarrow=False,
+                font=dict(size=12, color=colors['support'])
             )
             
         elif support_type.lower() == "inklemming":
@@ -2531,8 +2553,9 @@ def plot_interactive_beam(beam_length, supports, loads):
         
         if load_type.lower() == "puntlast":
             # Pijl voor puntlast
-            arrow_length = 1.8 * beam_height  # Grotere pijl
+            arrow_length = 2.0 * beam_height  # Grotere pijl
             arrow_head_length = arrow_length * 0.2
+            arrow_head_width = arrow_head_length * 1.5
             
             # Pijlsteel
             fig.add_trace(
@@ -2540,7 +2563,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                     x=[pos/1000, pos/1000],
                     y=[beam_y, beam_y + direction * (arrow_length - arrow_head_length)],
                     mode='lines',
-                    line=dict(color=colors['load'], width=3),  # Dikkere lijn
+                    line=dict(color=colors['load'], width=4),  # Dikkere lijn
                     showlegend=False
                 )
             )
@@ -2548,12 +2571,12 @@ def plot_interactive_beam(beam_length, supports, loads):
             # Pijlpunt
             fig.add_trace(
                 go.Scatter(
-                    x=[pos/1000 - arrow_head_length/2/1000, pos/1000, pos/1000 + arrow_head_length/2/1000],
+                    x=[pos/1000 - arrow_head_width/2/1000, pos/1000, pos/1000 + arrow_head_width/2/1000],
                     y=[beam_y + direction * (arrow_length - arrow_head_length), 
                        beam_y + direction * arrow_length, 
                        beam_y + direction * (arrow_length - arrow_head_length)],
                     mode='lines',
-                    line=dict(color=colors['load'], width=3),  # Dikkere lijn
+                    line=dict(color=colors['load'], width=3),
                     fill="toself",
                     fillcolor=colors['load'],
                     showlegend=False
@@ -2566,7 +2589,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                 y=beam_y + direction * arrow_length + direction * beam_height*0.5,
                 text=f"{abs(value)/1000:.1f} kN",
                 showarrow=False,
-                font=dict(size=12, color=colors['load'])  # Grotere tekst
+                font=dict(size=14, color=colors['load'])  # Grotere tekst
             )
             
             # Legenda-item
@@ -2587,7 +2610,7 @@ def plot_interactive_beam(beam_length, supports, loads):
             end_pos = (pos + length)/1000
             
             # Hoogte van pijlen
-            arrow_height = 1.8 * beam_height  # Grotere pijlen
+            arrow_height = 2.0 * beam_height  # Grotere pijlen
             
             # Lijn bovenaan
             fig.add_trace(
@@ -2595,7 +2618,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                     x=[start_pos, end_pos],
                     y=[beam_y + direction * arrow_height, beam_y + direction * arrow_height],
                     mode='lines',
-                    line=dict(color=colors['load'], width=3),  # Dikkere lijn
+                    line=dict(color=colors['load'], width=4),  # Dikkere lijn
                     showlegend=False
                 )
             )
@@ -2611,19 +2634,20 @@ def plot_interactive_beam(beam_length, supports, loads):
                         x=[x_arrow, x_arrow],
                         y=[beam_y + direction * arrow_height, beam_y],
                         mode='lines',
-                        line=dict(color=colors['load'], width=2),  # Dikkere lijn
+                        line=dict(color=colors['load'], width=3),  # Dikkere lijn
                         showlegend=False
                     )
                 )
                 
                 # Pijlpunt (klein driehoekje)
                 arrow_head_size = arrow_height * 0.12
+                arrow_head_width = arrow_head_size * 1.5
                 fig.add_trace(
                     go.Scatter(
-                        x=[x_arrow - arrow_head_size/2/1000, x_arrow, x_arrow + arrow_head_size/2/1000],
+                        x=[x_arrow - arrow_head_width/2/1000, x_arrow, x_arrow + arrow_head_width/2/1000],
                         y=[beam_y + direction * arrow_head_size, beam_y, beam_y + direction * arrow_head_size],
                         mode='lines',
-                        line=dict(color=colors['load'], width=2),  # Dikkere lijn
+                        line=dict(color=colors['load'], width=2),
                         fill="toself",
                         fillcolor=colors['load'],
                         showlegend=False
@@ -2636,7 +2660,7 @@ def plot_interactive_beam(beam_length, supports, loads):
                 y=beam_y + direction * arrow_height + direction * beam_height*0.5,
                 text=f"{abs(value)/1000:.1f} kN/m",
                 showarrow=False,
-                font=dict(size=12, color=colors['load'])  # Grotere tekst
+                font=dict(size=14, color=colors['load'])  # Grotere tekst
             )
             
             # Legenda-item
@@ -2657,7 +2681,7 @@ def plot_interactive_beam(beam_length, supports, loads):
         y=beam_y - 2 * beam_height,
         text=f"Balklengte: {beam_length} mm",
         showarrow=False,
-        font=dict(size=14, color=colors['text'])  # Grotere tekst
+        font=dict(size=16, color=colors['text'])  # Grotere tekst
     )
     
     # Zet gelijke assen om vervorming van vorm te voorkomen
@@ -2667,20 +2691,20 @@ def plot_interactive_beam(beam_length, supports, loads):
     
     # Styling en layout
     fig.update_layout(
-        height=600,  # Nog grotere hoogte
+        height=700,  # Nog grotere hoogte
         autosize=False,
         title="Balkvisualisatie",
-        title_font=dict(size=16),
+        title_font=dict(size=18),
         margin=dict(l=50, r=50, t=50, b=50, pad=4),
         xaxis=dict(
             title="Positie (m)",
-            title_font=dict(size=14),
+            title_font=dict(size=16),
             range=[min_x/1000, max_x/1000],  # Vaste weergave
             fixedrange=True,  # Voorkom zoom op x-as
             constrain="domain",
             showgrid=True,
             gridcolor=colors['grid'],
-            tickfont=dict(size=12)
+            tickfont=dict(size=14)
         ),
         yaxis=dict(
             showticklabels=False,
