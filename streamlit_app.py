@@ -2370,6 +2370,7 @@ def plot_interactive_beam(beam_length, supports, loads):
     colors = {
         'beam': '#2c3e50',
         'support': '#3498db', 
+        'support_fill': '#3498db',
         'load': '#e74c3c',
         'moment': '#9b59b6',
         'dimension': '#7f8c8d',
@@ -2400,92 +2401,119 @@ def plot_interactive_beam(beam_length, supports, loads):
         pos_exact = pos
         
         if support_type.lower() == "scharnier":
-            # Verticale lijn van balk naar scharnier
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos_exact/1000, pos_exact/1000],
-                    y=[beam_y, beam_y - beam_height],
-                    mode='lines',
-                    line=dict(color=colors['support'], width=4),
-                    showlegend=False
-                )
+            # Scharnier als gevulde driehoek met horizontale lijn
+            triangle_size = beam_height * 0.4
+            
+            # Driehoek voor scharnier
+            fig.add_shape(
+                type="path",
+                path=f"M {pos_exact/1000-triangle_size/1000},{beam_y} L {pos_exact/1000+triangle_size/1000},{beam_y} L {pos_exact/1000},{beam_y-triangle_size} Z",
+                line=dict(color=colors['support'], width=2),
+                fillcolor=colors['support_fill'],
+                opacity=0.8
             )
             
-            # Driehoek symbool voor scharnier
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos_exact/1000],
-                    y=[beam_y - beam_height],
-                    mode='markers',
-                    marker=dict(
-                        symbol='triangle-up',
-                        size=25,
-                        color=colors['support']
-                    ),
-                    showlegend=False
-                )
+            # Horizontale lijn onder driehoek
+            fig.add_shape(
+                type="line",
+                x0=pos_exact/1000-triangle_size*1.2/1000,
+                y0=beam_y-triangle_size*1.2,
+                x1=pos_exact/1000+triangle_size*1.2/1000,
+                y1=beam_y-triangle_size*1.2,
+                line=dict(color=colors['support'], width=3)
             )
             
-            # Horizontale lijn onder scharnier
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos_exact/1000 - beam_height/10/1000, pos_exact/1000 + beam_height/10/1000],
-                    y=[beam_y - beam_height*1.2, beam_y - beam_height*1.2],
-                    mode='lines',
-                    line=dict(color=colors['support'], width=4),
-                    showlegend=False
-                )
+            # Voeg label toe
+            fig.add_annotation(
+                x=pos_exact/1000,
+                y=beam_y-triangle_size*1.5,
+                text=f"{pos_exact} mm",
+                showarrow=False,
+                font=dict(size=12, color=colors['support'])
             )
         
         elif support_type.lower() == "rol":
-            # Verticale lijn van balk naar rol
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos_exact/1000, pos_exact/1000],
-                    y=[beam_y, beam_y - beam_height],
-                    mode='lines',
-                    line=dict(color=colors['support'], width=4),
-                    showlegend=False
-                )
+            # Rol als driehoek met cirkel en horizontale lijn
+            triangle_size = beam_height * 0.3
+            circle_radius = beam_height * 0.1
+            
+            # Driehoek voor rol
+            fig.add_shape(
+                type="path",
+                path=f"M {pos_exact/1000-triangle_size/1000},{beam_y} L {pos_exact/1000+triangle_size/1000},{beam_y} L {pos_exact/1000},{beam_y-triangle_size} Z",
+                line=dict(color=colors['support'], width=2),
+                fillcolor=colors['support_fill'],
+                opacity=0.8
             )
             
-            # Cirkel symbool voor rol
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos_exact/1000],
-                    y=[beam_y - beam_height],
-                    mode='markers',
-                    marker=dict(
-                        symbol='circle',
-                        size=20,
-                        color=colors['support']
-                    ),
-                    showlegend=False
-                )
+            # Cirkel voor rol
+            fig.add_shape(
+                type="circle",
+                x0=pos_exact/1000-circle_radius/1000,
+                y0=beam_y-triangle_size-circle_radius*2,
+                x1=pos_exact/1000+circle_radius/1000,
+                y1=beam_y-triangle_size,
+                line=dict(color=colors['support'], width=2),
+                fillcolor=colors['support_fill']
             )
             
-            # Horizontale lijn onder rol
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos_exact/1000 - beam_height/10/1000, pos_exact/1000 + beam_height/10/1000],
-                    y=[beam_y - beam_height*1.2, beam_y - beam_height*1.2],
-                    mode='lines',
-                    line=dict(color=colors['support'], width=4),
-                    showlegend=False
-                )
+            # Horizontale lijn onder cirkel
+            fig.add_shape(
+                type="line",
+                x0=pos_exact/1000-triangle_size*1.2/1000,
+                y0=beam_y-triangle_size-circle_radius*2.5,
+                x1=pos_exact/1000+triangle_size*1.2/1000,
+                y1=beam_y-triangle_size-circle_radius*2.5,
+                line=dict(color=colors['support'], width=3)
             )
             
+            # Voeg label toe
+            fig.add_annotation(
+                x=pos_exact/1000,
+                y=beam_y-triangle_size-circle_radius*3.5,
+                text=f"{pos_exact} mm",
+                showarrow=False,
+                font=dict(size=12, color=colors['support'])
+            )
+        
         elif support_type.lower() == "inklemming":
+            # Inklemming als rechthoek met verticale strepen
+            rect_width = beam_height * 0.4
+            rect_height = beam_height * 1.6
+            
             # Rechthoek voor inklemming
             fig.add_shape(
                 type="rect",
-                x0=pos_exact/1000 - beam_height/10/1000,
-                y0=beam_y - beam_height,
-                x1=pos_exact/1000 + beam_height/10/1000,
-                y1=beam_y + beam_height,
-                line=dict(color=colors['support'], width=3),
-                fillcolor=colors['support'],
-                opacity=0.7
+                x0=pos_exact/1000 - rect_width/2000,
+                y0=beam_y - rect_height/2,
+                x1=pos_exact/1000 + rect_width/2000,
+                y1=beam_y + rect_height/2,
+                line=dict(color=colors['support'], width=2),
+                fillcolor='white',
+                opacity=1.0
+            )
+            
+            # Verticale strepen in rechthoek (5 strepen)
+            num_stripes = 5
+            stripe_width = rect_width / (num_stripes + 1)
+            for i in range(1, num_stripes + 1):
+                stripe_x = pos_exact/1000 - rect_width/2000 + i * stripe_width/1000
+                fig.add_shape(
+                    type="line",
+                    x0=stripe_x,
+                    y0=beam_y - rect_height/2,
+                    x1=stripe_x,
+                    y1=beam_y + rect_height/2,
+                    line=dict(color=colors['support'], width=2)
+                )
+            
+            # Voeg label toe
+            fig.add_annotation(
+                x=pos_exact/1000,
+                y=beam_y + rect_height/2 + beam_height*0.2,
+                text=f"{pos_exact} mm",
+                showarrow=False,
+                font=dict(size=12, color=colors['support'])
             )
     
     # Voeg belastingen toe
@@ -2498,33 +2526,28 @@ def plot_interactive_beam(beam_length, supports, loads):
         direction = -1 if value > 0 else 1  # Positief is naar beneden
         
         if load_type.lower() == "puntlast":
-            # Pijl voor puntlast
-            arrow_length = 2.0 * beam_height  # Grotere pijl
+            # Pijl voor puntlast met duidelijke pijlpunt
+            arrow_length = 2.0 * beam_height
+            arrow_head_size = arrow_length * 0.15
             
             # Pijlsteel
             fig.add_trace(
                 go.Scatter(
                     x=[pos/1000, pos/1000],
-                    y=[beam_y, beam_y + direction * arrow_length],
+                    y=[beam_y, beam_y + direction * (arrow_length - arrow_head_size)],
                     mode='lines',
-                    line=dict(color=colors['load'], width=4),
+                    line=dict(color=colors['load'], width=3),
                     showlegend=False
                 )
             )
             
-            # Pijlpunt
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos/1000],
-                    y=[beam_y + direction * arrow_length],
-                    mode='markers',
-                    marker=dict(
-                        symbol='triangle-down' if direction < 0 else 'triangle-up',
-                        size=20,
-                        color=colors['load']
-                    ),
-                    showlegend=False
-                )
+            # Pijlpunt (driehoek)
+            fig.add_shape(
+                type="path",
+                path=f"M {pos/1000-arrow_head_size/1000},{beam_y + direction * (arrow_length - arrow_head_size)} L {pos/1000+arrow_head_size/1000},{beam_y + direction * (arrow_length - arrow_head_size)} L {pos/1000},{beam_y + direction * arrow_length} Z",
+                line=dict(color=colors['load'], width=2),
+                fillcolor=colors['load'],
+                opacity=1.0
             )
             
             # Label
@@ -2535,18 +2558,6 @@ def plot_interactive_beam(beam_length, supports, loads):
                 showarrow=False,
                 font=dict(size=14, color=colors['load'])
             )
-            
-            # Legenda-item
-            fig.add_trace(
-                go.Scatter(
-                    x=[pos/1000],
-                    y=[beam_y + direction * arrow_length/2],
-                    mode='markers',
-                    marker=dict(size=0.1, color=colors['load']),
-                    name=f'Puntlast {abs(value)/1000:.1f} kN op {pos} mm',
-                    showlegend=True
-                )
-            )
         
         elif load_type.lower() == "verdeelde last":
             length = load[3]
@@ -2554,7 +2565,8 @@ def plot_interactive_beam(beam_length, supports, loads):
             end_pos = (pos + length)/1000
             
             # Hoogte van pijlen
-            arrow_height = 2.0 * beam_height
+            arrow_height = 1.5 * beam_height
+            arrow_head_size = arrow_height * 0.12
             
             # Lijn bovenaan
             fig.add_trace(
@@ -2562,13 +2574,13 @@ def plot_interactive_beam(beam_length, supports, loads):
                     x=[start_pos, end_pos],
                     y=[beam_y + direction * arrow_height, beam_y + direction * arrow_height],
                     mode='lines',
-                    line=dict(color=colors['load'], width=4),
+                    line=dict(color=colors['load'], width=3),
                     showlegend=False
                 )
             )
             
             # Meerdere pijlen tekenen
-            num_arrows = max(3, min(10, int(length/300) + 2))
+            num_arrows = max(3, min(8, int(length/500) + 2))
             x_arrows = np.linspace(start_pos, end_pos, num_arrows)
             
             for x_arrow in x_arrows:
@@ -2576,26 +2588,20 @@ def plot_interactive_beam(beam_length, supports, loads):
                 fig.add_trace(
                     go.Scatter(
                         x=[x_arrow, x_arrow],
-                        y=[beam_y + direction * arrow_height, beam_y],
+                        y=[beam_y + direction * arrow_height, beam_y + direction * arrow_head_size],
                         mode='lines',
-                        line=dict(color=colors['load'], width=3),
+                        line=dict(color=colors['load'], width=2),
                         showlegend=False
                     )
                 )
                 
-                # Pijlpunt
-                fig.add_trace(
-                    go.Scatter(
-                        x=[x_arrow],
-                        y=[beam_y],
-                        mode='markers',
-                        marker=dict(
-                            symbol='triangle-down' if direction < 0 else 'triangle-up',
-                            size=15,
-                            color=colors['load']
-                        ),
-                        showlegend=False
-                    )
+                # Pijlpunt (driehoek)
+                fig.add_shape(
+                    type="path",
+                    path=f"M {x_arrow-arrow_head_size/1000},{beam_y + direction * arrow_head_size} L {x_arrow+arrow_head_size/1000},{beam_y + direction * arrow_head_size} L {x_arrow},{beam_y} Z",
+                    line=dict(color=colors['load'], width=1),
+                    fillcolor=colors['load'],
+                    opacity=1.0
                 )
             
             # Label in het midden
@@ -2606,23 +2612,11 @@ def plot_interactive_beam(beam_length, supports, loads):
                 showarrow=False,
                 font=dict(size=14, color=colors['load'])
             )
-            
-            # Legenda-item
-            fig.add_trace(
-                go.Scatter(
-                    x=[(start_pos + end_pos)/2],
-                    y=[beam_y + direction * arrow_height/2],
-                    mode='markers',
-                    marker=dict(size=0.1, color=colors['load']),
-                    name=f'Verdeelde last {abs(value)/1000:.1f} kN/m op {pos}-{pos+length} mm',
-                    showlegend=True
-                )
-            )
     
     # Annotatie voor balklengte
     fig.add_annotation(
-        x=(0 + beam_length/1000) / 2,
-        y=beam_y - 2 * beam_height,
+        x=(min_x/1000 + max_x/1000) / 2,
+        y=beam_y - 2.5 * beam_height,
         text=f"Balklengte: {beam_length} mm",
         showarrow=False,
         font=dict(size=16, color=colors['text'])
