@@ -441,7 +441,7 @@ def calculate_reactions_matrix(beam_length, supports, loads):
         # Maak reactions dictionary
         reactions = {}
         for i, (pos, _) in enumerate(supports):
-            reactions[pos] = -R[i]  # Negatief omdat reacties omhoog positief zijn
+            reactions[pos] = -R[i]  # Reactiekracht tegengesteld aan belasting
         
         # Voeg inklemming momenten toe indien nodig
         if type1.lower() == "inklemming":
@@ -2153,7 +2153,7 @@ def main():
             constrain="domain"
         ),
         yaxis=dict(
-            title="",
+            showticklabels=False,
             range=[-0.1, 0.1],
             fixedrange=True,  # Voorkom zoom op y-as
             scaleanchor="x",
@@ -2346,10 +2346,6 @@ def main():
         - Je kunt de balklengte bovenaan aanpassen
         - Configureer het profiel in de zijbalk
         """)
-
-
-# Voeg aan het einde van het bestand, vlak voor if __name__ == "__main__": 
-# de volgende functies toe:
 
 def plot_interactive_beam(beam_length, supports, loads):
     """Teken interactieve balk met steunpunten en belastingen"""
@@ -2651,6 +2647,7 @@ def plot_interactive_beam(beam_length, supports, loads):
             fixedrange=True,
             constrain="domain",
             showgrid=True,
+            gridwidth=1,
             gridcolor=colors['grid'],
             tickfont=dict(size=14)
         ),
