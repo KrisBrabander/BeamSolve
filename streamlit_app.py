@@ -1359,7 +1359,6 @@ def plot_results(x, V, M, theta, y, beam_length, supports, loads):
                 showarrow=True,
                 arrowhead=2,
                 arrowsize=1,
-                arrowwidth=2,
                 arrowcolor=colors['load'],
                 ax=0,
                 ay=direction * 30,
@@ -1493,7 +1492,7 @@ def generate_pdf_report(beam_data, results_plot):
     elements = []
     
     # Header met logo en titel
-    elements.append(Paragraph("BeamSolve Pro", title_style))
+    elements.append(Paragraph("BeamSolve", title_style))
     elements.append(Paragraph(f"Rapport gegenereerd op {datetime.now().strftime('%d-%m-%Y %H:%M')}", body_style))
     elements.append(Spacer(1, 20))
     
@@ -1631,7 +1630,7 @@ def generate_pdf_report(beam_data, results_plot):
     
     # Footer
     elements.append(Spacer(1, 30))
-    footer_text = "Berekend met BeamSolve Pro 2025"
+    footer_text = "Berekend met BeamSolve 2025"
     elements.append(Paragraph(footer_text, body_style))
     
     # Build PDF
@@ -1939,7 +1938,7 @@ def calculate_A(profile_type, h, b, t_w, t_f=None):
 
 def main():
     st.set_page_config(
-        page_title="BeamSolved",
+        page_title="BeamSolve",
         page_icon="🔧",
         layout="wide",
         initial_sidebar_state="expanded"
@@ -2029,7 +2028,7 @@ def main():
     # Header
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.title("BeamSolved")
+        st.title("BeamSolve")
         st.markdown("#### Geavanceerde balkberekeningen voor constructeurs")
     
     # Sessie state initialiseren voor interactieve elementen
@@ -2333,7 +2332,7 @@ def main():
     # Toon welkomstscherm als er nog geen berekening is uitgevoerd
     else:
         st.markdown("""
-        ## Welkom bij de interactieve BeamSolved
+        ## Welkom bij de interactieve BeamSolve
         
         Deze tool stelt je in staat om direct op de balk te klikken om elementen toe te voegen:
         
@@ -2642,7 +2641,7 @@ def plot_interactive_beam(beam_length, supports, loads):
     fig.update_layout(
         height=700,
         autosize=False,
-        title="Balkvisualisatie",
+        title="BeamSolve - Balkvisualisatie",
         title_font=dict(size=18),
         margin=dict(l=50, r=50, t=50, b=50, pad=4),
         xaxis=dict(
