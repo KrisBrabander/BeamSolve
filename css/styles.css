@@ -421,6 +421,16 @@ footer {
     --border-color-light: #333333;
 }
 
+/* Force dark mode body background */
+[data-theme="dark"] body {
+    background-color: #121212 !important;
+}
+
+/* Force dark mode container background */
+[data-theme="dark"] .container-fluid {
+    background-color: #121212 !important;
+}
+
 [data-theme="dark"] .bg-white {
     background-color: var(--bg-header) !important;
 }
