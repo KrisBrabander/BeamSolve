@@ -1,65 +1,371 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5485905203359472"
-     crossorigin="anonymous"></script>
-  <script defer src="https://cloud.umami.is/script.js" data-website-id="302cd0f7-976d-421f-8e7e-5fc3b9d60e60"></script>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>BeamSolve – Coming Soon</title>
-  <style>
-    body {
-      font-family: sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      background: #f7f7f7;
-      margin: 0;
-      flex-direction: column;
-      text-align: center;
-      padding: 2rem;
-    }
-    h1 {
-      font-size: 2.5rem;
-      margin-bottom: 0.5rem;
-    }
-    p {
-      font-size: 1.2rem;
-      margin-bottom: 1.5rem;
-      max-width: 400px;
-    }
-    a button {
-      padding: 0.6rem 1.4rem;
-      font-size: 1rem;
-      background-color: #000;
-      color: #fff;
-      border: none;
-      border-radius: 5px;
-      cursor: pointer;
-    }
-    a button:hover {
-      background-color: #222;
-    }
-    footer {
-      margin-top: 3rem;
-      font-size: 0.9rem;
-      color: #999;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steel Profile Calculator Pro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 </head>
-  
 <body>
-  <h1>🚧 BeamSolve</h1>
-  <p>We're currently working hard to bring you the fastest and most intuitive beam calculation tool on the web.</p>
+    <div class="container-fluid p-0">
+        <header class="bg-white py-3 border-bottom">
+            <div class="container">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <img src="img/logo.svg" alt="Steel Profile Calculator Logo" class="me-3" width="40" height="40">
+                        <div>
+                            <h1 class="h4 mb-0 text-dark">Steel Profile Calculator Pro</h1>
+                            <p class="mb-0 small text-secondary">Calculate weight, volume, and surface area of steel profiles</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="theme-toggle me-3" id="theme-toggle" title="Toggle dark mode">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-moon-stars" viewBox="0 0 16 16" id="theme-icon">
+                                <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278zM4.858 1.311A7.269 7.269 0 0 0 1.025 7.71c0 4.02 3.279 7.276 7.319 7.276a7.316 7.316 0 0 0 5.205-2.162c-.337.042-.68.063-1.029.063-4.61 0-8.343-3.714-8.343-8.29 0-1.167.242-2.278.681-3.286z"/>
+                                <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
+                            </svg>
+                        </div>
+                        <span class="badge bg-primary px-2 py-1 rounded-pill">v1.0</span>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-  <p>Want to be notified when we go live? Leave your email here:</p>
+        <main class="container mb-4">
+            <!-- Project Info Section -->
+            <section id="project-info" class="mb-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <h2 class="h6 mb-0">Project Information</h2>
+                        <span class="badge bg-primary px-2 py-1 rounded-pill">Pro Edition</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-6 mb-2">
+                                <label for="project-name" class="form-label small">Project Name</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-building" viewBox="0 0 16 16">
+                                            <path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1ZM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z"/>
+                                            <path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1Zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3V1Z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control" id="project-name" placeholder="Enter project name">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label for="company-name" class="form-label small">Company Name</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-briefcase" viewBox="0 0 16 16">
+                                            <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H1.5A1.5 1.5 0 0 0 0 4.5v8A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 14.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3zm0 1h3a.5.5 0 0 1 .5.5V3H6v-.5a.5.5 0 0 1 .5-.5zm1.886 6.914L15 7.151V12.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V7.15l6.614 1.764a1.5 1.5 0 0 0 .772 0zM1.5 4h13a.5.5 0 0 1 .5.5v1.616L8.129 7.948a.5.5 0 0 1-.258 0L1 6.116V4.5a.5.5 0 0 1 .5-.5z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control" id="company-name" placeholder="Enter company name">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label for="date" class="form-label small">Date</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-calendar" viewBox="0 0 16 16">
+                                            <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="date" class="form-control" id="date">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label for="reference" class="form-label small">Reference Number</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-hash" viewBox="0 0 16 16">
+                                            <path d="M8.39 12.648a1.32 1.32 0 0 0-.015.18c0 .305.21.508.5.508.266 0 .492-.172.555-.477l.554-2.703h1.204c.421 0 .617-.234.617-.547 0-.312-.188-.53-.617-.53h-.985l.516-2.524h1.265c.43 0 .618-.227.618-.547 0-.313-.188-.524-.618-.524h-1.046l.476-2.304a1.06 1.06 0 0 0 .016-.164.51.51 0 0 0-.516-.516.54.54 0 0 0-.539.43l-.523 2.554H7.617l.477-2.304c.008-.04.015-.118.015-.164a.512.512 0 0 0-.523-.516.539.539 0 0 0-.531.43L6.53 5.484H5.414c-.43 0-.617.22-.617.532 0 .312.187.539.617.539h.906l-.515 2.523H4.609c-.421 0-.609.219-.609.531 0 .313.188.547.61.547h.976l-.516 2.492c-.008.04-.015.125-.015.18 0 .305.21.508.5.508.265 0 .492-.172.554-.477l.555-2.703h2.242l-.515 2.492zm-1-6.109h2.266l-.515 2.563H6.859l.532-2.563z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control" id="reference" placeholder="Enter reference number">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-  <a href="https://tally.so/r/w2RNRg" target="_blank">
-    <button>Notify Me</button>
-  </a>
+            <!-- Steel Profiles Section -->
+            <section id="materials-section" class="mb-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <h2 class="h6 mb-0">Steel Profiles</h2>
+                        <button id="add-row" class="btn btn-primary btn-sm rounded-pill px-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-plus-lg me-1" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                            </svg>
+                            Add Profile
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0" id="materials-table">
+                                <colgroup>
+                                    <col class="col-profile-type">
+                                    <col class="col-profile-size">
+                                    <col class="col-length">
+                                    <col class="col-unit">
+                                    <col class="col-quantity">
+                                    <col class="col-weight-per-meter">
+                                    <col class="col-total-weight">
+                                    <col class="col-volume">
+                                    <col class="col-surface-area">
+                                    <col class="col-actions">
+                                </colgroup>
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="small text-uppercase">PROFILE TYPE</th>
+                                        <th class="small text-uppercase">PROFILE SIZE</th>
+                                        <th class="small text-uppercase">LENGTH</th>
+                                        <th class="small text-uppercase">UNIT</th>
+                                        <th class="small text-uppercase">QUANTITY</th>
+                                        <th class="small text-uppercase">WEIGHT/M</th>
+                                        <th class="small text-uppercase">TOTAL WEIGHT</th>
+                                        <th class="small text-uppercase">VOLUME</th>
+                                        <th class="small text-uppercase">SURFACE AREA</th>
+                                        <th class="small text-uppercase text-center">ACTIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="materials-table-body">
+                                    <!-- Rows will be added here dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-3 bg-light text-center d-none" id="no-materials-message">
+                            <p class="mb-0 text-muted">No materials added yet. Click "Add Material" to get started.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-  <footer>© 2025 BeamSolve – All rights reserved</footer>
+            <!-- Totals Section -->
+            <section id="totals-section" class="mb-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <h2 class="h6 mb-0">Project Totals</h2>
+                        <span class="badge bg-secondary px-2 py-1 rounded-pill">Summary</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small">Total Weight</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-speedometer" viewBox="0 0 16 16">
+                                            <path d="M8 2a.5.5 0 0 1 .5.5V4a.5.5 0 0 1-1 0V2.5A.5.5 0 0 1 8 2zM3.732 3.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707zM2 8a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 8zm9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5zm.754-4.246a.389.389 0 0 0-.527-.02L7.547 7.31A.91.91 0 1 0 8.85 8.569l3.434-4.297a.389.389 0 0 0-.029-.518z"/>
+                                            <path fill-rule="evenodd" d="M6.664 15.889A8 8 0 1 1 9.336.11a8 8 0 0 1-2.672 15.78zm-4.665-4.283A11.945 11.945 0 0 1 8 10c2.186 0 4.236.585 6.001 1.606a7 7 0 1 0-12.002 0z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm me-2" id="total-weight" readonly>
+                                    <span class="unit-label">kg</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small">Total Volume</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-box" viewBox="0 0 16 16">
+                                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm me-2" id="total-volume" readonly>
+                                    <span class="unit-label">m³</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small">Total Surface Area</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-aspect-ratio" viewBox="0 0 16 16">
+                                            <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h13A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 12.5v-9zM1.5 3a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-13z"/>
+                                            <path d="M2 4.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1H3v2.5a.5.5 0 0 1-1 0v-3zm12 7a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1H13V8.5a.5.5 0 0 1 1 0v3z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm me-2" id="total-surface-area" readonly>
+                                    <span class="unit-label">m²</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                <label for="material-density" class="form-label small">Material Density</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-droplet-fill" viewBox="0 0 16 16">
+                                            <path d="M8 16a6 6 0 0 0 6-6c0-1.655-1.122-2.904-2.432-4.362C10.254 4.176 8.75 2.503 8 0c0 0-6 5.686-6 10a6 6 0 0 0 6 6ZM6.646 4.646l.708.708c-.29.29-.444.696-.444 1.122 0 .552.448 1 1 1a.99.99 0 0 0 .706-.29l.708.708a2 2 0 1 1-2.678-2.978Z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="number" class="form-control form-control-sm me-2" id="material-density" value="7850">
+                                    <span class="unit-label">kg/m³</span>
+                                </div>
+                                <small class="text-muted small">Default density for steel: 7850 kg/m³</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Export Section -->
+            <section id="export-section" class="mb-4 mt-3 text-end">
+                <div class="d-flex gap-2 justify-content-end">
+                    <button id="export-csv" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-filetype-csv me-1" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5ZM3.517 14.841a1.13 1.13 0 0 0 .401.823c.13.108.289.192.478.252.19.061.411.091.665.091.338 0 .624-.053.859-.158.236-.105.416-.252.539-.44.125-.189.187-.408.187-.656 0-.224-.045-.41-.134-.56a1.001 1.001 0 0 0-.375-.357 2.027 2.027 0 0 0-.566-.21l-.621-.144a.97.97 0 0 1-.404-.176.37.37 0 0 1-.144-.299c0-.156.062-.284.185-.384.125-.101.296-.152.512-.152.143 0 .266.023.37.068a.624.624 0 0 1 .246.181.56.56 0 0 1 .12.258h.75a1.092 1.092 0 0 0-.2-.566 1.21 1.21 0 0 0-.5-.41 1.813 1.813 0 0 0-.78-.152c-.293 0-.551.05-.776.15-.225.099-.4.24-.527.421-.127.182-.19.395-.19.639 0 .201.04.376.122.524.082.149.2.27.352.367.152.095.332.167.539.213l.618.144c.207.049.361.113.463.193a.387.387 0 0 1 .152.326.505.505 0 0 1-.085.29.559.559 0 0 1-.255.193c-.111.047-.249.07-.413.07-.117 0-.223-.013-.32-.04a.838.838 0 0 1-.248-.115.578.578 0 0 1-.255-.384h-.765ZM.806 13.693c0-.248.034-.46.102-.633a.868.868 0 0 1 .302-.399.814.814 0 0 1 .475-.137c.15 0 .283.032.398.097a.7.7 0 0 1 .272.26.85.85 0 0 1 .12.381h.765v-.072a1.33 1.33 0 0 0-.466-.964 1.441 1.441 0 0 0-.489-.272 1.838 1.838 0 0 0-.606-.097c-.356 0-.66.074-.911.223-.25.148-.44.359-.572.632-.13.274-.196.6-.196.979v.498c0 .379.064.704.193.976.131.271.322.48.572.626.25.145.554.217.914.217.293 0 .554-.055.785-.164.23-.11.414-.26.55-.454a1.27 1.27 0 0 0 .226-.674v-.076h-.764a.799.799 0 0 1-.118.363.7.7 0 0 1-.272.25.874.874 0 0 1-.401.087.845.845 0 0 1-.478-.132.833.833 0 0 1-.299-.392 1.699 1.699 0 0 1-.102-.627v-.495Zm8.239 2.238h-.953l-1.338-3.999h.917l.896 3.138h.038l.888-3.138h.879l-1.327 4Z"/>
+                        </svg>
+                        Export to CSV
+                    </button>
+                    <button id="export-pdf" class="btn btn-sm btn-primary rounded-pill px-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-file-earmark-pdf me-1" viewBox="0 0 16 16">
+                            <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                            <path d="M4.603 14.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.68 7.68 0 0 1 1.482-.645 19.697 19.697 0 0 0 1.062-2.227a7.269 7.269 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.188-.012.396-.047.614-.084.51-.27 1.134-.52 1.794a10.954 10.954 0 0 0 .98 1.686 5.753 5.753 0 0 1 1.334.05c.364.066.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416.856.856 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a5.712 5.712 0 0 1-.911-.95 11.651 11.651 0 0 0-1.997.406 11.307 11.307 0 0 1-1.02 1.51c-.292.35-.609.656-.927.787a.793.793 0 0 1-.58.029z"/>
+                        </svg>
+                        Download PDF
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <footer class="bg-light py-4 mt-auto border-top">
+            <div class="container text-center">
+                <p class="mb-0 text-secondary">Steel Profile Calculator Pro &copy; <span id="current-year"></span></p>
+                <p class="mb-0 text-muted small">Professional steel profile calculations</p>
+            </div>
+        </footer>
+    </div>
+    
+    <!-- Row Template (Hidden) -->
+    <template id="row-template">
+        <tr class="material-row">
+            <td>
+                <select class="form-select form-select-sm profile-type">
+                    <option value="">Select type</option>
+                    <option value="IPE">IPE</option>
+                    <option value="HEA">HEA</option>
+                    <option value="HEB">HEB</option>
+                    <option value="UNP">UNP</option>
+                    <option value="RHS">RHS</option>
+                    <option value="SHS">SHS</option>
+                    <option value="ROUND_PIPE">Round pipe</option>
+                    <option value="FLAT_BAR">Flat bar</option>
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm profile-size" disabled>
+                    <option value="">Select size</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm length" value="1000">
+            </td>
+            <td>
+                <select class="form-select form-select-sm unit" style="min-width: 90px;">
+                    <option value="mm">mm</option>
+                    <option value="m">m</option>
+                    <option value="inch">inch</option>
+                    <option value="ft">ft</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm quantity" value="1" min="1">
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm weight-per-meter" readonly>
+                    <span class="unit-label ms-1">kg/m</span>
+                </div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm total-weight" readonly>
+                    <span class="unit-label ms-1">kg</span>
+                </div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm volume" readonly>
+                    <span class="unit-label ms-1">m³</span>
+                </div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm surface-area" readonly>
+                    <span class="unit-label ms-1">m²</span>
+                </div>
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-secondary rounded-circle delete-row p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                        <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                    </svg>
+                </button>
+            </td>
+        </tr>
+    </template>
+
+        <script src="js/profiles.js"></script>
+    <script>
+        // Use the embedded profile data instead of loading from JSON
+        const profileData = {
+            profiles: PROFILE_DATA,
+            
+            // No need to load profiles anymore as they're embedded
+            async loadProfiles() {
+                console.log('Using embedded profile data');
+                return this.profiles;
+            },
+            
+            getProfileTypes() {
+                return Object.keys(this.profiles);
+            },
+            
+            getProfilesByType(type) {
+                if (!this.profiles[type]) return [];
+                return this.profiles[type];
+            },
+            
+            getProfile(type, name) {
+                if (!this.profiles[type]) return null;
+                return this.profiles[type].find(profile => profile.name === name) || null;
+            },
+            
+            calculateWeight(type, name, length, quantity = 1, unit = 'mm') {
+                const profile = this.getProfile(type, name);
+                if (!profile) return 0;
+                
+                const lengthInMeters = unit === 'mm' ? length / 1000 : length;
+                return profile.weightPerMeter * lengthInMeters * quantity;
+            },
+            
+            calculateVolume(type, name, length, quantity = 1, unit = 'mm', density = 7850) {
+                const totalWeight = this.calculateWeight(type, name, length, quantity, unit);
+                return totalWeight / density;
+            },
+            
+            calculateSurfaceArea(type, name, length, quantity = 1, unit = 'mm') {
+                const profile = this.getProfile(type, name);
+                if (!profile) return 0;
+                
+                const lengthInMeters = unit === 'mm' ? length / 1000 : length;
+                return profile.surfaceAreaPerMeter * lengthInMeters * quantity;
+            }
+        };
+    </script>
+    <!-- Load profile data first -->
+    <script src="js/profiles.js"></script>
+    <!-- Then load data module that uses profile data -->
+    <script src="js/data.js"></script>
+    <!-- Finally load the main application logic -->
+    <script src="js/app.js"></script>
 </body>
 </html>
-

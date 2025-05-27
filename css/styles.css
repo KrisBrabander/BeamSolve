@@ -1,0 +1,560 @@
+/* Modern 2025 Design System */
+:root {
+    /* Primary palette */
+    --primary-color: #1e3a8a; /* Deep blue */
+    --primary-light: #3b5bdb;
+    --primary-dark: #0c2461;
+    
+    /* Secondary palette */
+    --secondary-color: #0ea5e9; /* Vibrant blue */
+    --secondary-dark: #0284c7;
+    
+    /* Accent colors */
+    --accent-color: #c0d0e0; /* Light blue from logo */
+    --success-color: #10b981; /* Green */
+    --warning-color: #f59e0b; /* Amber */
+    --danger-color: #ef4444;  /* Red */
+    
+    /* Neutrals */
+    --light-color: #f8fafc;
+    --light-gray: #f5f7fa;
+    --medium-gray: #e9ecef;
+    --dark-gray: #495057;
+    --dark-color: #1e293b;
+    
+    /* Spacing */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    
+    /* Borders & Shadows */
+    --border-radius-sm: 0.375rem;
+    --border-radius-md: 0.5rem;
+    --border-radius-lg: 0.75rem;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    
+    /* Text colors */
+    --text-primary: var(--dark-color);
+    --text-secondary: #64748b;
+    --text-muted: #94a3b8;
+    
+    /* Background colors */
+    --bg-body: var(--light-color);
+    --bg-card: #ffffff;
+    --bg-header: #ffffff;
+    --bg-footer: var(--light-gray);
+    --bg-table-header: var(--light-gray);
+    --bg-table-row-alt: #f8fafc;
+    --bg-input: #ffffff;
+    
+    /* Border colors */
+    --border-color: var(--medium-gray);
+    --border-color-light: #f1f5f9;
+}
+
+body {
+    font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+    line-height: 1.6;
+    color: var(--text-primary);
+    background-color: var(--bg-body);
+    overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Header styling */
+.bg-primary {
+    background-color: var(--primary-color) !important;
+}
+
+.bg-secondary {
+    background-color: var(--secondary-color) !important;
+}
+
+header {
+    box-shadow: var(--shadow-md);
+}
+
+header h1 {
+    font-weight: 700;
+    letter-spacing: -0.025em;
+}
+
+/* Button styling */
+.btn {
+    border-radius: var(--border-radius-md);
+    font-weight: 500;
+    transition: all 0.2s ease;
+    padding: 0.5rem 1.25rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+}
+
+.btn-primary:hover, .btn-primary:focus {
+    background-color: var(--primary-hover);
+    border-color: var(--primary-hover);
+}
+
+.btn-secondary {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+}
+
+.btn-success {
+    background-color: #5d7b99;
+    border-color: #5d7b99;
+}
+
+.btn-success:hover, .btn-success:focus {
+    background-color: #4a6278;
+    border-color: #4a6278;
+}
+
+/* Card styling */
+.card {
+    border-radius: var(--border-radius-md);
+    border: none;
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    background-color: var(--bg-card);
+    transition: background-color 0.3s ease;
+}
+
+.card-header {
+    background-color: var(--bg-table-header);
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.3s ease;
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Table Styles */
+.table {
+    margin-bottom: 0;
+    color: var(--text-primary);
+    transition: color 0.3s ease;
+}
+
+.table th {
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    background-color: var(--bg-table-header);
+    padding: 0.75rem 0.5rem;
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.table td {
+    vertical-align: middle;
+    padding: 0.5rem;
+    font-size: 0.875rem;
+    transition: background-color 0.3s ease;
+}
+
+.table-hover tbody tr:hover {
+    background-color: rgba(14, 165, 233, 0.05);
+}
+
+/* Column widths */
+.col-profile-type { width: 15%; }
+.col-profile-size { width: 15%; }
+.col-length { width: 10%; }
+.col-unit { width: 7%; }
+.col-quantity { width: 8%; }
+.col-weight-per-meter { width: 10%; }
+.col-total-weight { width: 10%; }
+.col-volume { width: 10%; }
+.col-surface-area { width: 10%; }
+.col-actions { width: 5%; }
+
+/* Form Controls */
+.form-control, .form-select {
+    border-radius: var(--border-radius-md);
+    border: 1px solid var(--border-color);
+    padding: 0.625rem 0.75rem;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out, background-color 0.3s ease;
+    background-color: var(--bg-input);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .form-control, [data-theme="dark"] .form-select {
+    border: none;
+    background-color: #1e3a5e;
+    color: white;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 0.25rem rgba(14, 165, 233, 0.25);
+}
+
+select.unit {
+    min-width: 90px;
+}
+
+.form-control[readonly] {
+    background-color: var(--light-gray);
+    opacity: 1;
+    font-weight: 500;
+}
+
+.input-group-text {
+    background-color: var(--light-gray);
+    border-color: var(--light-gray);
+    color: var(--dark-gray);
+    font-weight: 500;
+    border-top-right-radius: var(--border-radius-md);
+    border-bottom-right-radius: var(--border-radius-md);
+}
+
+.form-label {
+    font-weight: 500;
+    color: var(--dark-gray);
+    margin-bottom: 0.5rem;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .table-responsive {
+        overflow-x: auto;
+        border-radius: var(--border-radius-md);
+    }
+    
+    .btn-sm {
+        padding: 0.375rem 0.75rem;
+        font-size: 0.875rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .container {
+        padding-left: var(--spacing-md);
+        padding-right: var(--spacing-md);
+    }
+}
+
+/* Print Styles */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+    
+    body {
+        background-color: white;
+    }
+    
+    .card {
+        box-shadow: none;
+        border: 1px solid var(--light-gray);
+    }
+}
+
+/* Animation for row additions */
+.fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Custom input widths */
+.profile-type, .profile-size {
+    width: 100%;
+}
+
+.length, .quantity {
+    width: 100%;
+}
+
+.weight-per-meter, .total-weight, .volume, .surface-area {
+    width: 80%;
+}
+
+/* Unit labels */
+.unit-label {
+    display: inline-block;
+    min-width: 35px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-align: left;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    transition: color 0.3s ease;
+}
+
+/* Input icons */
+.input-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    background-color: var(--light-gray);
+    border-radius: 4px;
+    color: var(--primary-color);
+}
+
+/* Table cell sizing */
+.table th, .table td {
+    padding: 0.75rem 0.5rem;
+    vertical-align: middle;
+    white-space: nowrap;
+    overflow: visible;
+}
+
+/* Column widths */
+.col-profile-type, .col-profile-size {
+    width: 15%;
+}
+
+.col-length {
+    width: 10%;
+}
+
+.col-unit {
+    width: 5%;
+}
+
+.col-quantity {
+    width: 7%;
+}
+
+.col-weight-per-meter, .col-total-weight, .col-volume, .col-surface-area {
+    width: 10%;
+}
+
+.col-actions {
+    width: 8%;
+}
+
+/* Ensure units are visible */
+.unit {
+    width: 100%;
+}
+
+/* Make delete button smaller */
+.delete-row {
+    width: 36px;
+    height: 36px;
+    padding: 0.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Highlight totals row */
+#totals-section .card-body {
+    background: linear-gradient(to right, rgba(241, 245, 249, 0.5), rgba(226, 232, 240, 0.3));
+    font-weight: 500;
+    border-radius: 0 0 var(--border-radius-lg) var(--border-radius-lg);
+}
+
+/* Delete button styling */
+.delete-row {
+    border-radius: 50%;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.delete-row:hover {
+    transform: rotate(90deg);
+}
+
+/* Footer styling */
+footer {
+    margin-top: auto;
+    background-color: var(--bg-footer);
+    transition: background-color 0.3s ease;
+}
+
+/* Export section styling */
+#export-section {
+    margin-top: var(--spacing-xl);
+}
+
+/* Version tag */
+.version-tag {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    font-size: 0.75rem;
+    color: var(--medium-gray);
+    font-weight: 500;
+}
+
+/* Dark mode styles */
+[data-theme="dark"] {
+    /* Text colors */
+    --text-primary: white;
+    --text-secondary: white;
+    --text-muted: white;
+    
+    /* Background colors */
+    --bg-body: #1e293b;
+    --bg-card: #0f172a;
+    --bg-header: #0f172a;
+    --bg-footer: #0f172a;
+    --bg-table-header: #1e3a5e;
+    --bg-table-row-alt: #0f172a;
+    --bg-input: #1e3a5e;
+    
+    /* Border colors */
+    --border-color: #334155;
+    --border-color-light: #334155;
+}
+
+[data-theme="dark"] .bg-white {
+    background-color: var(--bg-header) !important;
+}
+
+[data-theme="dark"] .badge.bg-primary {
+    background-color: #3182ce !important;
+}
+
+[data-theme="dark"] .bg-light {
+    background-color: var(--bg-card) !important;
+}
+
+[data-theme="dark"] .card {
+    background-color: var(--bg-card);
+    border: 1px solid #334155;
+}
+
+[data-theme="dark"] .card-header {
+    background-color: var(--bg-header);
+    border-bottom: 1px solid #334155;
+}
+
+[data-theme="dark"] .unit-label,
+[data-theme="dark"] span.unit-label,
+[data-theme="dark"] .ms-1 {
+    color: white !important;
+}
+
+[data-theme="dark"] .text-dark {
+    color: var(--text-primary) !important;
+}
+
+[data-theme="dark"] .text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+[data-theme="dark"] .table-light,
+[data-theme="dark"] .table-light th,
+[data-theme="dark"] thead,
+[data-theme="dark"] thead tr,
+[data-theme="dark"] thead th {
+    background-color: #1e3a5e !important;
+    color: white !important;
+}
+
+[data-theme="dark"] .table th {
+    color: white !important;
+    background-color: #1e3a5e !important;
+}
+
+[data-theme="dark"] .table td {
+    border-color: #334155;
+    color: white !important;
+}
+
+/* Target specific input fields that might be missed */
+[data-theme="dark"] td input.form-control {
+    background-color: #1e3a5e !important;
+    color: white !important;
+    border: none !important;
+}
+
+/* Force all inputs in the project totals section */
+[data-theme="dark"] #total-weight,
+[data-theme="dark"] #total-volume,
+[data-theme="dark"] #total-surface-area,
+[data-theme="dark"] #material-density {
+    background-color: #1e3a5e !important;
+    color: white !important;
+    border: none !important;
+}
+
+[data-theme="dark"] .material-row,
+[data-theme="dark"] tr.material-row {
+    background-color: #0f172a !important;
+    border-bottom: 1px solid #334155 !important;
+}
+
+/* Force all input fields to have the same style */
+[data-theme="dark"] .d-flex input,
+[data-theme="dark"] .d-flex .form-control {
+    background-color: #1e3a5e !important;
+    color: white !important;
+}
+
+/* Make readonly fields match the styling of other fields */
+[data-theme="dark"] .form-control[readonly] {
+    background-color: #1e3a5e;
+    color: white;
+    opacity: 1;
+    border: none;
+}
+
+/* Style for all input fields in dark mode */
+[data-theme="dark"] input.form-control,
+[data-theme="dark"] select.form-select,
+[data-theme="dark"] .material-row td > div > input,
+[data-theme="dark"] .material-row input,
+[data-theme="dark"] .material-row select,
+[data-theme="dark"] .weight-per-meter,
+[data-theme="dark"] .total-weight,
+[data-theme="dark"] .volume,
+[data-theme="dark"] .surface-area,
+[data-theme="dark"] #total-weight,
+[data-theme="dark"] #total-volume,
+[data-theme="dark"] #total-surface-area,
+[data-theme="dark"] #material-density {
+    background-color: #1e3a5e !important;
+    color: white !important;
+    border: none !important;
+}
+
+[data-theme="dark"] .form-control:focus, [data-theme="dark"] .form-select:focus {
+    border: none;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+    background-color: #2a4d7c;
+}
+
+[data-theme="dark"] .table-hover tbody tr:hover {
+    background-color: rgba(59, 130, 246, 0.1);
+}
+
+/* Theme toggle button */
+.theme-toggle {
+    cursor: pointer;
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--border-radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.theme-toggle:hover {
+    background-color: rgba(14, 165, 233, 0.1);
+}
