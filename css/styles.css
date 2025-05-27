@@ -187,9 +187,9 @@ header h1 {
 }
 
 [data-theme="dark"] .form-control, [data-theme="dark"] .form-select {
-    border: none;
-    background-color: #1e3a5e;
-    color: white;
+    border: 1px solid #64748b;
+    background-color: #475569;
+    color: #e2e8f0;
 }
 
 .form-control:focus, .form-select:focus {
@@ -403,22 +403,22 @@ footer {
 /* Dark mode styles */
 [data-theme="dark"] {
     /* Text colors */
-    --text-primary: white;
-    --text-secondary: white;
-    --text-muted: white;
+    --text-primary: #e2e8f0;
+    --text-secondary: #cbd5e1;
+    --text-muted: #94a3b8;
     
     /* Background colors */
     --bg-body: #1e293b;
-    --bg-card: #0f172a;
-    --bg-header: #0f172a;
-    --bg-footer: #0f172a;
-    --bg-table-header: #1e3a5e;
-    --bg-table-row-alt: #0f172a;
-    --bg-input: #1e3a5e;
+    --bg-card: #293548;
+    --bg-header: #293548;
+    --bg-footer: #293548;
+    --bg-table-header: #334155;
+    --bg-table-row-alt: #293548;
+    --bg-input: #475569;
     
     /* Border colors */
-    --border-color: #334155;
-    --border-color-light: #334155;
+    --border-color: #475569;
+    --border-color-light: #475569;
 }
 
 [data-theme="dark"] .bg-white {
@@ -446,7 +446,7 @@ footer {
 [data-theme="dark"] .unit-label,
 [data-theme="dark"] span.unit-label,
 [data-theme="dark"] .ms-1 {
-    color: white !important;
+    color: #cbd5e1 !important;
 }
 
 [data-theme="dark"] .text-dark {
@@ -462,25 +462,25 @@ footer {
 [data-theme="dark"] thead,
 [data-theme="dark"] thead tr,
 [data-theme="dark"] thead th {
-    background-color: #1e3a5e !important;
-    color: white !important;
+    background-color: #334155 !important;
+    color: #e2e8f0 !important;
 }
 
 [data-theme="dark"] .table th {
-    color: white !important;
-    background-color: #1e3a5e !important;
+    color: #e2e8f0 !important;
+    background-color: #334155 !important;
 }
 
 [data-theme="dark"] .table td {
-    border-color: #334155;
-    color: white !important;
+    border-color: #475569;
+    color: #e2e8f0 !important;
 }
 
 /* Target specific input fields that might be missed */
 [data-theme="dark"] td input.form-control {
-    background-color: #1e3a5e !important;
-    color: white !important;
-    border: none !important;
+    background-color: #475569 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #64748b !important;
 }
 
 /* Force all inputs in the project totals section */
@@ -488,30 +488,30 @@ footer {
 [data-theme="dark"] #total-volume,
 [data-theme="dark"] #total-surface-area,
 [data-theme="dark"] #material-density {
-    background-color: #1e3a5e !important;
-    color: white !important;
-    border: none !important;
+    background-color: #475569 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #64748b !important;
 }
 
 [data-theme="dark"] .material-row,
 [data-theme="dark"] tr.material-row {
-    background-color: #0f172a !important;
-    border-bottom: 1px solid #334155 !important;
+    background-color: #293548 !important;
+    border-bottom: 1px solid #475569 !important;
 }
 
 /* Force all input fields to have the same style */
 [data-theme="dark"] .d-flex input,
 [data-theme="dark"] .d-flex .form-control {
-    background-color: #1e3a5e !important;
-    color: white !important;
+    background-color: #475569 !important;
+    color: #e2e8f0 !important;
 }
 
 /* Make readonly fields match the styling of other fields */
 [data-theme="dark"] .form-control[readonly] {
-    background-color: #1e3a5e;
-    color: white;
+    background-color: #3f4e65;
+    color: #e2e8f0;
     opacity: 1;
-    border: none;
+    border: 1px solid #64748b;
 }
 
 /* Style for all input fields in dark mode */
@@ -528,16 +528,16 @@ footer {
 [data-theme="dark"] #total-volume,
 [data-theme="dark"] #total-surface-area,
 [data-theme="dark"] #material-density {
-    background-color: #1e3a5e !important;
-    color: white !important;
-    border: none !important;
+    background-color: #475569 !important;
+    color: #e2e8f0 !important;
+    border: 1px solid #64748b !important;
 }
 
 [data-theme="dark"] .form-control:focus, [data-theme="dark"] .form-select:focus {
-    border: none;
+    border: 1px solid #94a3b8;
     outline: none;
-    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
-    background-color: #2a4d7c;
+    box-shadow: 0 0 0 2px rgba(148, 163, 184, 0.5);
+    background-color: #536b8a;
 }
 
 [data-theme="dark"] .table-hover tbody tr:hover {
