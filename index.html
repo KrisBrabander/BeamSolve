@@ -49,8 +49,32 @@
         </header>
 
         <main class="container mb-4">
-            <!-- Professional Technical Standards Information -->
-            <section id="standards-info" class="mb-3">
+            <!-- Main Application Tabs -->
+            <ul class="nav nav-tabs nav-fill mb-3" id="mainAppTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="profiles-tab" data-bs-toggle="tab" data-bs-target="#profiles-content" type="button" role="tab" aria-controls="profiles-content" aria-selected="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-grid-3x3 me-2" viewBox="0 0 16 16">
+                            <path d="M0 1.5A1.5 1.5 0 0 1 1.5 0h13A1.5 1.5 0 0 1 16 1.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 14.5v-13zM1.5 1a.5.5 0 0 0-.5.5V5h4V1H1.5zM5 6H1v4h4V6zm1 4h4V6H6v4zm-1 1H1v3.5a.5.5 0 0 0 .5.5H5v-4zm1 0v4h4v-4H6zm5 0v4h3.5a.5.5 0 0 0 .5-.5V11h-4zm0-1h4V6h-4v4zm0-5h4V1.5a.5.5 0 0 0-.5-.5H11v4zm-1 0V1H6v4h4z"/>
+                        </svg>
+                        Steel Profiles
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="beam-tab" data-bs-toggle="tab" data-bs-target="#beam-content" type="button" role="tab" aria-controls="beam-content" aria-selected="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-rulers me-2" viewBox="0 0 16 16">
+                            <path d="M1 0a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5v-1H2v-1h4v-1H4v-1h2v-1H2v-1h4V9H4V8h2V7H2V6h4V2h1v4h1V4h1v2h1V2h1v4h1V4h1v2h1V2h1v4h1V1a1 1 0 0 0-1-1H1z"/>
+                        </svg>
+                        Beam Analysis
+                    </button>
+                </li>
+            </ul>
+            
+            <!-- Tab Content -->
+            <div class="tab-content" id="mainAppTabsContent">
+                <!-- Steel Profiles Tab Content -->
+                <div class="tab-pane fade show active" id="profiles-content" role="tabpanel" aria-labelledby="profiles-tab">
+                    <!-- Professional Technical Standards Information -->
+                    <section id="standards-info" class="mb-3">
                 <div class="card border-0 shadow-sm">
                     <div class="card-body p-0">
                         <div class="alert alert-light border-0 d-flex align-items-center mb-3" role="alert">
@@ -734,6 +758,296 @@
                     </button>
                 </div>
             </section>
+                </div><!-- End of Steel Profiles Tab Content -->
+                
+                <!-- Beam Analysis Tab Content -->
+                <div class="tab-pane fade" id="beam-content" role="tabpanel" aria-labelledby="beam-tab">
+                    <div class="card border-primary mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2 bg-primary bg-opacity-10">
+                            <h2 class="h6 mb-0 fw-bold text-primary">Structural Beam Analysis</h2>
+                            <span class="badge bg-primary px-2 py-1 rounded-pill">Elite Feature</span>
+                        </div>
+                        <div class="card-body py-3">
+                            <div class="row g-4">
+                                <!-- Beam Parameters Column -->
+                                <div class="col-md-4">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-header bg-light py-2">
+                                            <h3 class="h6 mb-0">Beam Parameters</h3>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Beam Profile Selection -->
+                                            <div class="mb-3">
+                                                <label for="beam-profile-type" class="form-label small">Profile Type</label>
+                                                <select class="form-select form-select-sm" id="beam-profile-type">
+                                                    <option value="">Select profile type</option>
+                                                    <option value="i-beam">I-Beam</option>
+                                                    <option value="h-beam">H-Beam</option>
+                                                    <option value="channel">Channel</option>
+                                                    <option value="angle">Angle</option>
+                                                    <option value="tube">Rectangular Tube</option>
+                                                    <option value="pipe">Pipe</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="beam-profile-size" class="form-label small">Profile Size</label>
+                                                <select class="form-select form-select-sm" id="beam-profile-size" disabled>
+                                                    <option value="">Select profile size</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="mb-3">
+                                                <label for="beam-length" class="form-label small">Beam Length</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" class="form-control" id="beam-length" value="6">
+                                                    <select class="form-select" id="beam-length-unit" style="max-width: 80px;">
+                                                        <option value="m">m</option>
+                                                        <option value="ft">ft</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <hr class="my-3">
+                                            
+                                            <!-- Support Conditions -->
+                                            <div class="mb-3">
+                                                <label class="form-label small">Support Conditions</label>
+                                                <select class="form-select form-select-sm" id="support-condition">
+                                                    <option value="simply">Simply Supported</option>
+                                                    <option value="cantilever">Cantilever</option>
+                                                    <option value="fixed">Fixed Both Ends</option>
+                                                    <option value="fixed-simple">Fixed-Simple</option>
+                                                    <option value="overhang">Overhang</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="support-diagram bg-light p-2 rounded mb-3 text-center">
+                                                <svg width="200" height="60" id="support-diagram-svg">
+                                                    <!-- Support diagram will be drawn here -->
+                                                </svg>
+                                            </div>
+                                            
+                                            <hr class="my-3">
+                                            
+                                            <div class="d-grid">
+                                                <button class="btn btn-primary btn-sm" id="analyze-beam">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calculator me-1" viewBox="0 0 16 16">
+                                                        <path d="M12 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8zM4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4z"/>
+                                                        <path d="M4 2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-2zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-4z"/>
+                                                    </svg>
+                                                    Analyze Beam
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Loading Configuration Column -->
+                                <div class="col-md-4">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-header bg-light py-2">
+                                            <h3 class="h6 mb-0">Loading Configuration</h3>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Load Type Selection -->
+                                            <div class="mb-3">
+                                                <label class="form-label small">Load Type</label>
+                                                <select class="form-select form-select-sm" id="load-type">
+                                                    <option value="point">Point Load</option>
+                                                    <option value="distributed">Uniform Distributed Load</option>
+                                                    <option value="moment">Moment</option>
+                                                    <option value="combined">Combined Loading</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <!-- Point Load Options -->
+                                            <div id="point-load-options">
+                                                <div class="mb-3">
+                                                    <label for="point-load-value" class="form-label small">Load Value</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="point-load-value" value="10">
+                                                        <span class="input-group-text">kN</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="point-load-position" class="form-label small">Position from Left</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="point-load-position" value="3">
+                                                        <span class="input-group-text">m</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="point-load-direction" class="form-label small">Direction</label>
+                                                    <select class="form-select form-select-sm" id="point-load-direction">
+                                                        <option value="down">Downward</option>
+                                                        <option value="up">Upward</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Distributed Load Options (initially hidden) -->
+                                            <div id="distributed-load-options" style="display: none;">
+                                                <div class="mb-3">
+                                                    <label for="distributed-load-value" class="form-label small">Load Intensity</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="distributed-load-value" value="5">
+                                                        <span class="input-group-text">kN/m</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="distributed-load-start" class="form-label small">Start Position</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="distributed-load-start" value="0">
+                                                        <span class="input-group-text">m</span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="distributed-load-end" class="form-label small">End Position</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="distributed-load-end" value="6">
+                                                        <span class="input-group-text">m</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <hr class="my-3">
+                                            
+                                            <!-- Load Visualization -->
+                                            <div class="load-diagram bg-light p-2 rounded mb-3">
+                                                <div class="text-center small text-muted mb-2">Load Visualization</div>
+                                                <svg width="100%" height="120" id="load-diagram-svg">
+                                                    <!-- Load diagram will be drawn here -->
+                                                </svg>
+                                            </div>
+                                            
+                                            <div class="d-grid mt-3">
+                                                <button class="btn btn-outline-primary btn-sm" id="add-load">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg me-1" viewBox="0 0 16 16">
+                                                        <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                                                    </svg>
+                                                    Add Load
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Analysis Results Column -->
+                                <div class="col-md-4">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-header bg-light py-2">
+                                            <h3 class="h6 mb-0">Analysis Results</h3>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="alert alert-info small">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-info-circle me-1" viewBox="0 0 16 16">
+                                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                                    <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                                                </svg>
+                                                Configure beam parameters and loading, then click "Analyze Beam" to see results
+                                            </div>
+                                            
+                                            <div id="analysis-results" style="display: none;">
+                                                <div class="mb-3">
+                                                    <label class="form-label small">Maximum Values:</label>
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-bordered">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Moment</td>
+                                                                    <td class="text-end"><span id="max-moment">-</span> <span class="small text-muted">kN·m</span></td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Shear</td>
+                                                                    <td class="text-end"><span id="max-shear">-</span> <span class="small text-muted">kN</span></td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Deflection</td>
+                                                                    <td class="text-end"><span id="max-deflection">-</span> <span class="small text-muted">mm</span></td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Stress</td>
+                                                                    <td class="text-end"><span id="max-stress">-</span> <span class="small text-muted">MPa</span></td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label small">Reactions:</label>
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-bordered">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Left Support</td>
+                                                                    <td class="text-end"><span id="left-reaction">-</span> <span class="small text-muted">kN</span></td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Right Support</td>
+                                                                    <td class="text-end"><span id="right-reaction">-</span> <span class="small text-muted">kN</span></td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Diagrams -->
+                                            <div class="mb-3">
+                                                <ul class="nav nav-tabs nav-fill" id="resultTabs" role="tablist">
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link active" id="moment-tab" data-bs-toggle="tab" data-bs-target="#moment-diagram" type="button" role="tab" aria-controls="moment-diagram" aria-selected="true">Moment</button>
+                                                    </li>
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link" id="shear-tab" data-bs-toggle="tab" data-bs-target="#shear-diagram" type="button" role="tab" aria-controls="shear-diagram" aria-selected="false">Shear</button>
+                                                    </li>
+                                                    <li class="nav-item" role="presentation">
+                                                        <button class="nav-link" id="deflection-tab" data-bs-toggle="tab" data-bs-target="#deflection-diagram" type="button" role="tab" aria-controls="deflection-diagram" aria-selected="false">Deflection</button>
+                                                    </li>
+                                                </ul>
+                                                <div class="tab-content p-2 bg-light rounded" id="resultTabsContent">
+                                                    <div class="tab-pane fade show active" id="moment-diagram" role="tabpanel" aria-labelledby="moment-tab">
+                                                        <svg width="100%" height="150" id="moment-diagram-svg">
+                                                            <!-- Moment diagram will be drawn here -->
+                                                        </svg>
+                                                    </div>
+                                                    <div class="tab-pane fade" id="shear-diagram" role="tabpanel" aria-labelledby="shear-tab">
+                                                        <svg width="100%" height="150" id="shear-diagram-svg">
+                                                            <!-- Shear diagram will be drawn here -->
+                                                        </svg>
+                                                    </div>
+                                                    <div class="tab-pane fade" id="deflection-diagram" role="tabpanel" aria-labelledby="deflection-tab">
+                                                        <svg width="100%" height="150" id="deflection-diagram-svg">
+                                                            <!-- Deflection diagram will be drawn here -->
+                                                        </svg>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="d-grid mt-3">
+                                                <button class="btn btn-outline-primary btn-sm" id="export-analysis">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-pdf me-1" viewBox="0 0 16 16">
+                                                        <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
+                                                        <path d="M4.603 14.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.68 7.68 0 0 1 1.482-.645 19.697 19.697 0 0 0 1.062-2.227 7.269 7.269 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.188-.012.396-.047.614-.084.51-.27 1.134-.52 1.794a10.954 10.954 0 0 0 .98 1.686 5.753 5.753 0 0 1 1.334.05c.364.066.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416.856.856 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a5.712 5.712 0 0 1-.911-.95 11.651 11.651 0 0 0-1.997.406 11.307 11.307 0 0 1-1.02 1.51c-.292.35-.609.656-.927.787a.793.793 0 0 1-.58.029zm1.379-1.901c-.166.076-.32.156-.459.238-.328.194-.541.383-.647.547-.094.145-.096.25-.04.361.01.022.02.036.026.044a.266.266 0 0 0 .035-.012c.137-.056.355-.235.635-.572a8.18 8.18 0 0 0 .45-.606zm1.64-1.33a12.71 12.71 0 0 1 1.01-.193 11.744 11.744 0 0 1-.51-.858 20.801 20.801 0 0 1-.5 1.05zm2.446.45c.15.163.296.3.435.41.24.19.407.253.498.256a.107.107 0 0 0 .07-.015.307.307 0 0 0 .094-.125.436.436 0 0 0 .059-.2.095.095 0 0 0-.026-.063c-.052-.062-.2-.152-.518-.209a3.876 3.876 0 0 0-.612-.053zM8.078 7.8a6.7 6.7 0 0 0 .2-.828c.031-.188.043-.343.038-.465a.613.613 0 0 0-.032-.198.517.517 0 0 0-.145.04c-.087.035-.158.106-.196.283-.04.192-.03.469.046.822.024.111.054.227.09.346z"/>
+                                                    </svg>
+                                                    Export Analysis Report
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div><!-- End of Beam Analysis Tab Content -->
+            </div><!-- End of Tab Content -->
+
         </main>
 
         <!-- Professional Footer with Standards Logos -->
@@ -848,6 +1162,8 @@
     <script src="js/profiles.js"></script>
     <!-- Then load data module that uses profile data -->
     <script src="js/data.js"></script>
+    <!-- Load beam analysis module -->
+    <script src="js/beam-analysis.js"></script>
     <!-- Finally load the main application logic -->
     <script src="js/app.js"></script>
 </body>
