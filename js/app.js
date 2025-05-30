@@ -3,21 +3,24 @@
  * Handles user interactions and calculations
  */
 
-// Global variables for DOM elements
-let materialTableBody;
-let addRowButton;
-let exportPdfButton;
-let exportCsvButton;
-let projectNameInput;
-let companyNameInput;
-let materialDensityInput;
-let totalWeightElement;
-let totalVolumeElement;
-let totalSurfaceAreaElement;
-let rowTemplate;
-let currentYearElement;
-let themeToggle;
-let themeIcon;
+// DOM Elements
+const materialTableBody = document.getElementById('materials-table-body');
+const addRowButton = document.getElementById('add-row');
+const exportPdfButton = document.getElementById('export-pdf');
+const exportCsvButton = document.getElementById('export-csv');
+const projectNameInput = document.getElementById('project-name');
+const companyNameInput = document.getElementById('company-name');
+const materialDensityInput = document.getElementById('material-density');
+const totalWeightElement = document.getElementById('total-weight');
+const totalVolumeElement = document.getElementById('total-volume');
+const totalSurfaceAreaElement = document.getElementById('total-surface-area');
+const rowTemplate = document.getElementById('row-template');
+const currentYearElement = document.getElementById('current-year');
+const themeToggle = document.getElementById('theme-toggle');
+const themeIcon = document.getElementById('theme-icon');
+
+// Set current year in footer
+currentYearElement.textContent = new Date().getFullYear();
 
 // Dark mode functionality
 function initTheme() {
@@ -69,74 +72,36 @@ let isDataLoaded = false;
 // Initialize the application
 async function init() {
     try {
-        console.log('Initializing application...');
-        
-        // Initialize all DOM elements first
-        materialTableBody = document.getElementById('materials-table-body');
-        addRowButton = document.getElementById('add-row');
-        exportPdfButton = document.getElementById('export-pdf');
-        exportCsvButton = document.getElementById('export-csv');
-        projectNameInput = document.getElementById('project-name');
-        companyNameInput = document.getElementById('company-name');
-        materialDensityInput = document.getElementById('material-density');
-        totalWeightElement = document.getElementById('total-weight');
-        totalVolumeElement = document.getElementById('total-volume');
-        totalSurfaceAreaElement = document.getElementById('total-surface-area');
-        rowTemplate = document.getElementById('row-template');
-        currentYearElement = document.getElementById('current-year');
-        themeToggle = document.getElementById('theme-toggle');
-        themeIcon = document.getElementById('theme-icon');
-        
-        // Debug log to check if elements are found
-        console.log('Add Row Button found:', addRowButton !== null);
-        console.log('Materials Table Body found:', materialTableBody !== null);
-        console.log('Row Template found:', rowTemplate !== null);
-        
-        // Set current year in footer if element exists
-        if (currentYearElement) {
-            currentYearElement.textContent = new Date().getFullYear();
-        }
-        
         // Initialize theme
         initTheme();
+        console.log('Initializing application...');
         
-        // Check if we're on the profiles tab
-        if (materialTableBody && addRowButton && rowTemplate) {
-            // Attach event listeners if elements exist
-            addRowButton.addEventListener('click', function() {
-                console.log('Add row button clicked');
-                addRow();
-            });
-            
-            if (exportPdfButton) {
-                exportPdfButton.addEventListener('click', exportToPdf);
-            }
-            
-            if (exportCsvButton) {
-                exportCsvButton.addEventListener('click', exportToCsv);
-            }
-            
-            if (materialDensityInput) {
-                materialDensityInput.addEventListener('input', recalculateAll);
-            }
-            
-            // Initialize existing rows
-            const existingRows = materialTableBody.querySelectorAll('tr');
-            existingRows.forEach(row => setupRowEventListeners(row));
-            
-            // If no rows exist yet, add initial row
-            if (materialTableBody.children.length === 0) {
-                addRow();
-            }
-            
-            // Set up autosave
-            setupAutosave();
-            
-            // Recalculate all values
-            recalculateAll();
-        } else {
-            console.warn('Some required elements for the Steel Profiles tab were not found');
+        // Load profile data
+        const profiles = await profileData.loadProfiles();
+        if (!profiles) {
+            console.error('Failed to load profile data');
+            return;
         }
+        
+        console.log('Profile data loaded successfully', profiles);
+        isDataLoaded = true;
+        
+        // Load saved data from localStorage if exists
+        loadSavedData();
+        
+        // If no rows exist yet (no saved data), add initial row
+        if (materialTableBody.children.length === 0) {
+            addRow();
+        }
+        
+        // Attach event listeners
+        addRowButton.addEventListener('click', addRow);
+        exportPdfButton.addEventListener('click', exportToPdf);
+        exportCsvButton.addEventListener('click', exportToCsv);
+        materialDensityInput.addEventListener('input', recalculateAll);
+        
+        // Set up autosave
+        setupAutosave();
         
         console.log('Initialization complete!');
     } catch (error) {
@@ -651,94 +616,4 @@ function exportToCsv() {
 }
 
 // Initialize the application when the page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM fully loaded, initializing application');
-    init();
-});
-
-// Make sure the beam analysis is also initialized
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Initializing beam analysis module');
-    
-    // Check if beam analysis elements exist
-    const beamContent = document.getElementById('beam-content');
-    const analyzeBeamButton = document.getElementById('analyze-beam');
-    
-    if (beamContent) {
-        console.log('Beam analysis elements found, initializing');
-        
-        // Create and initialize beam analysis if the class exists
-        if (typeof BeamAnalysis !== 'undefined') {
-            const beamAnalysis = new BeamAnalysis();
-            beamAnalysis.init();
-            
-            // Add beam analysis to window for debugging
-            window.beamAnalysis = beamAnalysis;
-        } else {
-            console.warn('BeamAnalysis class not found');
-        }
-    }
-});
-
-// Direct initialization for the Add Row button
-document.addEventListener('DOMContentLoaded', function() {
-    const addRowButton = document.getElementById('add-row');
-    if (addRowButton) {
-        console.log('Add Row button found, adding direct event listener');
-        addRowButton.addEventListener('click', function() {
-            console.log('Add Row button clicked directly');
-            
-            // Get the materials table body
-            const materialsTableBody = document.getElementById('materials-table-body');
-            const rowTemplate = document.getElementById('row-template');
-            
-            if (materialsTableBody && rowTemplate) {
-                // Clone the row template
-                const newRow = document.importNode(rowTemplate.content, true).querySelector('tr');
-                materialsTableBody.appendChild(newRow);
-                
-                // Initialize the new row
-                const profileType = newRow.querySelector('.profile-type');
-                const profileSize = newRow.querySelector('.profile-size');
-                
-                if (profileType && profileSize) {
-                    profileType.addEventListener('change', function() {
-                        // Enable size dropdown when type is selected
-                        profileSize.disabled = !this.value;
-                        
-                        // Clear and populate size options based on selected type
-                        profileSize.innerHTML = '<option value="">Select size</option>';
-                        
-                        if (this.value) {
-                            // Add sizes based on profile type
-                            const sizes = [];
-                            
-                            // Use PROFILE_DATA if available
-                            if (typeof PROFILE_DATA !== 'undefined' && PROFILE_DATA[this.value]) {
-                                PROFILE_DATA[this.value].forEach(profile => {
-                                    const size = profile.name.replace(this.value + ' ', '');
-                                    const option = document.createElement('option');
-                                    option.value = profile.name;
-                                    option.textContent = size;
-                                    profileSize.appendChild(option);
-                                });
-                            }
-                        }
-                    });
-                }
-                
-                // Add delete button functionality
-                const deleteButton = newRow.querySelector('.delete-row');
-                if (deleteButton) {
-                    deleteButton.addEventListener('click', function() {
-                        newRow.remove();
-                    });
-                }
-            } else {
-                console.error('Materials table body or row template not found');
-            }
-        });
-    } else {
-        console.warn('Add Row button not found for direct initialization');
-    }
-});
+document.addEventListener('DOMContentLoaded', init);
