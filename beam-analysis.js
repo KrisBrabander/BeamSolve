@@ -641,7 +641,7 @@ class BeamAnalysis {
         
         if (element.type === 'support') {
             // Show support properties
-            elementTitle.textContent = 'Support Eigenschappen';
+            elementTitle.textContent = 'Support Properties';
             supportProperties.style.display = 'block';
             loadProperties.style.display = 'none';
             
@@ -653,7 +653,7 @@ class BeamAnalysis {
             if (supportPosition) supportPosition.value = element.data.position.toFixed(1);
         } else if (element.type === 'load') {
             // Show load properties
-            elementTitle.textContent = 'Belasting Eigenschappen';
+            elementTitle.textContent = 'Load Properties';
             supportProperties.style.display = 'none';
             loadProperties.style.display = 'block';
             
