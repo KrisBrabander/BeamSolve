@@ -3,212 +3,346 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Steel Profile Calculator Pro</title>
+    <title>Steel Profile Calculator Pro - Engineering Tool</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="css/styles.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container-fluid p-0">
-        <header class="bg-white py-3 border-bottom">
+        <header class="bg-white py-2 border-bottom sticky-top shadow-sm">
             <div class="container">
                 <div class="d-flex justify-content-between align-items-center">
                     <div class="d-flex align-items-center">
                         <img src="img/logo.svg" alt="Steel Profile Calculator Logo" class="me-3" width="40" height="40">
                         <div>
                             <h1 class="h4 mb-0 text-dark">Steel Profile Calculator Pro</h1>
-                            <p class="mb-0 small text-secondary">Calculate weight, volume, and surface area of steel profiles</p>
+                            <p class="mb-0 small text-secondary">Professional engineering tool for structural calculations</p>
                         </div>
                     </div>
-                    <div class="d-flex align-items-center">
-                        <div class="theme-toggle me-3" id="theme-toggle" title="Toggle dark mode">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="dropdown">
+                            <button class="btn btn-outline-secondary btn-sm dropdown-toggle" type="button" id="standardsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="bi bi-globe me-1"></i> Standards
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="standardsDropdown">
+                                <li><h6 class="dropdown-header">Profile Standards</h6></li>
+                                <li><a class="dropdown-item active" href="#" data-standard="en">EN (European)</a></li>
+                                <li><a class="dropdown-item" href="#" data-standard="astm">ASTM (American)</a></li>
+                                <li><a class="dropdown-item" href="#" data-standard="jis">JIS (Japanese)</a></li>
+                                <li><a class="dropdown-item" href="#" data-standard="gb">GB (Chinese)</a></li>
+                                <li><a class="dropdown-item" href="#" data-standard="is">IS (Indian)</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><h6 class="dropdown-header">Unit System</h6></li>
+                                <li><a class="dropdown-item active" href="#" data-unit-system="metric">Metric (mm, kg)</a></li>
+                                <li><a class="dropdown-item" href="#" data-unit-system="imperial">Imperial (in, lb)</a></li>
+                            </ul>
+                        </div>
+                        <div class="theme-toggle" id="theme-toggle" title="Toggle dark mode">
                             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-moon-stars" viewBox="0 0 16 16" id="theme-icon">
                                 <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278zM4.858 1.311A7.269 7.269 0 0 0 1.025 7.71c0 4.02 3.279 7.276 7.319 7.276a7.316 7.316 0 0 0 5.205-2.162c-.337.042-.68.063-1.029.063-4.61 0-8.343-3.714-8.343-8.29 0-1.167.242-2.278.681-3.286z"/>
                                 <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
                             </svg>
                         </div>
-                        <span class="badge bg-primary px-2 py-1 rounded-pill">v1.0</span>
+                        <span class="badge bg-primary px-2 py-1 rounded-pill">v2.0</span>
                     </div>
                 </div>
             </div>
         </header>
+        
+        <!-- Tabs for different calculation modes -->
+        <div class="container mt-2 mb-3">
+            <ul class="nav nav-tabs" id="calculationTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile-content" type="button" role="tab" aria-controls="profile-content" aria-selected="true">
+                        <i class="bi bi-grid-3x3-gap me-1"></i> Profile Calculator
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="beam-tab" data-bs-toggle="tab" data-bs-target="#beam-content" type="button" role="tab" aria-controls="beam-content" aria-selected="false">
+                        <i class="bi bi-rulers me-1"></i> Beam Calculator
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="connection-tab" data-bs-toggle="tab" data-bs-target="#connection-content" type="button" role="tab" aria-controls="connection-content" aria-selected="false">
+                        <i class="bi bi-link-45deg me-1"></i> Connection Designer
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="reference-tab" data-bs-toggle="tab" data-bs-target="#reference-content" type="button" role="tab" aria-controls="reference-content" aria-selected="false">
+                        <i class="bi bi-journal-text me-1"></i> Reference Data
+                    </button>
+                </li>
+            </ul>
+        </div>
 
         <main class="container mb-4">
-            <!-- Project Info Section -->
-            <section id="project-info" class="mb-3">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center py-2">
-                        <h2 class="h6 mb-0">Project Information</h2>
-                        <span class="badge bg-primary px-2 py-1 rounded-pill">Pro Edition</span>
-                    </div>
-                    <div class="card-body py-3">
-                        <div class="row g-3">
-                            <div class="col-md-6 mb-2">
-                                <label for="project-name" class="form-label small">Project Name</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-building" viewBox="0 0 16 16">
-                                            <path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1ZM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z"/>
-                                            <path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1Zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3V1Z"/>
-                                        </svg>
-                                    </span>
-                                    <input type="text" class="form-control" id="project-name" placeholder="Enter project name">
-                                </div>
+            <!-- Tab content container -->
+            <div class="tab-content" id="calculationTabsContent">
+                <!-- Profile Calculator Tab Content -->
+                <div class="tab-pane fade show active" id="profile-content" role="tabpanel" aria-labelledby="profile-tab">
+                    <!-- Project Info Section -->
+                    <section id="project-info" class="mb-3">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                                <h2 class="h6 mb-0">Project Information</h2>
+                                <span class="badge bg-primary px-2 py-1 rounded-pill">Pro Edition</span>
                             </div>
-                            <div class="col-md-6 mb-2">
-                                <label for="company-name" class="form-label small">Company Name</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-briefcase" viewBox="0 0 16 16">
-                                            <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H1.5A1.5 1.5 0 0 0 0 4.5v8A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 14.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3zm0 1h3a.5.5 0 0 1 .5.5V3H6v-.5a.5.5 0 0 1 .5-.5zm1.886 6.914L15 7.151V12.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V7.15l6.614 1.764a1.5 1.5 0 0 0 .772 0zM1.5 4h13a.5.5 0 0 1 .5.5v1.616L8.129 7.948a.5.5 0 0 1-.258 0L1 6.116V4.5a.5.5 0 0 1 .5-.5z"/>
-                                        </svg>
-                                    </span>
-                                    <input type="text" class="form-control" id="company-name" placeholder="Enter company name">
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <label for="date" class="form-label small">Date</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-calendar" viewBox="0 0 16 16">
-                                            <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
-                                        </svg>
-                                    </span>
-                                    <input type="date" class="form-control" id="date">
-                                </div>
-                            </div>
-                            <div class="col-md-6 mb-2">
-                                <label for="reference" class="form-label small">Reference Number</label>
-                                <div class="input-group input-group-sm">
-                                    <span class="input-group-text">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-hash" viewBox="0 0 16 16">
-                                            <path d="M8.39 12.648a1.32 1.32 0 0 0-.015.18c0 .305.21.508.5.508.266 0 .492-.172.555-.477l.554-2.703h1.204c.421 0 .617-.234.617-.547 0-.312-.188-.53-.617-.53h-.985l.516-2.524h1.265c.43 0 .618-.227.618-.547 0-.313-.188-.524-.618-.524h-1.046l.476-2.304a1.06 1.06 0 0 0 .016-.164.51.51 0 0 0-.516-.516.54.54 0 0 0-.539.43l-.523 2.554H7.617l.477-2.304c.008-.04.015-.118.015-.164a.512.512 0 0 0-.523-.516.539.539 0 0 0-.531.43L6.53 5.484H5.414c-.43 0-.617.22-.617.532 0 .312.187.539.617.539h.906l-.515 2.523H4.609c-.421 0-.609.219-.609.531 0 .313.188.547.61.547h.976l-.516 2.492c-.008.04-.015.125-.015.18 0 .305.21.508.5.508.265 0 .492-.172.554-.477l.555-2.703h2.242l-.515 2.492zm-1-6.109h2.266l-.515 2.563H6.859l.532-2.563z"/>
-                                        </svg>
-                                    </span>
-                                    <input type="text" class="form-control" id="reference" placeholder="Enter reference number">
+                            <div class="card-body py-3">
+                                <div class="row g-3">
+                                    <div class="col-md-6 mb-2">
+                                        <label for="project-name" class="form-label small">Project Name</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-building"></i>
+                                            </span>
+                                            <input type="text" class="form-control" id="project-name" placeholder="Enter project name">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="company-name" class="form-label small">Company Name</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-briefcase"></i>
+                                            </span>
+                                            <input type="text" class="form-control" id="company-name" placeholder="Enter company name">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="date" class="form-label small">Date</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-calendar"></i>
+                                            </span>
+                                            <input type="date" class="form-control" id="date">
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="reference" class="form-label small">Reference Number</label>
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text">
+                                                <i class="bi bi-hash"></i>
+                                            </span>
+                                            <input type="text" class="form-control" id="reference" placeholder="Enter reference number">
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-                </div>
-            </section>
+                    </section>
 
-            <!-- Steel Profiles Section -->
-            <section id="materials-section" class="mb-3">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center py-2">
-                        <h2 class="h6 mb-0">Steel Profiles</h2>
-                        <button id="add-row" class="btn btn-primary btn-sm rounded-pill px-3">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-plus-lg me-1" viewBox="0 0 16 16">
-                                <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
-                            </svg>
-                            Add Profile
-                        </button>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table table-sm table-hover mb-0" id="materials-table">
-                                <colgroup>
-                                    <col class="col-profile-type">
-                                    <col class="col-profile-size">
-                                    <col class="col-length">
-                                    <col class="col-unit">
-                                    <col class="col-quantity">
-                                    <col class="col-weight-per-meter">
-                                    <col class="col-total-weight">
-                                    <col class="col-volume">
-                                    <col class="col-surface-area">
-                                    <col class="col-actions">
-                                </colgroup>
-                                <thead class="table-light">
-                                    <tr>
-                                        <th class="small text-uppercase">PROFILE TYPE</th>
-                                        <th class="small text-uppercase">PROFILE SIZE</th>
-                                        <th class="small text-uppercase">LENGTH</th>
-                                        <th class="small text-uppercase">UNIT</th>
-                                        <th class="small text-uppercase">QUANTITY</th>
-                                        <th class="small text-uppercase">WEIGHT/M</th>
-                                        <th class="small text-uppercase">TOTAL WEIGHT</th>
-                                        <th class="small text-uppercase">VOLUME</th>
-                                        <th class="small text-uppercase">SURFACE AREA</th>
-                                        <th class="small text-uppercase text-center">ACTIONS</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="materials-table-body">
-                                    <!-- Rows will be added here dynamically -->
-                                </tbody>
-                            </table>
+                    <!-- Steel Profiles Section -->
+                    <section id="materials-section" class="mb-3">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center py-2">
+                                <div class="d-flex align-items-center">
+                                    <h2 class="h6 mb-0 me-2">Steel Profiles</h2>
+                                    <div class="dropdown ms-2">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="profileStandardDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span id="current-standard">EN 10025</span>
+                                        </button>
+                                        <ul class="dropdown-menu" aria-labelledby="profileStandardDropdown">
+                                            <li><h6 class="dropdown-header">European Standards</h6></li>
+                                            <li><a class="dropdown-item active" href="#" data-standard-code="en10025">EN 10025 (Structural Steel)</a></li>
+                                            <li><a class="dropdown-item" href="#" data-standard-code="en10210">EN 10210 (Hot Finished Hollow Sections)</a></li>
+                                            <li><a class="dropdown-item" href="#" data-standard-code="en10219">EN 10219 (Cold Formed Hollow Sections)</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><h6 class="dropdown-header">American Standards</h6></li>
+                                            <li><a class="dropdown-item" href="#" data-standard-code="astm-a36">ASTM A36 (Carbon Steel)</a></li>
+                                            <li><a class="dropdown-item" href="#" data-standard-code="aisc">AISC (Structural Shapes)</a></li>
+                                            <li><hr class="dropdown-divider"></li>
+                                            <li><h6 class="dropdown-header">Other Standards</h6></li>
+                                            <li><a class="dropdown-item" href="#" data-standard-code="jis-g3101">JIS G3101 (Japanese)</a></li>
+                                            <li><a class="dropdown-item" href="#" data-standard-code="is2062">IS 2062 (Indian)</a></li>
+                                            <li><a class="dropdown-item" href="#" data-standard-code="gb-t1591">GB/T 1591 (Chinese)</a></li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div>
+                                    <button id="import-profiles" class="btn btn-outline-secondary btn-sm me-2" title="Import profiles from CSV or Excel">
+                                        <i class="bi bi-file-earmark-arrow-up me-1"></i> Import
+                                    </button>
+                                    <button id="add-row" class="btn btn-primary btn-sm rounded-pill px-3">
+                                        <i class="bi bi-plus-lg me-1"></i> Add Profile
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="card-body p-0">
+                                <div class="table-responsive">
+                                    <table class="table table-sm table-hover mb-0" id="materials-table">
+                                        <colgroup>
+                                            <col class="col-profile-type">
+                                            <col class="col-profile-size">
+                                            <col class="col-length">
+                                            <col class="col-unit">
+                                            <col class="col-quantity">
+                                            <col class="col-weight-per-meter">
+                                            <col class="col-total-weight">
+                                            <col class="col-volume">
+                                            <col class="col-surface-area">
+                                            <col class="col-actions">
+                                        </colgroup>
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="small text-uppercase">PROFILE TYPE</th>
+                                                <th class="small text-uppercase">PROFILE SIZE</th>
+                                                <th class="small text-uppercase">LENGTH</th>
+                                                <th class="small text-uppercase">UNIT</th>
+                                                <th class="small text-uppercase">QUANTITY</th>
+                                                <th class="small text-uppercase">WEIGHT/M</th>
+                                                <th class="small text-uppercase">TOTAL WEIGHT</th>
+                                                <th class="small text-uppercase">VOLUME</th>
+                                                <th class="small text-uppercase">SURFACE AREA</th>
+                                                <th class="small text-uppercase text-center">ACTIONS</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="materials-table-body">
+                                            <!-- Rows will be added here dynamically -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="p-3 bg-light text-center d-none" id="no-materials-message">
+                                    <p class="mb-0 text-muted">No profiles added yet. Click "Add Profile" to get started.</p>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-light py-2">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i> Profile data according to <span id="standard-reference">EN 10025:2004</span></small>
+                                    <div>
+                                        <button class="btn btn-sm btn-outline-secondary" id="clear-all-profiles">
+                                            <i class="bi bi-trash me-1"></i> Clear All
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div class="p-3 bg-light text-center d-none" id="no-materials-message">
-                            <p class="mb-0 text-muted">No materials added yet. Click "Add Material" to get started.</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
+                    </section>
 
             <!-- Totals Section -->
             <section id="totals-section" class="mb-3">
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center py-2">
-                        <h2 class="h6 mb-0">Project Totals</h2>
-                        <span class="badge bg-secondary px-2 py-1 rounded-pill">Summary</span>
+                        <h2 class="h6 mb-0">Project Analysis</h2>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary me-2" id="show-chart-btn">
+                                <i class="bi bi-bar-chart me-1"></i> View Charts
+                            </button>
+                            <span class="badge bg-secondary px-2 py-1 rounded-pill">Summary</span>
+                        </div>
                     </div>
                     <div class="card-body py-3">
                         <div class="row g-3">
-                            <div class="col-md-4 mb-2">
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label small">Total Weight</label>
                                 <div class="d-flex align-items-center">
                                     <span class="input-icon me-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-speedometer" viewBox="0 0 16 16">
-                                            <path d="M8 2a.5.5 0 0 1 .5.5V4a.5.5 0 0 1-1 0V2.5A.5.5 0 0 1 8 2zM3.732 3.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707zM2 8a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 8zm9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5zm.754-4.246a.389.389 0 0 0-.527-.02L7.547 7.31A.91.91 0 1 0 8.85 8.569l3.434-4.297a.389.389 0 0 0-.029-.518z"/>
-                                            <path fill-rule="evenodd" d="M6.664 15.889A8 8 0 1 1 9.336.11a8 8 0 0 1-2.672 15.78zm-4.665-4.283A11.945 11.945 0 0 1 8 10c2.186 0 4.236.585 6.001 1.606a7 7 0 1 0-12.002 0z"/>
-                                        </svg>
+                                        <i class="bi bi-speedometer"></i>
                                     </span>
                                     <input type="text" class="form-control form-control-sm me-2" id="total-weight" readonly>
-                                    <span class="unit-label">kg</span>
+                                    <span class="unit-label" id="weight-unit">kg</span>
+                                </div>
+                                <div class="form-text small mt-1">
+                                    <a href="#" class="text-decoration-none" id="convert-weight">
+                                        <i class="bi bi-arrow-left-right"></i> Convert to <span id="alt-weight-unit">lb</span>
+                                    </a>
                                 </div>
                             </div>
-                            <div class="col-md-4 mb-2">
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label small">Total Volume</label>
                                 <div class="d-flex align-items-center">
                                     <span class="input-icon me-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-box" viewBox="0 0 16 16">
-                                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
-                                        </svg>
+                                        <i class="bi bi-box"></i>
                                     </span>
                                     <input type="text" class="form-control form-control-sm me-2" id="total-volume" readonly>
-                                    <span class="unit-label">m³</span>
+                                    <span class="unit-label" id="volume-unit">m³</span>
+                                </div>
+                                <div class="form-text small mt-1">
+                                    <a href="#" class="text-decoration-none" id="convert-volume">
+                                        <i class="bi bi-arrow-left-right"></i> Convert to <span id="alt-volume-unit">ft³</span>
+                                    </a>
                                 </div>
                             </div>
-                            <div class="col-md-4 mb-2">
+                            <div class="col-md-3 mb-2">
                                 <label class="form-label small">Total Surface Area</label>
                                 <div class="d-flex align-items-center">
                                     <span class="input-icon me-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-aspect-ratio" viewBox="0 0 16 16">
-                                            <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h13A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 12.5v-9zM1.5 3a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-13z"/>
-                                            <path d="M2 4.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1H3v2.5a.5.5 0 0 1-1 0v-3zm12 7a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1H13V8.5a.5.5 0 0 1 1 0v3z"/>
-                                        </svg>
+                                        <i class="bi bi-aspect-ratio"></i>
                                     </span>
                                     <input type="text" class="form-control form-control-sm me-2" id="total-surface-area" readonly>
-                                    <span class="unit-label">m²</span>
+                                    <span class="unit-label" id="area-unit">m²</span>
+                                </div>
+                                <div class="form-text small mt-1">
+                                    <a href="#" class="text-decoration-none" id="convert-area">
+                                        <i class="bi bi-arrow-left-right"></i> Convert to <span id="alt-area-unit">ft²</span>
+                                    </a>
+                                </div>
+                            </div>
+                            <div class="col-md-3 mb-2">
+                                <label class="form-label small">Cost Estimate</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <i class="bi bi-currency-dollar"></i>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm me-2" id="total-cost" readonly>
+                                    <span class="unit-label">USD</span>
+                                </div>
+                                <div class="form-text small mt-1">
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#costSettingsModal" class="text-decoration-none">
+                                        <i class="bi bi-gear"></i> Configure cost settings
+                                    </a>
                                 </div>
                             </div>
                         </div>
+                        <hr class="my-3">
                         <div class="row">
                             <div class="col-md-4 mb-2">
                                 <label for="material-density" class="form-label small">Material Density</label>
                                 <div class="d-flex align-items-center">
                                     <span class="input-icon me-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-droplet-fill" viewBox="0 0 16 16">
-                                            <path d="M8 16a6 6 0 0 0 6-6c0-1.655-1.122-2.904-2.432-4.362C10.254 4.176 8.75 2.503 8 0c0 0-6 5.686-6 10a6 6 0 0 0 6 6ZM6.646 4.646l.708.708c-.29.29-.444.696-.444 1.122 0 .552.448 1 1 1a.99.99 0 0 0 .706-.29l.708.708a2 2 0 1 1-2.678-2.978Z"/>
-                                        </svg>
+                                        <i class="bi bi-droplet-fill"></i>
                                     </span>
-                                    <input type="number" class="form-control form-control-sm me-2" id="material-density" value="7850">
-                                    <span class="unit-label">kg/m³</span>
+                                    <input type="text" class="form-control form-control-sm me-2" id="material-density" value="7850">
+                                    <span class="unit-label" id="density-unit">kg/m³</span>
                                 </div>
-                                <small class="text-muted small">Default density for steel: 7850 kg/m³</small>
+                                <div class="form-text small mt-1" id="density-note">
+                                    <i class="bi bi-info-circle"></i> Standard steel density: 7850 kg/m³
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label for="material-grade" class="form-label small">Material Grade</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <i class="bi bi-card-checklist"></i>
+                                    </span>
+                                    <select class="form-select form-select-sm" id="material-grade">
+                                        <option value="S235">S235 (EN 10025-2)</option>
+                                        <option value="S275">S275 (EN 10025-2)</option>
+                                        <option value="S355" selected>S355 (EN 10025-2)</option>
+                                        <option value="S420">S420 (EN 10025-3)</option>
+                                        <option value="S460">S460 (EN 10025-3)</option>
+                                        <option value="A36">A36 (ASTM)</option>
+                                        <option value="A572-50">A572 Gr.50 (ASTM)</option>
+                                    </select>
+                                </div>
+                                <div class="form-text small mt-1">
+                                    <i class="bi bi-info-circle"></i> Yield strength: <span id="yield-strength">355</span> MPa
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label for="safety-factor" class="form-label small">Safety Factor</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <i class="bi bi-shield-check"></i>
+                                    </span>
+                                    <input type="number" class="form-control form-control-sm" id="safety-factor" value="1.5" min="1.0" max="3.0" step="0.1">
+                                </div>
+                                <div class="form-text small mt-1">
+                                    <i class="bi bi-info-circle"></i> Recommended: 1.5 for static loads
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -216,33 +350,185 @@
             </section>
 
             <!-- Export Section -->
-            <section id="export-section" class="mb-4 mt-3 text-end">
-                <div class="d-flex gap-2 justify-content-end">
-                    <button id="export-csv" class="btn btn-sm btn-outline-secondary rounded-pill px-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-filetype-csv me-1" viewBox="0 0 16 16">
-                            <path fill-rule="evenodd" d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5ZM3.517 14.841a1.13 1.13 0 0 0 .401.823c.13.108.289.192.478.252.19.061.411.091.665.091.338 0 .624-.053.859-.158.236-.105.416-.252.539-.44.125-.189.187-.408.187-.656 0-.224-.045-.41-.134-.56a1.001 1.001 0 0 0-.375-.357 2.027 2.027 0 0 0-.566-.21l-.621-.144a.97.97 0 0 1-.404-.176.37.37 0 0 1-.144-.299c0-.156.062-.284.185-.384.125-.101.296-.152.512-.152.143 0 .266.023.37.068a.624.624 0 0 1 .246.181.56.56 0 0 1 .12.258h.75a1.092 1.092 0 0 0-.2-.566 1.21 1.21 0 0 0-.5-.41 1.813 1.813 0 0 0-.78-.152c-.293 0-.551.05-.776.15-.225.099-.4.24-.527.421-.127.182-.19.395-.19.639 0 .201.04.376.122.524.082.149.2.27.352.367.152.095.332.167.539.213l.618.144c.207.049.361.113.463.193a.387.387 0 0 1 .152.326.505.505 0 0 1-.085.29.559.559 0 0 1-.255.193c-.111.047-.249.07-.413.07-.117 0-.223-.013-.32-.04a.838.838 0 0 1-.248-.115.578.578 0 0 1-.255-.384h-.765ZM.806 13.693c0-.248.034-.46.102-.633a.868.868 0 0 1 .302-.399.814.814 0 0 1 .475-.137c.15 0 .283.032.398.097a.7.7 0 0 1 .272.26.85.85 0 0 1 .12.381h.765v-.072a1.33 1.33 0 0 0-.466-.964 1.441 1.441 0 0 0-.489-.272 1.838 1.838 0 0 0-.606-.097c-.356 0-.66.074-.911.223-.25.148-.44.359-.572.632-.13.274-.196.6-.196.979v.498c0 .379.064.704.193.976.131.271.322.48.572.626.25.145.554.217.914.217.293 0 .554-.055.785-.164.23-.11.414-.26.55-.454a1.27 1.27 0 0 0 .226-.674v-.076h-.764a.799.799 0 0 1-.118.363.7.7 0 0 1-.272.25.874.874 0 0 1-.401.087.845.845 0 0 1-.478-.132.833.833 0 0 1-.299-.392 1.699 1.699 0 0 1-.102-.627v-.495Zm8.239 2.238h-.953l-1.338-3.999h.917l.896 3.138h.038l.888-3.138h.879l-1.327 4Z"/>
-                        </svg>
-                        Export to CSV
-                    </button>
-                    <button id="export-pdf" class="btn btn-sm btn-primary rounded-pill px-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-file-earmark-pdf me-1" viewBox="0 0 16 16">
-                            <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
-                            <path d="M4.603 14.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.68 7.68 0 0 1 1.482-.645 19.697 19.697 0 0 0 1.062-2.227a7.269 7.269 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.188-.012.396-.047.614-.084.51-.27 1.134-.52 1.794a10.954 10.954 0 0 0 .98 1.686 5.753 5.753 0 0 1 1.334.05c.364.066.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416.856.856 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a5.712 5.712 0 0 1-.911-.95 11.651 11.651 0 0 0-1.997.406 11.307 11.307 0 0 1-1.02 1.51c-.292.35-.609.656-.927.787a.793.793 0 0 1-.58.029z"/>
-                        </svg>
-                        Download PDF
-                    </button>
+            <section id="export-section" class="mb-4 mt-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2">
+                        <h2 class="h6 mb-0">Export & Documentation</h2>
+                        <span class="badge bg-primary px-2 py-1 rounded-pill">Pro Feature</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row">
+                            <div class="col-md-7">
+                                <h6 class="small fw-bold mb-3">Export Options</h6>
+                                <div class="d-flex flex-wrap gap-2 mb-3">
+                                    <button id="export-csv" class="btn btn-outline-secondary">
+                                        <i class="bi bi-filetype-csv me-1"></i> Export to CSV
+                                    </button>
+                                    <button id="export-pdf" class="btn btn-primary">
+                                        <i class="bi bi-filetype-pdf me-1"></i> Download PDF Report
+                                    </button>
+                                    <button id="export-excel" class="btn btn-outline-success">
+                                        <i class="bi bi-file-earmark-excel me-1"></i> Export to Excel
+                                    </button>
+                                    <button id="export-cad" class="btn btn-outline-info">
+                                        <i class="bi bi-bounding-box me-1"></i> Export to CAD
+                                    </button>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="include-calculations" checked>
+                                    <label class="form-check-label small" for="include-calculations">
+                                        Include detailed calculations in report
+                                    </label>
+                                </div>
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="include-material-specs" checked>
+                                    <label class="form-check-label small" for="include-material-specs">
+                                        Include material specifications
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <h6 class="small fw-bold mb-3">Project Sharing</h6>
+                                <div class="input-group input-group-sm mb-3">
+                                    <span class="input-group-text"><i class="bi bi-link-45deg"></i></span>
+                                    <input type="text" class="form-control" id="share-link" value="https://steelcalc.pro/p/2f9a8b3c" readonly>
+                                    <button class="btn btn-outline-secondary" type="button" id="copy-link">
+                                        <i class="bi bi-clipboard"></i> Copy
+                                    </button>
+                                </div>
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-outline-primary" id="save-to-cloud">
+                                        <i class="bi bi-cloud-arrow-up me-1"></i> Save to Cloud
+                                    </button>
+                                    <button class="btn btn-sm btn-outline-secondary" id="load-from-cloud">
+                                        <i class="bi bi-cloud-download me-1"></i> Load Project
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </section>
-        </main>
 
-        <footer class="bg-light py-4 mt-auto border-top">
-            <div class="container text-center">
-                <p class="mb-0 text-secondary">Steel Profile Calculator Pro &copy; <span id="current-year"></span></p>
-                <p class="mb-0 text-muted small">Professional steel profile calculations</p>
+            <!-- Beam Calculator Tab Content -->
+            <div class="tab-pane fade" id="beam-content" role="tabpanel" aria-labelledby="beam-tab">
+                <div class="row mb-4">
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-rulers" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3">Beam Calculator</h4>
+                        <p class="text-muted">Calculate bending moments, shear forces, and deflections for various beam configurations.</p>
+                        <button class="btn btn-primary mt-2" id="activate-beam-calculator">
+                            <i class="bi bi-unlock me-1"></i> Activate This Module
+                        </button>
+                    </div>
+                </div>
             </div>
-        </footer>
+
+            <!-- Connection Designer Tab Content -->
+            <div class="tab-pane fade" id="connection-content" role="tabpanel" aria-labelledby="connection-tab">
+                <div class="row mb-4">
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-link-45deg" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3">Connection Designer</h4>
+                        <p class="text-muted">Design and analyze bolted and welded connections according to international standards.</p>
+                        <button class="btn btn-primary mt-2" id="activate-connection-designer">
+                            <i class="bi bi-unlock me-1"></i> Activate This Module
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Reference Data Tab Content -->
+            <div class="tab-pane fade" id="reference-content" role="tabpanel" aria-labelledby="reference-tab">
+                <div class="row mb-4">
+                    <div class="col-12 text-center py-5">
+                        <i class="bi bi-journal-text" style="font-size: 3rem;"></i>
+                        <h4 class="mt-3">Reference Data</h4>
+                        <p class="text-muted">Access comprehensive reference data for steel profiles, material properties, and design codes.</p>
+                        <button class="btn btn-primary mt-2" id="activate-reference-data">
+                            <i class="bi bi-unlock me-1"></i> Activate This Module
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Cost Settings Modal -->
+    <div class="modal fade" id="costSettingsModal" tabindex="-1" aria-labelledby="costSettingsModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="costSettingsModalLabel">Cost Estimation Settings</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="material-cost" class="form-label">Material Cost (per kg)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="material-cost" value="1.20" step="0.01" min="0">
+                        </div>
+                        <div class="form-text">Standard structural steel price: $1.20/kg</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="fabrication-cost" class="form-label">Fabrication Cost (per kg)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="fabrication-cost" value="0.80" step="0.01" min="0">
+                        </div>
+                        <div class="form-text">Includes cutting, drilling, and welding</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="finishing-cost" class="form-label">Surface Treatment (per m²)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" class="form-control" id="finishing-cost" value="15.00" step="0.01" min="0">
+                        </div>
+                        <div class="form-text">Standard hot-dip galvanizing</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="currency" class="form-label">Currency</label>
+                        <select class="form-select" id="currency">
+                            <option value="USD" selected>USD ($)</option>
+                            <option value="EUR">EUR (€)</option>
+                            <option value="GBP">GBP (£)</option>
+                            <option value="JPY">JPY (¥)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="save-cost-settings">Save Settings</button>
+                </div>
+            </div>
+        </div>
     </div>
-    
+
+    <footer class="bg-light py-4 mt-auto border-top">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <h6 class="text-uppercase fw-bold mb-2">Steel Profile Calculator Pro</h6>
+                    <p class="small text-muted mb-0">Professional engineering tool for structural calculations compliant with international standards.</p>
+                </div>
+                <div class="col-md-4 mb-3 mb-md-0">
+                    <h6 class="text-uppercase fw-bold mb-2">Supported Standards</h6>
+                    <ul class="list-unstyled small mb-0">
+                        <li><span class="text-muted">European:</span> EN 10025, EN 10210, EN 10219</li>
+                        <li><span class="text-muted">American:</span> ASTM A36, AISC</li>
+                        <li><span class="text-muted">International:</span> ISO, JIS, GB/T, IS</li>
+                    </ul>
+                </div>
+                <div class="col-md-4">
+                    <h6 class="text-uppercase fw-bold mb-2">About</h6>
+                    <p class="small text-muted mb-2">Version 2.0 - Professional Edition</p>
+                    <p class="small text-muted mb-0">&copy; <span id="current-year"></span> EnginExcel - All rights reserved</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
     <!-- Row Template (Hidden) -->
     <template id="row-template">
         <tr class="material-row">
