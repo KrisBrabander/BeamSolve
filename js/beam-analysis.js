@@ -1,1343 +1,1182 @@
-/**
- * Beam Analysis Module
- * Interactive beam analysis with support for various profiles, loads, and supports
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <script defer src="https://cloud.umami.is/script.js" data-website-id="302cd0f7-976d-421f-8e7e-5fc3b9d60e60"></script>
+    <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-5485905203359472"
+     crossorigin="anonymous"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steel Profile Calculator Elite | Professional Engineering Tool</title>
+    <meta name="description" content="Elite steel profile calculator for structural engineers and construction professionals. Calculate weight, volume, and surface area of steel profiles according to AISC, ASTM, and international standards.">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+</head>
+<body>
+    <!-- Professional Disclaimer Banner -->
+    <div class="disclaimer-banner bg-dark text-light py-2">
+        <div class="container text-center">
+            <p class="mb-0 small"><strong>ELITE EDITION:</strong> This calculator complies with AISC, ASTM A36/A992, EN 10025, EN 10210, and ISO 4019 standards. Results should be verified by a qualified structural engineer.</p>
+        </div>
+    </div>
+    
+    <div class="container-fluid p-0">
+        <header class="bg-white py-3 border-bottom shadow-sm">
+            <div class="container">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="d-flex align-items-center">
+                        <img src="img/logo.svg" alt="Steel Profile Calculator Logo" class="me-3" width="40" height="40">
+                        <div>
+                            <h1 class="h4 mb-0 text-dark">Steel Profile Calculator <span class="text-primary fw-bold">Elite</span></h1>
+                            <p class="mb-0 small text-secondary">Professional structural steel calculations for engineering projects</p>
+                            <!-- Professional Standards Reference -->
+                            <p class="mb-0 small text-muted">Compliant with AISC, ASTM A36/A992, EN 10025, EN 10210 & ISO 4019 standards</p>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="theme-toggle me-3" id="theme-toggle" title="Toggle dark mode">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-moon-stars" viewBox="0 0 16 16" id="theme-icon">
+                                <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278zM4.858 1.311A7.269 7.269 0 0 0 1.025 7.71c0 4.02 3.279 7.276 7.319 7.276a7.316 7.316 0 0 0 5.205-2.162c-.337.042-.68.063-1.029.063-4.61 0-8.343-3.714-8.343-8.29 0-1.167.242-2.278.681-3.286z"/>
+                                <path d="M10.794 3.148a.217.217 0 0 1 .412 0l.387 1.162c.173.518.579.924 1.097 1.097l1.162.387a.217.217 0 0 1 0 .412l-1.162.387a1.734 1.734 0 0 0-1.097 1.097l-.387 1.162a.217.217 0 0 1-.412 0l-.387-1.162A1.734 1.734 0 0 0 9.31 6.593l-1.162-.387a.217.217 0 0 1 0-.412l1.162-.387a1.734 1.734 0 0 0 1.097-1.097l.387-1.162zM13.863.099a.145.145 0 0 1 .274 0l.258.774c.115.346.386.617.732.732l.774.258a.145.145 0 0 1 0 .274l-.774.258a1.156 1.156 0 0 0-.732.732l-.258.774a.145.145 0 0 1-.274 0l-.258-.774a1.156 1.156 0 0 0-.732-.732l-.774-.258a.145.145 0 0 1 0-.274l.774-.258c.346-.115.617-.386.732-.732L13.863.1z"/>
+                            </svg>
+                        </div>
+                        <span class="badge bg-primary px-3 py-1 rounded-pill"><span class="fw-light">ELITE</span> <span class="fw-bold">v2.0</span></span>
+                    </div>
+                </div>
+            </div>
+        </header>
 
-// Main Beam Analysis Class
-class BeamAnalysis {
-    constructor() {
-        // Beam properties
-        this.length = 6; // meters
-        this.eModulus = 210000; // MPa (N/mm²)
-        this.momentOfInertia = 8360000; // mm⁴
-        
-        // Canvas and interaction properties
-        this.canvas = null;
-        this.ctx = null;
-        this.scale = 1;
-        this.offsetX = 50;
-        this.offsetY = 100;
-        this.beamHeight = 20;
-        
-        // Elements on the beam
-        this.supports = [];
-        this.loads = [];
-        
-        // Currently selected element
-        this.selectedElement = null;
-        this.dragStartX = 0;
-        this.dragStartY = 0;
-        this.isDragging = false;
-        
-        // Analysis results
-        this.results = {
-            reactions: [],
-            shear: [],
-            moment: [],
-            deflection: [],
-            rotation: []
-        };
-        
-        // Calculation resolution
-        this.numPoints = 100;
-    }
-    
-    // Initialize the beam analysis module
-    init() {
-        console.log('Initializing beam analysis module');
-        this.initCanvas();
-        this.initEventListeners();
-        this.initProfileSelector();
-        this.drawBeam();
-    }
-    
-    // Initialize the canvas
-    initCanvas() {
-        this.canvas = document.getElementById('beam-canvas');
-        if (!this.canvas) {
-            console.error('Beam canvas not found');
-            return;
-        }
-        
-        this.ctx = this.canvas.getContext('2d');
-        
-        // Set canvas dimensions
-        this.resizeCanvas();
-        window.addEventListener('resize', () => this.resizeCanvas());
-    }
-    
-    // Resize canvas to fit container
-    resizeCanvas() {
-        if (!this.canvas) return;
-        
-        const container = this.canvas.parentElement;
-        this.canvas.width = container.clientWidth;
-        this.canvas.height = 300;
-        
-        // Calculate scale factor based on beam length and canvas width
-        this.scale = (this.canvas.width - this.offsetX * 2) / this.length;
-        
-        // Redraw beam after resize
-        this.drawBeam();
-    }
-    
-    // Initialize event listeners for user interaction
-    initEventListeners() {
-        if (!this.canvas) return;
-        
-        // Canvas event listeners for drag and drop functionality
-        this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
-        this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        this.canvas.addEventListener('mouseup', () => this.handleMouseUp());
-        this.canvas.addEventListener('mouseleave', () => this.handleMouseUp());
-        
-        // Button event listeners
-        document.getElementById('add-support')?.addEventListener('click', () => this.addSupport());
-        document.getElementById('add-load')?.addEventListener('click', () => this.addLoad());
-        document.getElementById('clear-beam')?.addEventListener('click', () => this.clearBeam());
-        document.getElementById('analyze-beam')?.addEventListener('click', () => this.analyze());
-        
-        // Property panel event listeners
-        document.getElementById('close-properties')?.addEventListener('click', () => this.closePropertiesPanel());
-        document.getElementById('apply-support')?.addEventListener('click', () => this.applySupport());
-        document.getElementById('apply-load')?.addEventListener('click', () => this.applyLoad());
-        document.getElementById('delete-support')?.addEventListener('click', () => this.deleteSupport());
-        document.getElementById('delete-load')?.addEventListener('click', () => this.deleteLoad());
-        
-        // Load type change event
-        document.getElementById('load-type')?.addEventListener('change', (e) => this.handleLoadTypeChange(e));
-        
-        // Beam length change event
-        document.getElementById('beam-length')?.addEventListener('input', (e) => {
-            this.length = parseFloat(e.target.value) || 6;
-            this.resizeCanvas();
-            this.analyze();
-        });
-        
-        // Custom properties change events
-        document.getElementById('e-modulus')?.addEventListener('input', (e) => {
-            this.eModulus = parseFloat(e.target.value) || 210000;
-            this.analyze();
-        });
-        
-        document.getElementById('moment-of-inertia')?.addEventListener('input', (e) => {
-            this.momentOfInertia = parseFloat(e.target.value) || 8360000;
-            this.analyze();
-        });
-    }
-    
-    // Initialize profile selector
-    initProfileSelector() {
-        const profileSelector = document.getElementById('profile-selector');
-        const customPropertiesDiv = document.getElementById('custom-properties');
-        
-        if (profileSelector && customPropertiesDiv) {
-            profileSelector.addEventListener('change', (e) => {
-                const selectedValue = e.target.value;
-                
-                if (selectedValue === 'custom') {
-                    customPropertiesDiv.style.display = 'block';
-                } else {
-                    customPropertiesDiv.style.display = 'none';
-                    
-                    // Set properties based on selected profile
-                    const selectedProfile = this.getProfileProperties(selectedValue);
-                    if (selectedProfile) {
-                        this.eModulus = selectedProfile.eModulus;
-                        this.momentOfInertia = selectedProfile.momentOfInertia;
-                        this.analyze();
-                    }
-                }
-            });
-        }
-    }
-    
-    // Get properties for a specific profile
-    getProfileProperties(profileId) {
-        // Common steel profiles with their properties
-        const profiles = {
-            'ipn100': { eModulus: 210000, momentOfInertia: 171000 },
-            'ipn200': { eModulus: 210000, momentOfInertia: 2140000 },
-            'ipn300': { eModulus: 210000, momentOfInertia: 9800000 },
-            'hea100': { eModulus: 210000, momentOfInertia: 349000 },
-            'hea200': { eModulus: 210000, momentOfInertia: 3690000 },
-            'hea300': { eModulus: 210000, momentOfInertia: 18300000 },
-            'heb100': { eModulus: 210000, momentOfInertia: 450000 },
-            'heb200': { eModulus: 210000, momentOfInertia: 5700000 },
-            'heb300': { eModulus: 210000, momentOfInertia: 25200000 }
-        };
-        
-        return profiles[profileId] || null;
-    }
-    
-    // Draw the beam on the canvas
-    drawBeam() {
-        if (!this.ctx || !this.canvas) return;
-        
-        // Clear canvas
-        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        // Draw beam
-        this.ctx.beginPath();
-        this.ctx.rect(
-            this.offsetX, 
-            this.offsetY - this.beamHeight / 2, 
-            this.length * this.scale, 
-            this.beamHeight
-        );
-        this.ctx.fillStyle = '#e0e0e0';
-        this.ctx.fill();
-        this.ctx.strokeStyle = '#333';
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
-        
-        // Draw ruler
-        this.drawRuler();
-        
-        // Draw supports
-        this.supports.forEach(support => this.drawSupport(support));
-        
-        // Draw loads
-        this.loads.forEach(load => this.drawLoad(load));
-    }
-    
-    // Draw ruler below the beam
-    drawRuler() {
-        if (!this.ctx) return;
-        
-        const rulerY = this.offsetY + 30;
-        const tickHeight = 5;
-        const meterWidth = this.scale; // Width of 1 meter in pixels
-        
-        this.ctx.beginPath();
-        this.ctx.moveTo(this.offsetX, rulerY);
-        this.ctx.lineTo(this.offsetX + this.length * this.scale, rulerY);
-        this.ctx.strokeStyle = '#999';
-        this.ctx.lineWidth = 1;
-        this.ctx.stroke();
-        
-        // Draw ticks and labels
-        this.ctx.textAlign = 'center';
-        this.ctx.font = '10px Arial';
-        this.ctx.fillStyle = '#666';
-        
-        for (let i = 0; i <= this.length; i++) {
-            const x = this.offsetX + i * meterWidth;
+        <main class="container mb-4">
+            <!-- Main Application Tabs -->
+            <ul class="nav nav-tabs nav-fill mb-3" id="mainAppTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="profiles-tab" data-bs-toggle="tab" data-bs-target="#profiles-content" type="button" role="tab" aria-controls="profiles-content" aria-selected="true">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-grid-3x3 me-2" viewBox="0 0 16 16">
+                            <path d="M0 1.5A1.5 1.5 0 0 1 1.5 0h13A1.5 1.5 0 0 1 16 1.5v13a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 14.5v-13zM1.5 1a.5.5 0 0 0-.5.5V5h4V1H1.5zM5 6H1v4h4V6zm1 4h4V6H6v4zm-1 1H1v3.5a.5.5 0 0 0 .5.5H5v-4zm1 0v4h4v-4H6zm5 0v4h3.5a.5.5 0 0 0 .5-.5V11h-4zm0-1h4V6h-4v4zm0-5h4V1.5a.5.5 0 0 0-.5-.5H11v4zm-1 0V1H6v4h4z"/>
+                        </svg>
+                        Steel Profiles
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="beam-tab" data-bs-toggle="tab" data-bs-target="#beam-content" type="button" role="tab" aria-controls="beam-content" aria-selected="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-rulers me-2" viewBox="0 0 16 16">
+                            <path d="M1 0a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5v-1H2v-1h4v-1H4v-1h2v-1H2v-1h4V9H4V8h2V7H2V6h4V2h1v4h1V4h1v2h1V2h1v4h1V4h1v2h1V2h1v4h1V1a1 1 0 0 0-1-1H1z"/>
+                        </svg>
+                        Beam Analysis
+                    </button>
+                </li>
+            </ul>
             
-            // Draw tick
-            this.ctx.beginPath();
-            this.ctx.moveTo(x, rulerY - tickHeight);
-            this.ctx.lineTo(x, rulerY + tickHeight);
-            this.ctx.stroke();
+            <!-- Tab Content -->
+            <div class="tab-content" id="mainAppTabsContent">
+                <!-- Steel Profiles Tab Content -->
+                <div class="tab-pane fade show active" id="profiles-content" role="tabpanel" aria-labelledby="profiles-tab">
+                    <!-- Professional Technical Standards Information -->
+                    <section id="standards-info" class="mb-3">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <div class="alert alert-light border-0 d-flex align-items-center mb-3" role="alert">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-shield-check text-primary me-2" viewBox="0 0 16 16">
+                                <path d="M5.338 1.59a61.44 61.44 0 0 0-2.837.856.481.481 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 0 0 .101.025.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.775 11.775 0 0 1-2.517 2.453 7.159 7.159 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7.158 7.158 0 0 1-1.048-.625 11.777 11.777 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 62.456 62.456 0 0 1 5.072.56z"/>
+                                <path d="M10.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+                            </svg>
+                            <div>
+                                <strong>Elite Edition:</strong> Calculations based on AISC, ASTM, EN and ISO standards. Steel density: 7850 kg/m³ (490 lb/ft³).
+                            </div>
+                        </div>
+                        
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card border-primary h-100">
+                                    <div class="card-header bg-primary text-white py-1 small fw-bold">
+                                        U.S. Standards
+                                    </div>
+                                    <div class="card-body py-2 px-3">
+                                        <ul class="small mb-0 ps-3">
+                                            <li><strong>AISC 360-16</strong>: Specification for Structural Steel Buildings</li>
+                                            <li><strong>ASTM A36/A36M</strong>: Carbon Structural Steel</li>
+                                            <li><strong>ASTM A992/A992M</strong>: Structural Steel Shapes</li>
+                                            <li><strong>ASTM A500</strong>: Cold-Formed Hollow Structural Sections</li>
+                                            <li><strong>ANSI/AISC 303-16</strong>: Code of Standard Practice</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card border-secondary h-100">
+                                    <div class="card-header bg-secondary text-white py-1 small fw-bold">
+                                        International Standards
+                                    </div>
+                                    <div class="card-body py-2 px-3">
+                                        <ul class="small mb-0 ps-3">
+                                            <li><strong>EN 10025</strong>: Hot rolled structural steel</li>
+                                            <li><strong>EN 10210</strong>: Hot finished structural hollow sections</li>
+                                            <li><strong>EN 10219</strong>: Cold formed welded structural hollow sections</li>
+                                            <li><strong>ISO 4019</strong>: Steel profiles standards</li>
+                                            <li><strong>ISO 630</strong>: Structural steels</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
             
-            // Draw label
-            this.ctx.fillText(i + 'm', x, rulerY + 20);
-        }
-    }
-    
-    // Draw a support on the beam
-    drawSupport(support) {
-        if (!this.ctx) return;
-        
-        const x = this.offsetX + support.position * this.scale;
-        const y = this.offsetY + this.beamHeight / 2;
-        
-        this.ctx.save();
-        
-        // Highlight if selected
-        if (this.selectedElement && this.selectedElement.type === 'support' && 
-            this.selectedElement.id === support.id) {
-            this.ctx.shadowColor = '#4285f4';
-            this.ctx.shadowBlur = 10;
-        }
-        
-        // Draw based on support type
-        switch (support.type) {
-            case 'fixed': // Fixed support (encastrement)
-                this.ctx.beginPath();
-                this.ctx.rect(x - 5, y, 10, 30);
-                this.ctx.fillStyle = '#555';
-                this.ctx.fill();
-                
-                // Draw hatching
-                this.ctx.beginPath();
-                for (let i = 0; i < 6; i++) {
-                    this.ctx.moveTo(x - 15, y + 5 + i * 5);
-                    this.ctx.lineTo(x + 15, y + 5 + i * 5);
-                }
-                this.ctx.strokeStyle = '#333';
-                this.ctx.lineWidth = 1;
-                this.ctx.stroke();
-                break;
-                
-            case 'pinned': // Pinned support (articulation)
-                // Draw triangle
-                this.ctx.beginPath();
-                this.ctx.moveTo(x, y);
-                this.ctx.lineTo(x - 15, y + 25);
-                this.ctx.lineTo(x + 15, y + 25);
-                this.ctx.closePath();
-                this.ctx.fillStyle = '#555';
-                this.ctx.fill();
-                this.ctx.strokeStyle = '#333';
-                this.ctx.lineWidth = 1;
-                this.ctx.stroke();
-                
-                // Draw base
-                this.ctx.beginPath();
-                this.ctx.rect(x - 20, y + 25, 40, 5);
-                this.ctx.fillStyle = '#555';
-                this.ctx.fill();
-                this.ctx.stroke();
-                break;
-                
-            case 'roller': // Roller support
-                // Draw triangle
-                this.ctx.beginPath();
-                this.ctx.moveTo(x, y);
-                this.ctx.lineTo(x - 15, y + 20);
-                this.ctx.lineTo(x + 15, y + 20);
-                this.ctx.closePath();
-                this.ctx.fillStyle = '#555';
-                this.ctx.fill();
-                this.ctx.strokeStyle = '#333';
-                this.ctx.lineWidth = 1;
-                this.ctx.stroke();
-                
-                // Draw circles (rollers)
-                this.ctx.beginPath();
-                this.ctx.arc(x - 10, y + 25, 5, 0, Math.PI * 2);
-                this.ctx.arc(x + 10, y + 25, 5, 0, Math.PI * 2);
-                this.ctx.fillStyle = '#777';
-                this.ctx.fill();
-                this.ctx.stroke();
-                break;
-        }
-        
-        // Draw position label
-        this.ctx.fillStyle = '#333';
-        this.ctx.font = '10px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(`${support.position.toFixed(1)}m`, x, y + 45);
-        
-        this.ctx.restore();
-    }
-    
-    // Draw a load on the beam
-    drawLoad(load) {
-        if (!this.ctx) return;
-        
-        // Highlight if selected
-        if (this.selectedElement && this.selectedElement.type === 'load' && 
-            this.selectedElement.id === load.id) {
-            this.ctx.shadowColor = '#4285f4';
-            this.ctx.shadowBlur = 10;
-        }
-        
-        switch (load.type) {
-            case 'point':
-                this.drawPointLoad(load);
-                break;
-            case 'distributed':
-                this.drawDistributedLoad(load);
-                break;
-            case 'moment':
-                this.drawMomentLoad(load);
-                break;
-        }
-        
-        this.ctx.shadowColor = 'transparent';
-        this.ctx.shadowBlur = 0;
-    }
-    
-    // Draw a point load
-    drawPointLoad(load) {
-        if (!this.ctx) return;
-        
-        const x = this.offsetX + load.position * this.scale;
-        const y = this.offsetY - this.beamHeight / 2;
-        const arrowLength = 40;
-        const arrowHeadSize = 8;
-        
-        this.ctx.beginPath();
-        this.ctx.moveTo(x, y);
-        this.ctx.lineTo(x, y - arrowLength);
-        
-        // Arrow head
-        this.ctx.lineTo(x - arrowHeadSize, y - arrowLength + arrowHeadSize);
-        this.ctx.moveTo(x, y - arrowLength);
-        this.ctx.lineTo(x + arrowHeadSize, y - arrowLength + arrowHeadSize);
-        
-        this.ctx.strokeStyle = '#e53935';
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
-        
-        // Draw value label
-        this.ctx.fillStyle = '#e53935';
-        this.ctx.font = 'bold 12px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(`${Math.abs(load.value)}kN`, x, y - arrowLength - 10);
-        
-        // Draw position label
-        this.ctx.fillStyle = '#666';
-        this.ctx.font = '10px Arial';
-        this.ctx.fillText(`${load.position.toFixed(1)}m`, x, y - 15);
-    }
-    
-    // Draw a distributed load
-    drawDistributedLoad(load) {
-        if (!this.ctx) return;
-        
-        const startX = this.offsetX + load.position * this.scale;
-        const endX = this.offsetX + load.endPosition * this.scale;
-        const y = this.offsetY - this.beamHeight / 2;
-        const arrowLength = 30;
-        const arrowHeadSize = 6;
-        const arrowSpacing = 30; // Pixels between arrows
-        
-        // Draw distributed load arrows
-        this.ctx.strokeStyle = '#e53935';
-        this.ctx.lineWidth = 2;
-        
-        // Draw top line
-        this.ctx.beginPath();
-        this.ctx.moveTo(startX, y - arrowLength);
-        this.ctx.lineTo(endX, y - arrowLength);
-        this.ctx.stroke();
-        
-        // Calculate number of arrows to draw
-        const loadWidth = endX - startX;
-        const numArrows = Math.max(2, Math.floor(loadWidth / arrowSpacing));
-        const actualSpacing = loadWidth / (numArrows - 1);
-        
-        // Draw arrows
-        for (let i = 0; i < numArrows; i++) {
-            const arrowX = startX + i * actualSpacing;
-            
-            this.ctx.beginPath();
-            this.ctx.moveTo(arrowX, y - arrowLength);
-            this.ctx.lineTo(arrowX, y);
-            
-            // Arrow head
-            this.ctx.lineTo(arrowX - arrowHeadSize, y - arrowHeadSize);
-            this.ctx.moveTo(arrowX, y);
-            this.ctx.lineTo(arrowX + arrowHeadSize, y - arrowHeadSize);
-            
-            this.ctx.stroke();
-        }
-        
-        // Draw value label
-        this.ctx.fillStyle = '#e53935';
-        this.ctx.font = 'bold 12px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(`${Math.abs(load.value)}kN/m`, (startX + endX) / 2, y - arrowLength - 10);
-        
-        // Draw position labels
-        this.ctx.fillStyle = '#666';
-        this.ctx.font = '10px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(`${load.position.toFixed(1)}m`, startX, y - 15);
-        this.ctx.fillText(`${load.endPosition.toFixed(1)}m`, endX, y - 15);
-    }
-    
-    // Draw a moment load
-    drawMomentLoad(load) {
-        if (!this.ctx) return;
-        
-        const x = this.offsetX + load.position * this.scale;
-        const y = this.offsetY;
-        const radius = 25;
-        
-        this.ctx.beginPath();
-        this.ctx.arc(x, y, radius, 0, Math.PI * 1.5, false);
-        this.ctx.strokeStyle = '#9c27b0';
-        this.ctx.lineWidth = 2;
-        this.ctx.stroke();
-        
-        // Draw arrow head
-        const arrowHeadSize = 8;
-        const arrowX = x;
-        const arrowY = y - radius;
-        
-        this.ctx.beginPath();
-        this.ctx.moveTo(arrowX, arrowY);
-        this.ctx.lineTo(arrowX - arrowHeadSize, arrowY - arrowHeadSize);
-        this.ctx.moveTo(arrowX, arrowY);
-        this.ctx.lineTo(arrowX + arrowHeadSize, arrowY - arrowHeadSize);
-        this.ctx.stroke();
-        
-        // Draw value label
-        this.ctx.fillStyle = '#9c27b0';
-        this.ctx.font = 'bold 12px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText(`${Math.abs(load.value)}kNm`, x, y - radius - 10);
-        
-        // Draw position label
-        this.ctx.fillStyle = '#666';
-        this.ctx.font = '10px Arial';
-        this.ctx.fillText(`${load.position.toFixed(1)}m`, x, y + radius + 15);
-    }
-    
-    // Handle mouse down event
-    handleMouseDown(e) {
-        if (!this.canvas) return;
-        
-        const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
-        
-        // Check if clicking on an existing element
-        const element = this.findElementAtPosition(mouseX, mouseY);
-        
-        if (element) {
-            // Select the element
-            this.selectedElement = element;
-            this.dragStartX = mouseX;
-            this.dragStartY = mouseY;
-            this.isDragging = true;
-            
-            // Show properties panel
-            this.showPropertiesPanel(element);
-        } else {
-            // Deselect if clicking on empty space
-            this.selectedElement = null;
-            this.closePropertiesPanel();
-        }
-        
-        this.drawBeam();
-    }
-    
-    // Find element (support or load) at a specific position
-    findElementAtPosition(x, y) {
-        // Check supports
-        for (const support of this.supports) {
-            const supportX = this.offsetX + support.position * this.scale;
-            const supportY = this.offsetY + this.beamHeight / 2;
-            
-            // Check if within support hitbox
-            if (Math.abs(x - supportX) < 20 && y > supportY && y < supportY + 45) {
-                return { type: 'support', id: support.id, data: support };
-            }
-        }
-        
-        // Check loads
-        for (const load of this.loads) {
-            if (load.type === 'point') {
-                const loadX = this.offsetX + load.position * this.scale;
-                const loadY = this.offsetY - this.beamHeight / 2;
-                
-                // Check if within load hitbox
-                if (Math.abs(x - loadX) < 15 && y < loadY && y > loadY - 45) {
-                    return { type: 'load', id: load.id, data: load };
-                }
-            } else if (load.type === 'distributed') {
-                const startX = this.offsetX + load.position * this.scale;
-                const endX = this.offsetX + load.endPosition * this.scale;
-                const loadY = this.offsetY - this.beamHeight / 2;
-                
-                // Check if within distributed load hitbox
-                if (x >= startX && x <= endX && y < loadY && y > loadY - 35) {
-                    return { type: 'load', id: load.id, data: load };
-                }
-            } else if (load.type === 'moment') {
-                const loadX = this.offsetX + load.position * this.scale;
-                const loadY = this.offsetY;
-                const radius = 25;
-                
-                // Check if within moment load hitbox
-                const distance = Math.sqrt((x - loadX) ** 2 + (y - loadY) ** 2);
-                if (distance < radius + 10) {
-                    return { type: 'load', id: load.id, data: load };
-                }
-            }
-        }
-        
-        return null;
-    }
-    
-    // Handle mouse move event
-    handleMouseMove(e) {
-        if (!this.canvas || !this.isDragging || !this.selectedElement) return;
-        
-        const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        
-        // Calculate new position based on mouse movement
-        const deltaX = mouseX - this.dragStartX;
-        const newPositionInPixels = this.offsetX + this.selectedElement.data.position * this.scale + deltaX;
-        const newPosition = (newPositionInPixels - this.offsetX) / this.scale;
-        
-        // Ensure position is within beam bounds
-        const clampedPosition = Math.max(0, Math.min(this.length, newPosition));
-        
-        // Update element position
-        if (this.selectedElement.type === 'support') {
-            this.selectedElement.data.position = clampedPosition;
-            
-            // Update position field in properties panel
-            const supportPositionInput = document.getElementById('support-position');
-            if (supportPositionInput) {
-                supportPositionInput.value = clampedPosition.toFixed(1);
-            }
-        } else if (this.selectedElement.type === 'load') {
-            if (this.selectedElement.data.type === 'distributed') {
-                // Calculate width of distributed load
-                const width = this.selectedElement.data.endPosition - this.selectedElement.data.position;
-                
-                // Update both positions maintaining the width
-                this.selectedElement.data.position = clampedPosition;
-                this.selectedElement.data.endPosition = Math.min(this.length, clampedPosition + width);
-                
-                // Update position fields in properties panel
-                const loadPositionInput = document.getElementById('load-position');
-                const loadEndPositionInput = document.getElementById('load-end-position');
-                
-                if (loadPositionInput) {
-                    loadPositionInput.value = clampedPosition.toFixed(1);
-                }
-                
-                if (loadEndPositionInput) {
-                    loadEndPositionInput.value = this.selectedElement.data.endPosition.toFixed(1);
-                }
-            } else {
-                this.selectedElement.data.position = clampedPosition;
-                
-                // Update position field in properties panel
-                const loadPositionInput = document.getElementById('load-position');
-                if (loadPositionInput) {
-                    loadPositionInput.value = clampedPosition.toFixed(1);
-                }
-            }
-        }
-        
-        // Update drag start position
-        this.dragStartX = mouseX;
-        
-        // Redraw beam
-        this.drawBeam();
-        
-        // Run analysis if we have enough supports
-        if (this.supports.length >= 2) {
-            this.analyze();
-        }
-    }
-    
-    // Handle mouse up event
-    handleMouseUp() {
-        this.isDragging = false;
-    }
-    
-    // Show properties panel for the selected element
-    showPropertiesPanel(element) {
-        const propertiesPanel = document.getElementById('element-properties');
-        const supportProperties = document.getElementById('support-properties');
-        const loadProperties = document.getElementById('load-properties');
-        const elementTitle = document.getElementById('element-title');
-        
-        if (!propertiesPanel || !supportProperties || !loadProperties || !elementTitle) return;
-        
-        // Show the properties panel
-        propertiesPanel.style.display = 'block';
-        
-        if (element.type === 'support') {
-            // Show support properties
-            elementTitle.textContent = 'Support Properties';
-            supportProperties.style.display = 'block';
-            loadProperties.style.display = 'none';
-            
-            // Set values
-            const supportType = document.getElementById('support-type');
-            const supportPosition = document.getElementById('support-position');
-            
-            if (supportType) supportType.value = element.data.type;
-            if (supportPosition) supportPosition.value = element.data.position.toFixed(1);
-        } else if (element.type === 'load') {
-            // Show load properties
-            elementTitle.textContent = 'Load Properties';
-            supportProperties.style.display = 'none';
-            loadProperties.style.display = 'block';
-            
-            // Set values
-            const loadType = document.getElementById('load-type');
-            const loadValue = document.getElementById('load-value');
-            const loadPosition = document.getElementById('load-position');
-            const loadEndPosition = document.getElementById('load-end-position');
-            const loadUnit = document.getElementById('load-unit');
-            const distributedLoadOptions = document.querySelectorAll('.distributed-load-option');
-            
-            if (loadType) loadType.value = element.data.type;
-            if (loadValue) loadValue.value = Math.abs(element.data.value);
-            if (loadPosition) loadPosition.value = element.data.position.toFixed(1);
-            
-            // Update unit based on load type
-            if (loadUnit) {
-                if (element.data.type === 'point') loadUnit.textContent = 'kN';
-                else if (element.data.type === 'distributed') loadUnit.textContent = 'kN/m';
-                else if (element.data.type === 'moment') loadUnit.textContent = 'kNm';
-            }
-            
-            // Show/hide distributed load options
-            distributedLoadOptions.forEach(option => {
-                option.style.display = element.data.type === 'distributed' ? 'block' : 'none';
-            });
-            
-            // Set end position for distributed loads
-            if (element.data.type === 'distributed' && loadEndPosition) {
-                loadEndPosition.value = element.data.endPosition.toFixed(1);
-            }
-        }
-    }
-    
-    // Close the properties panel
-    closePropertiesPanel() {
-        const propertiesPanel = document.getElementById('element-properties');
-        if (propertiesPanel) propertiesPanel.style.display = 'none';
-    }
-    
-    // Handle load type change in properties panel
-    handleLoadTypeChange(e) {
-        const loadType = e.target.value;
-        const loadUnit = document.getElementById('load-unit');
-        const distributedLoadOptions = document.querySelectorAll('.distributed-load-option');
-        
-        // Update unit based on load type
-        if (loadUnit) {
-            if (loadType === 'point') loadUnit.textContent = 'kN';
-            else if (loadType === 'distributed') loadUnit.textContent = 'kN/m';
-            else if (loadType === 'moment') loadUnit.textContent = 'kNm';
-        }
-        
-        // Show/hide distributed load options
-        distributedLoadOptions.forEach(option => {
-            option.style.display = loadType === 'distributed' ? 'block' : 'none';
-        });
-    }
-    
-    // Apply support changes from properties panel
-    applySupport() {
-        if (!this.selectedElement || this.selectedElement.type !== 'support') return;
-        
-        const supportType = document.getElementById('support-type');
-        const supportPosition = document.getElementById('support-position');
-        
-        if (supportType) this.selectedElement.data.type = supportType.value;
-        if (supportPosition) {
-            const position = parseFloat(supportPosition.value);
-            if (!isNaN(position)) {
-                this.selectedElement.data.position = Math.max(0, Math.min(this.length, position));
-            }
-        }
-        
-        this.drawBeam();
-        this.analyze();
-    }
-    
-    // Apply load changes from properties panel
-    applyLoad() {
-        if (!this.selectedElement || this.selectedElement.type !== 'load') return;
-        
-        const loadType = document.getElementById('load-type');
-        const loadValue = document.getElementById('load-value');
-        const loadPosition = document.getElementById('load-position');
-        const loadEndPosition = document.getElementById('load-end-position');
-        
-        // Update load type if changed
-        if (loadType && loadType.value !== this.selectedElement.data.type) {
-            this.selectedElement.data.type = loadType.value;
-            
-            // Initialize new properties for different load types
-            if (loadType.value === 'distributed' && !this.selectedElement.data.endPosition) {
-                this.selectedElement.data.endPosition = Math.min(this.length, this.selectedElement.data.position + 2);
-            }
-        }
-        
-        // Update load value
-        if (loadValue) {
-            const value = parseFloat(loadValue.value);
-            if (!isNaN(value)) this.selectedElement.data.value = value;
-        }
-        
-        // Update load position
-        if (loadPosition) {
-            const position = parseFloat(loadPosition.value);
-            if (!isNaN(position)) {
-                this.selectedElement.data.position = Math.max(0, Math.min(this.length, position));
-            }
-        }
-        
-        // Update end position for distributed loads
-        if (this.selectedElement.data.type === 'distributed' && loadEndPosition) {
-            const endPosition = parseFloat(loadEndPosition.value);
-            if (!isNaN(endPosition)) {
-                this.selectedElement.data.endPosition = Math.max(
-                    this.selectedElement.data.position + 0.1, 
-                    Math.min(this.length, endPosition)
-                );
-            }
-        }
-        
-        this.drawBeam();
-        this.analyze();
-    }
-    
-    // Delete selected support
-    deleteSupport() {
-        if (!this.selectedElement || this.selectedElement.type !== 'support') return;
-        
-        // Remove support from array
-        this.supports = this.supports.filter(support => support.id !== this.selectedElement.data.id);
-        
-        // Close properties panel
-        this.closePropertiesPanel();
-        
-        // Clear selection
-        this.selectedElement = null;
-        
-        // Redraw beam
-        this.drawBeam();
-        this.analyze();
-    }
-    
-    // Delete selected load
-    deleteLoad() {
-        if (!this.selectedElement || this.selectedElement.type !== 'load') return;
-        
-        // Remove load from array
-        this.loads = this.loads.filter(load => load.id !== this.selectedElement.data.id);
-        
-        // Close properties panel
-        this.closePropertiesPanel();
-        
-        // Clear selection
-        this.selectedElement = null;
-        
-        // Redraw beam
-        this.drawBeam();
-        this.analyze();
-    }
-    
-    // Add a new support to the beam
-    addSupport() {
-        // Create a new support
-        const support = {
-            id: Date.now(),
-            type: 'pinned',
-            position: this.supports.length === 0 ? 0 : Math.min(this.length, this.supports[0].position + 2)
-        };
-        
-        // Add support to array
-        this.supports.push(support);
-        
-        // Select the new support
-        this.selectedElement = { type: 'support', id: support.id, data: support };
-        
-        // Show properties panel
-        this.showPropertiesPanel(this.selectedElement);
-        
-        // Redraw beam
-        this.drawBeam();
-        
-        // Run analysis if we have enough supports
-        if (this.supports.length >= 2) {
-            this.analyze();
-        }
-    }
-    
-    // Add a new load to the beam
-    addLoad() {
-        // Create a new load
-        const load = {
-            id: Date.now(),
-            type: 'point',
-            value: 10,
-            position: this.length / 2
-        };
-        
-        // Add load to array
-        this.loads.push(load);
-        
-        // Select the new load
-        this.selectedElement = { type: 'load', id: load.id, data: load };
-        
-        // Show properties panel
-        this.showPropertiesPanel(this.selectedElement);
-        
-        // Redraw beam
-        this.drawBeam();
-        this.analyze();
-    }
-    
-    // Clear all elements from the beam
-    clearBeam() {
-        this.supports = [];
-        this.loads = [];
-        this.selectedElement = null;
-        this.closePropertiesPanel();
-        this.drawBeam();
-        
-        // Clear results
-        this.clearResults();
-    }
-    
-    // Clear analysis results
-    clearResults() {
-        // Clear result arrays
-        this.results = {
-            reactions: [],
-            shear: [],
-            moment: [],
-            deflection: [],
-            rotation: []
-        };
-        
-        // Clear result displays
-        document.getElementById('max-moment')?.textContent = '-';
-        document.getElementById('max-shear')?.textContent = '-';
-        document.getElementById('max-deflection')?.textContent = '-';
-        document.getElementById('max-stress')?.textContent = '-';
-        
-        // Clear support reactions
-        const supportReactions = document.getElementById('support-reactions');
-        if (supportReactions) supportReactions.innerHTML = '';
-        
-        // Clear diagrams
-        this.clearDiagrams();
-    }
-    
-    // Clear diagram canvases
-    clearDiagrams() {
-        ['moment-diagram', 'shear-diagram', 'deflection-diagram', 'rotation-diagram'].forEach(id => {
-            const canvas = document.getElementById(id);
-            if (canvas) {
-                const ctx = canvas.getContext('2d');
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-            }
-        });
-    }
-    
-    // Perform beam analysis
-    analyze() {
-        // Check if we have enough supports
-        if (this.supports.length < 2) {
-            this.clearResults();
-            return;
-        }
-        
-        // TODO: Implement full beam analysis
-        // For now, we'll just generate some sample data for visualization
-        this.generateSampleResults();
-        
-        // Update result displays
-        this.updateResultDisplays();
-        
-        // Draw diagrams
-        this.drawDiagrams();
-    }
-    
-    // Generate sample results for visualization
-    generateSampleResults() {
-        // Clear previous results
-        this.results = {
-            reactions: [],
-            shear: [],
-            moment: [],
-            deflection: [],
-            rotation: []
-        };
-        
-        // Generate sample data points
-        const numPoints = this.numPoints;
-        const dx = this.length / (numPoints - 1);
-        
-        // Generate reactions
-        this.supports.forEach(support => {
-            this.results.reactions.push({
-                position: support.position,
-                value: Math.random() * 20 - 10 // Random value between -10 and 10
-            });
-        });
-        
-        // Generate shear diagram
-        let prevShear = 0;
-        for (let i = 0; i < numPoints; i++) {
-            const x = i * dx;
-            
-            // Check for supports
-            const support = this.supports.find(s => Math.abs(s.position - x) < 0.1);
-            if (support) {
-                // Add reaction at support
-                const reaction = this.results.reactions.find(r => r.position === support.position);
-                prevShear = reaction ? reaction.value : prevShear;
-            }
-            
-            // Check for point loads
-            const pointLoad = this.loads.find(l => l.type === 'point' && Math.abs(l.position - x) < 0.1);
-            if (pointLoad) {
-                prevShear -= pointLoad.value;
-            }
-            
-            // Add distributed loads effect
-            const distributedLoads = this.loads.filter(l => 
-                l.type === 'distributed' && 
-                x >= l.position && 
-                x <= l.endPosition
-            );
-            
-            distributedLoads.forEach(load => {
-                prevShear -= load.value * dx;
-            });
-            
-            this.results.shear.push({ x, value: prevShear });
-        }
-        
-        // Generate moment diagram
-        let prevMoment = 0;
-        for (let i = 0; i < numPoints; i++) {
-            const x = i * dx;
-            const shear = this.results.shear[i].value;
-            
-            // Moment changes based on shear
-            prevMoment += shear * dx;
-            
-            // Check for moment loads
-            const momentLoad = this.loads.find(l => l.type === 'moment' && Math.abs(l.position - x) < 0.1);
-            if (momentLoad) {
-                prevMoment += momentLoad.value;
-            }
-            
-            this.results.moment.push({ x, value: prevMoment });
-        }
-        
-        // Generate rotation diagram (first derivative of deflection)
-        let prevRotation = 0;
-        for (let i = 0; i < numPoints; i++) {
-            const x = i * dx;
-            const moment = this.results.moment[i].value;
-            
-            // Rotation changes based on moment
-            prevRotation += moment * dx / (this.eModulus * this.momentOfInertia / 1e6);
-            
-            this.results.rotation.push({ x, value: prevRotation });
-        }
-        
-        // Generate deflection diagram (integral of rotation)
-        let prevDeflection = 0;
-        for (let i = 0; i < numPoints; i++) {
-            const x = i * dx;
-            const rotation = this.results.rotation[i].value;
-            
-            // Deflection changes based on rotation
-            prevDeflection += rotation * dx;
-            
-            this.results.deflection.push({ x, value: prevDeflection * 1000 }); // Convert to mm
-        }
-        
-        // Apply boundary conditions (zero deflection at supports)
-        this.applyBoundaryConditions();
-    }
-    
-    // Apply boundary conditions to results
-    applyBoundaryConditions() {
-        // Find deflection at supports
-        const supportDeflections = [];
-        
-        this.supports.forEach(support => {
-            // Find closest point in deflection array
-            const index = Math.round(support.position / this.length * (this.numPoints - 1));
-            if (index >= 0 && index < this.results.deflection.length) {
-                supportDeflections.push({
-                    position: support.position,
-                    index,
-                    value: this.results.deflection[index].value
-                });
-            }
-        });
-        
-        // Simple correction: shift all deflections to make supports have zero deflection
-        if (supportDeflections.length > 0) {
-            const avgDeflection = supportDeflections.reduce((sum, d) => sum + d.value, 0) / supportDeflections.length;
-            
-            // Shift all deflection values
-            this.results.deflection.forEach((point, i) => {
-                point.value -= avgDeflection;
-            });
-        }
-    }
-    
-    // Update result displays with calculated values
-    updateResultDisplays() {
-        // Find maximum values
-        const maxMoment = Math.max(...this.results.moment.map(p => Math.abs(p.value)));
-        const maxShear = Math.max(...this.results.shear.map(p => Math.abs(p.value)));
-        const maxDeflection = Math.max(...this.results.deflection.map(p => Math.abs(p.value)));
-        
-        // Calculate maximum stress (M*y/I)
-        const profileHeight = 0.2; // meters (assumed)
-        const maxStress = maxMoment * (profileHeight / 2) / (this.momentOfInertia / 1e12) * 1000; // MPa
-        
-        // Update display elements
-        document.getElementById('max-moment')?.textContent = maxMoment.toFixed(2);
-        document.getElementById('max-shear')?.textContent = maxShear.toFixed(2);
-        document.getElementById('max-deflection')?.textContent = maxDeflection.toFixed(2);
-        document.getElementById('max-stress')?.textContent = maxStress.toFixed(2);
-        
-        // Update support reactions
-        const supportReactions = document.getElementById('support-reactions');
-        if (supportReactions) {
-            let html = '<table class="table table-sm table-bordered"><tbody>';
-            
-            this.results.reactions.forEach((reaction, index) => {
-                const support = this.supports.find(s => s.position === reaction.position);
-                if (support) {
-                    html += `
-                        <tr>
-                            <td class="small fw-bold">Support ${index + 1} (${support.type})</td>
-                            <td class="text-end">${reaction.value.toFixed(2)} <span class="small text-muted">kN</span></td>
-                        </tr>
-                    `;
-                }
-            });
-            
-            html += '</tbody></table>';
-            supportReactions.innerHTML = html;
-        }
-    }
-    
-    // Draw analysis diagrams
-    drawDiagrams() {
-        this.drawMomentDiagram();
-        this.drawShearDiagram();
-        this.drawDeflectionDiagram();
-        this.drawRotationDiagram();
-    }
-    
-    // Draw moment diagram
-    drawMomentDiagram() {
-        const canvas = document.getElementById('moment-diagram');
-        if (!canvas || this.results.moment.length === 0) return;
-        
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-        
-        // Find max absolute value for scaling
-        const maxValue = Math.max(...this.results.moment.map(p => Math.abs(p.value))) * 1.2;
-        
-        // Draw axes
-        const padding = 30;
-        const graphWidth = width - padding * 2;
-        const graphHeight = height - padding * 2;
-        
-        ctx.beginPath();
-        ctx.moveTo(padding, height / 2);
-        ctx.lineTo(width - padding, height / 2);
-        ctx.strokeStyle = '#999';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // Draw moment curve
-        ctx.beginPath();
-        this.results.moment.forEach((point, i) => {
-            const x = padding + (point.x / this.length) * graphWidth;
-            const y = height / 2 - (point.value / maxValue) * (graphHeight / 2);
-            
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        
-        ctx.strokeStyle = '#ff5722';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Draw labels
-        ctx.fillStyle = '#333';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${maxValue.toFixed(1)} kNm`, padding - 5, padding);
-        ctx.fillText(`0`, padding - 5, height / 2);
-        ctx.fillText(`${-maxValue.toFixed(1)} kNm`, padding - 5, height - padding);
-    }
-    
-    // Draw shear diagram
-    drawShearDiagram() {
-        const canvas = document.getElementById('shear-diagram');
-        if (!canvas || this.results.shear.length === 0) return;
-        
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-        
-        // Find max absolute value for scaling
-        const maxValue = Math.max(...this.results.shear.map(p => Math.abs(p.value))) * 1.2;
-        
-        // Draw axes
-        const padding = 30;
-        const graphWidth = width - padding * 2;
-        const graphHeight = height - padding * 2;
-        
-        ctx.beginPath();
-        ctx.moveTo(padding, height / 2);
-        ctx.lineTo(width - padding, height / 2);
-        ctx.strokeStyle = '#999';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // Draw shear curve
-        ctx.beginPath();
-        this.results.shear.forEach((point, i) => {
-            const x = padding + (point.x / this.length) * graphWidth;
-            const y = height / 2 - (point.value / maxValue) * (graphHeight / 2);
-            
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        
-        ctx.strokeStyle = '#2196f3';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Draw labels
-        ctx.fillStyle = '#333';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${maxValue.toFixed(1)} kN`, padding - 5, padding);
-        ctx.fillText(`0`, padding - 5, height / 2);
-        ctx.fillText(`${-maxValue.toFixed(1)} kN`, padding - 5, height - padding);
-    }
-    
-    // Draw deflection diagram
-    drawDeflectionDiagram() {
-        const canvas = document.getElementById('deflection-diagram');
-        if (!canvas || this.results.deflection.length === 0) return;
-        
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-        
-        // Find max absolute value for scaling
-        const maxValue = Math.max(...this.results.deflection.map(p => Math.abs(p.value))) * 1.2;
-        
-        // Draw axes
-        const padding = 30;
-        const graphWidth = width - padding * 2;
-        const graphHeight = height - padding * 2;
-        
-        ctx.beginPath();
-        ctx.moveTo(padding, height / 2);
-        ctx.lineTo(width - padding, height / 2);
-        ctx.strokeStyle = '#999';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // Draw beam shape
-        ctx.beginPath();
-        this.results.deflection.forEach((point, i) => {
-            const x = padding + (point.x / this.length) * graphWidth;
-            const y = height / 2 - (point.value / maxValue) * (graphHeight / 2);
-            
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        
-        ctx.strokeStyle = '#4caf50';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Draw supports
-        this.supports.forEach(support => {
-            const x = padding + (support.position / this.length) * graphWidth;
-            ctx.beginPath();
-            ctx.moveTo(x, height / 2 - 5);
-            ctx.lineTo(x, height / 2 + 5);
-            ctx.strokeStyle = '#555';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-        });
-        
-        // Draw labels
-        ctx.fillStyle = '#333';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${maxValue.toFixed(1)} mm`, padding - 5, padding);
-        ctx.fillText(`0`, padding - 5, height / 2);
-        ctx.fillText(`${-maxValue.toFixed(1)} mm`, padding - 5, height - padding);
-    }
-    
-    // Draw rotation diagram
-    drawRotationDiagram() {
-        const canvas = document.getElementById('rotation-diagram');
-        if (!canvas || this.results.rotation.length === 0) return;
-        
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-        
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
-        
-        // Find max absolute value for scaling
-        const maxValue = Math.max(...this.results.rotation.map(p => Math.abs(p.value))) * 1.2;
-        
-        // Draw axes
-        const padding = 30;
-        const graphWidth = width - padding * 2;
-        const graphHeight = height - padding * 2;
-        
-        ctx.beginPath();
-        ctx.moveTo(padding, height / 2);
-        ctx.lineTo(width - padding, height / 2);
-        ctx.strokeStyle = '#999';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-        
-        // Draw rotation curve
-        ctx.beginPath();
-        this.results.rotation.forEach((point, i) => {
-            const x = padding + (point.x / this.length) * graphWidth;
-            const y = height / 2 - (point.value / maxValue) * (graphHeight / 2);
-            
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        
-        ctx.strokeStyle = '#9c27b0';
-        ctx.lineWidth = 2;
-        ctx.stroke();
-        
-        // Draw labels
-        ctx.fillStyle = '#333';
-        ctx.font = '10px Arial';
-        ctx.textAlign = 'right';
-        ctx.fillText(`${maxValue.toFixed(4)} rad`, padding - 5, padding);
-        ctx.fillText(`0`, padding - 5, height / 2);
-        ctx.fillText(`${-maxValue.toFixed(4)} rad`, padding - 5, height - padding);
-    }
-}
+            <!-- Project Info Section -->
+            <section id="project-info" class="mb-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2 bg-light">
+                        <h2 class="h6 mb-0 fw-bold">Project Information</h2>
+                        <span class="badge bg-primary px-3 py-1 rounded-pill">Elite Edition</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-6 mb-2">
+                                <label for="project-name" class="form-label small">Project Name</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-building" viewBox="0 0 16 16">
+                                            <path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1ZM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z"/>
+                                            <path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1Zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3V1Z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control" id="project-name" placeholder="Enter project name">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label for="company-name" class="form-label small">Company Name</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-briefcase" viewBox="0 0 16 16">
+                                            <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H1.5A1.5 1.5 0 0 0 0 4.5v8A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 14.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3zm0 1h3a.5.5 0 0 1 .5.5V3H6v-.5a.5.5 0 0 1 .5-.5zm1.886 6.914L15 7.151V12.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V7.15l6.614 1.764a1.5 1.5 0 0 0 .772 0zM1.5 4h13a.5.5 0 0 1 .5.5v1.616L8.129 7.948a.5.5 0 0 1-.258 0L1 6.116V4.5a.5.5 0 0 1 .5-.5z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control" id="company-name" placeholder="Enter company name">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label for="date" class="form-label small">Date</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-calendar" viewBox="0 0 16 16">
+                                            <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="date" class="form-control" id="date">
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <label for="reference" class="form-label small">Reference Number</label>
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-hash" viewBox="0 0 16 16">
+                                            <path d="M8.39 12.648a1.32 1.32 0 0 0-.015.18c0 .305.21.508.5.508.266 0 .492-.172.555-.477l.554-2.703h1.204c.421 0 .617-.234.617-.547 0-.312-.188-.53-.617-.53h-.985l.516-2.524h1.265c.43 0 .618-.227.618-.547 0-.313-.188-.524-.618-.524h-1.046l.476-2.304a1.06 1.06 0 0 0 .016-.164.51.51 0 0 0-.516-.516.54.54 0 0 0-.539.43l-.523 2.554H7.617l.477-2.304c.008-.04.015-.118.015-.164a.512.512 0 0 0-.523-.516.539.539 0 0 0-.531.43L6.53 5.484H5.414c-.43 0-.617.22-.617.532 0 .312.187.539.617.539h.906l-.515 2.523H4.609c-.421 0-.609.219-.609.531 0 .313.188.547.61.547h.976l-.516 2.492c-.008.04-.015.125-.015.18 0 .305.21.508.5.508.265 0 .492-.172.554-.477l.555-2.703h2.242l-.515 2.492zm-1-6.109h2.266l-.515 2.563H6.859l.532-2.563z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control" id="reference" placeholder="Enter reference number">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <!-- Steel Profiles Section -->
+            <section id="materials-section" class="mb-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2 bg-light">
+                        <h2 class="h6 mb-0 fw-bold">Steel Profiles</h2>
+                        <button id="add-row" class="btn btn-primary btn-sm rounded-pill px-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-plus-lg me-1" viewBox="0 0 16 16">
+                                <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                            </svg>
+                            Add Profile
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover mb-0" id="materials-table">
+                                <colgroup>
+                                    <col class="col-profile-type">
+                                    <col class="col-profile-size">
+                                    <col class="col-length">
+                                    <col class="col-unit">
+                                    <col class="col-quantity">
+                                    <col class="col-weight-per-meter">
+                                    <col class="col-total-weight">
+                                    <col class="col-volume">
+                                    <col class="col-surface-area">
+                                    <col class="col-moment-of-inertia">
+                                    <col class="col-section-modulus">
+                                    <col class="col-radius-of-gyration">
+                                    <col class="col-actions">
+                                </colgroup>
+                                <thead class="table-light">
+                                    <tr>
+                                        <th class="small text-uppercase">PROFILE TYPE</th>
+                                        <th class="small text-uppercase">PROFILE SIZE</th>
+                                        <th class="small text-uppercase">LENGTH</th>
+                                        <th class="small text-uppercase">UNIT</th>
+                                        <th class="small text-uppercase">QUANTITY</th>
+                                        <th class="small text-uppercase">WEIGHT/M</th>
+                                        <th class="small text-uppercase">TOTAL WEIGHT</th>
+                                        <th class="small text-uppercase">VOLUME</th>
+                                        <th class="small text-uppercase">SURFACE AREA</th>
+                                        <th class="small text-uppercase" title="Moment of Inertia">I<sub>x</sub> (cm<sup>4</sup>)</th>
+                                        <th class="small text-uppercase" title="Section Modulus">S<sub>x</sub> (cm<sup>3</sup>)</th>
+                                        <th class="small text-uppercase" title="Radius of Gyration">r<sub>x</sub> (cm)</th>
+                                        <th class="small text-uppercase text-center">ACTIONS</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="materials-table-body">
+                                    <!-- Rows will be added here dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="p-3 bg-light text-center d-none" id="no-materials-message">
+                            <p class="mb-0 text-muted">No materials added yet. Click "Add Material" to get started.</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
-// Initialize the beam analysis module when the DOM is loaded
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, initializing beam analysis');
+            <!-- Advanced Engineering Analysis Section -->
+            <section id="engineering-analysis" class="mb-3">
+                <div class="card border-primary">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2 bg-primary bg-opacity-10">
+                        <h2 class="h6 mb-0 fw-bold text-primary">Advanced Engineering Analysis</h2>
+                        <span class="badge bg-primary px-2 py-1 rounded-pill">Elite Feature</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <!-- Tabs navigation -->
+                        <ul class="nav nav-tabs" id="engineeringTabs" role="tablist">
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link active" id="material-tab" data-bs-toggle="tab" data-bs-target="#material-content" type="button" role="tab" aria-controls="material-content" aria-selected="true">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-layers me-1" viewBox="0 0 16 16">
+                                        <path d="M8.235 1.559a.5.5 0 0 0-.47 0l-7.5 4a.5.5 0 0 0 0 .882L3.188 8 .765 9.559a.5.5 0 0 0 0 .882l7.5 4a.5.5 0 0 0 .47 0l7.5-4a.5.5 0 0 0 0-.882L12.813 8l2.922-1.559a.5.5 0 0 0 0-.882l-7.5-4zm3.515 7.008L14.438 10 8 13.433 1.562 10 4.25 8.567l3.515 1.874a.5.5 0 0 0 .47 0l3.515-1.874zM8 9.433 1.562 6 8 2.567 14.438 6 8 9.433z"/>
+                                    </svg>
+                                    Material Comparison
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="load-tab" data-bs-toggle="tab" data-bs-target="#load-content" type="button" role="tab" aria-controls="load-content" aria-selected="false">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-down-square me-1" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm8.5 2.5a.5.5 0 0 0-1 0v5.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V4.5z"/>
+                                    </svg>
+                                    Load Analysis
+                                </button>
+                            </li>
+                            <li class="nav-item" role="presentation">
+                                <button class="nav-link" id="code-tab" data-bs-toggle="tab" data-bs-target="#code-content" type="button" role="tab" aria-controls="code-content" aria-selected="false">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-code me-1" viewBox="0 0 16 16">
+                                        <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
+                                        <path d="M8.646 6.646a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1 0 .708l-2 2a.5.5 0 0 1-.708-.708L10.293 9 8.646 7.354a.5.5 0 0 1 0-.708zm-1.292 0a.5.5 0 0 0-.708 0l-2 2a.5.5 0 0 0 0 .708l2 2a.5.5 0 0 0 .708-.708L5.707 9l1.647-1.646a.5.5 0 0 0 0-.708z"/>
+                                    </svg>
+                                    Code Compliance
+                                </button>
+                            </li>
+                        </ul>
+                        
+                        <!-- Tab content -->
+                        <div class="tab-content pt-3" id="engineeringTabsContent">
+                            <!-- Material Comparison Tab -->
+                            <div class="tab-pane fade show active" id="material-content" role="tabpanel" aria-labelledby="material-tab">
+                                <div class="row g-2">
+                                    <div class="col-md-6 mb-2">
+                                        <label for="primary-material" class="form-label small">Primary Material</label>
+                                        <select class="form-select form-select-sm" id="primary-material">
+                                            <option value="a36">ASTM A36 Steel</option>
+                                            <option value="a992">ASTM A992 Steel</option>
+                                            <option value="s235">S235 (EN 10025)</option>
+                                            <option value="s355">S355 (EN 10025)</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <label for="compare-material" class="form-label small">Compare With</label>
+                                        <select class="form-select form-select-sm" id="compare-material">
+                                            <option value="a992">ASTM A992 Steel</option>
+                                            <option value="a36">ASTM A36 Steel</option>
+                                            <option value="s355">S355 (EN 10025)</option>
+                                            <option value="s235">S235 (EN 10025)</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="table-responsive mt-2">
+                                    <table class="table table-sm table-bordered">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th class="small">Property</th>
+                                                <th class="small" id="material-1-header">ASTM A36</th>
+                                                <th class="small" id="material-2-header">ASTM A992</th>
+                                                <th class="small">Diff. %</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td class="small">Yield Strength</td>
+                                                <td class="small" id="yield-1">250 MPa</td>
+                                                <td class="small" id="yield-2">345 MPa</td>
+                                                <td class="small text-success" id="yield-diff">+38%</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="small">Tensile Strength</td>
+                                                <td class="small" id="tensile-1">400 MPa</td>
+                                                <td class="small" id="tensile-2">450 MPa</td>
+                                                <td class="small text-success" id="tensile-diff">+12.5%</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="small">Elongation</td>
+                                                <td class="small" id="elongation-1">20%</td>
+                                                <td class="small" id="elongation-2">18%</td>
+                                                <td class="small text-danger" id="elongation-diff">-10%</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="small">Cost Factor</td>
+                                                <td class="small" id="cost-1">1.0</td>
+                                                <td class="small" id="cost-2">1.15</td>
+                                                <td class="small text-danger" id="cost-diff">+15%</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            
+                            <!-- Load Analysis Tab -->
+                            <div class="tab-pane fade" id="load-content" role="tabpanel" aria-labelledby="load-tab">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card border-0 shadow-sm h-100">
+                                            <div class="card-header bg-light py-2">
+                                                <h3 class="h6 mb-0">Load Parameters</h3>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="row g-2">
+                                                    <div class="col-md-6 mb-2">
+                                                        <label for="load-type" class="form-label small">Load Type</label>
+                                                        <select class="form-select form-select-sm" id="load-type">
+                                                            <option value="point">Point Load</option>
+                                                            <option value="distributed">Distributed Load</option>
+                                                            <option value="moment">Moment Load</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-6 mb-2">
+                                                        <label for="load-value" class="form-label small">Load Value</label>
+                                                        <div class="input-group input-group-sm">
+                                                            <input type="number" class="form-control" id="load-value">
+                                                            <span class="input-group-text" id="load-unit">kN</span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6 mb-2">
+                                                        <label for="support-type" class="form-label small">Support Condition</label>
+                                                        <select class="form-select form-select-sm" id="support-type">
+                                                            <option value="simply">Simply Supported</option>
+                                                            <option value="fixed">Fixed</option>
+                                                            <option value="cantilever">Cantilever</option>
+                                                        </select>
+                                                    </div>
+                                                    <div class="col-md-6 mb-2">
+                                                        <label for="safety-factor" class="form-label small">Safety Factor</label>
+                                                        <input type="number" class="form-control form-control-sm" id="safety-factor" value="1.5">
+                                                    </div>
+                                                </div>
+                                                <div class="d-grid mt-2">
+                                                    <button class="btn btn-sm btn-outline-primary" id="calculate-stress">Calculate Stress</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card border-0 shadow-sm h-100">
+                                            <div class="card-header bg-light py-2">
+                                                <h3 class="h6 mb-0">Analysis Results</h3>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="p-2 bg-light rounded small" id="stress-results">
+                                                    <p class="mb-1"><strong>Max. Bending Moment:</strong> <span id="max-moment">-</span> kN·m</p>
+                                                    <p class="mb-1"><strong>Max. Bending Stress:</strong> <span id="max-stress">-</span> MPa</p>
+                                                    <p class="mb-1"><strong>Max. Deflection:</strong> <span id="max-deflection">-</span> mm</p>
+                                                    <p class="mb-1"><strong>Utilization Ratio:</strong> <span id="utilization-ratio">-</span> %</p>
+                                                    <p class="mb-0"><strong>Status:</strong> <span id="stress-status" class="badge bg-secondary">Not calculated</span></p>
+                                                </div>
+                                                <div class="mt-3">
+                                                    <div class="bg-light p-2 rounded" style="height: 150px;" id="beam-diagram">
+                                                        <div class="text-center text-muted small pt-5">
+                                                            Beam diagram will appear here after calculation
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Code Compliance Tab -->
+                            <div class="tab-pane fade" id="code-content" role="tabpanel" aria-labelledby="code-tab">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="card border-0 shadow-sm">
+                                            <div class="card-header bg-light py-2">
+                                                <h3 class="h6 mb-0">Design Code Selection</h3>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="mb-3">
+                                                    <label for="design-code" class="form-label small">Primary Design Code</label>
+                                                    <select class="form-select form-select-sm" id="design-code">
+                                                        <option value="aisc360">AISC 360-16 (U.S.)</option>
+                                                        <option value="eurocode">Eurocode 3 (EU)</option>
+                                                        <option value="bs5950">BS 5950 (UK)</option>
+                                                        <option value="is800">IS 800 (India)</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label small d-block">Load Combinations</label>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="combo-dead-live" checked>
+                                                        <label class="form-check-label small" for="combo-dead-live">1.2D + 1.6L</label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="combo-wind" checked>
+                                                        <label class="form-check-label small" for="combo-wind">1.2D + 1.0L + 1.0W</label>
+                                                    </div>
+                                                    <div class="form-check">
+                                                        <input class="form-check-input" type="checkbox" id="combo-seismic">
+                                                        <label class="form-check-label small" for="combo-seismic">1.2D + 1.0L + 1.0E</label>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="card border-0 shadow-sm">
+                                            <div class="card-header bg-light py-2">
+                                                <h3 class="h6 mb-0">Compliance Check</h3>
+                                            </div>
+                                            <div class="card-body">
+                                                <div class="alert alert-info small">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-info-circle me-1" viewBox="0 0 16 16">
+                                                        <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                                        <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                                                    </svg>
+                                                    Select a design code and add profiles to run compliance checks
+                                                </div>
+                                                <div class="d-grid mt-3">
+                                                    <button class="btn btn-sm btn-outline-primary" id="check-compliance">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle me-1" viewBox="0 0 16 16">
+                                                            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                                            <path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/>
+                                                        </svg>
+                                                        Run Compliance Check
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Totals Section -->
+            <section id="totals-section" class="mb-3">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2 bg-light">
+                        <h2 class="h6 mb-0 fw-bold">Project Totals</h2>
+                        <span class="badge bg-secondary px-2 py-1 rounded-pill">Summary</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small">Total Weight</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-speedometer" viewBox="0 0 16 16">
+                                            <path d="M3.732 3.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707zM2 8a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 8zm9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5zm.754-4.246a.389.389 0 0 0-.527-.02L7.547 7.31A.91.91 0 1 0 8.85 8.569l3.434-4.297a.389.389 0 0 0-.029-.518z"/>
+                                            <path fill-rule="evenodd" d="M6.664 15.889A8 8 0 1 1 9.336.11a8 8 0 0 1-2.672 15.78zm-4.665-4.283A11.945 11.945 0 0 1 8 10c2.186 0 4.236.585 6.001 1.606a7 7 0 1 0-12.002 0z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm me-2" id="total-weight" readonly>
+                                    <span class="unit-label">kg</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small">Total Volume</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-box" viewBox="0 0 16 16">
+                                            <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm me-2" id="total-volume" readonly>
+                                    <span class="unit-label">m³</span>
+                                </div>
+                            </div>
+                            <div class="col-md-4 mb-2">
+                                <label class="form-label small">Total Surface Area</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-aspect-ratio" viewBox="0 0 16 16">
+                                            <path d="M0 3.5A1.5 1.5 0 0 1 1.5 2h13A1.5 1.5 0 0 1 16 3.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 12.5v-9zM1.5 3a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h13a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5h-13z"/>
+                                            <path d="M2 4.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1H3v2.5a.5.5 0 0 1-1 0v-3zm12 7a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1 0-1H13V8.5a.5.5 0 0 1 1 0v3z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="text" class="form-control form-control-sm me-2" id="total-surface-area" readonly>
+                                    <span class="unit-label">m²</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-4 mb-2">
+                                <label for="material-density" class="form-label small">Material Density</label>
+                                <div class="d-flex align-items-center">
+                                    <span class="input-icon me-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-droplet-fill" viewBox="0 0 16 16">
+                                            <path d="M8 16a6 6 0 0 0 6-6c0-1.655-1.122-2.904-2.432-4.362C10.254 4.176 8.75 2.503 8 0c0 0-6 5.686-6 10a6 6 0 0 0 6 6ZM6.646 4.646l.708.708c-.29.29-.444.696-.444 1.122 0 .825.667 1.5 1.5 1.5.426 0 .832-.154 1.122-.444l.708.708c-.488.488-1.128.732-1.83.732-1.4 0-2.5-1.1-2.5-2.5 0-.702.244-1.342.732-1.83Z"/>
+                                        </svg>
+                                    </span>
+                                    <input type="number" class="form-control form-control-sm me-2" id="material-density" value="7850">
+                                    <span class="unit-label">kg/m³</span>
+                                </div>
+                                <div class="form-text small text-muted">Default density for steel: 7850 kg/m³</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Premium Features Section -->
+            <section id="premium-features" class="mb-4">
+                <div class="card border-primary mb-3">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-2">
+                        <h2 class="h6 mb-0 fw-bold">Elite Features</h2>
+                        <span class="badge bg-primary px-2 py-1 rounded-pill">Included</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex">
+                                    <div class="feature-icon me-3 text-primary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-file-earmark-pdf" viewBox="0 0 16 16">
+                                            <path d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5ZM1.6 11.85H0v3.999h.791v-1.342h.803c.287 0 .531-.057.732-.173.203-.117.358-.275.463-.474a1.42 1.42 0 0 0 .161-.677c0-.25-.053-.476-.158-.677a1.176 1.176 0 0 0-.46-.477c-.2-.12-.443-.179-.732-.179Zm.545 1.333a.795.795 0 0 1-.085.38.574.574 0 0 1-.238.241.794.794 0 0 1-.375.082H.788V12.48h.66c.218 0 .389.06.512.181.123.122.185.296.185.522Zm1.217-1.333v3.999h1.46c.401 0 .734-.08.998-.237a1.45 1.45 0 0 0 .595-.689c.13-.3.196-.662.196-1.084 0-.42-.065-.778-.196-1.075a1.426 1.426 0 0 0-.589-.68c-.264-.156-.599-.234-1.005-.234H3.362Zm.791.645h.563c.248 0 .45.05.609.152a.89.89 0 0 1 .354.454c.079.201.118.452.118.753a2.3 2.3 0 0 1-.068.592 1.14 1.14 0 0 1-.196.422.8.8 0 0 1-.334.252 1.298 1.298 0 0 1-.483.082h-.563v-2.707Zm3.743 1.763v1.591h-.79V11.85h2.548v.653H7.896v1.117h1.606v.638H7.896Z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h5 class="h6 mb-1 fw-bold">Advanced PDF Export</h5>
+                                        <p class="mb-0 small text-muted">Generate detailed engineering reports with your company logo, project details, and AISC/ASTM compliance documentation.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex">
+                                    <div class="feature-icon me-3 text-primary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-database-check" viewBox="0 0 16 16">
+                                            <path d="M12.5 16a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Zm1.679-4.493-1.335 2.226a.75.75 0 0 1-1.174.144l-.774-.773a.5.5 0 0 1 .708-.708l.547.548 1.17-1.951a.5.5 0 1 1 .858.514Z"/>
+                                            <path d="M12.096 6.223A4.92 4.92 0 0 0 13 5.698V7c0 .289-.213.654-.753 1.007a4.493 4.493 0 0 1 1.753.25V4c0-1.007-.875-1.755-1.904-2.223C11.022 1.289 9.573 1 8 1s-3.022.289-4.096.777C2.875 2.245 2 2.993 2 4v9c0 1.007.875 1.755 1.904 2.223C4.978 15.71 6.427 16 8 16c.536 0 1.058-.034 1.555-.097a4.525 4.525 0 0 1-.813-.927C8.5 14.992 8.252 15 8 15c-1.464 0-2.766-.27-3.682-.687C3.356 13.875 3 13.373 3 13v-1.302c.271.202.58.378.904.525C4.978 12.71 6.427 13 8 13h.027a4.552 4.552 0 0 1 0-1H8c-1.464 0-2.766-.27-3.682-.687C3.356 10.875 3 10.373 3 10V8.698c.271.202.58.378.904.525C4.978 9.71 6.427 10 8 10c.262 0 .52-.008.774-.024a4.525 4.525 0 0 1 1.102-1.132C9.298 8.944 8.666 9 8 9c-1.464 0-2.766-.27-3.682-.687C3.356 7.875 3 7.373 3 7V5.698c.271.202.58.378.904.525C4.978 6.711 6.427 7 8 7s3.022-.289 4.096-.777ZM3 4c0-.374.356-.875 1.318-1.313C5.234 2.271 6.536 2 8 2s2.766.27 3.682.687C12.644 3.125 13 3.627 13 4c0 .374-.356.875-1.318 1.313C10.766 5.729 9.464 6 8 6s-2.766-.27-3.682-.687C3.356 4.875 3 4.373 3 4Z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h5 class="h6 mb-1 fw-bold">Cloud-Based Project Management</h5>
+                                        <p class="mb-0 small text-muted">Securely store, share, and collaborate on projects with team members across multiple devices.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex">
+                                    <div class="feature-icon me-3 text-primary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-calculator" viewBox="0 0 16 16">
+                                            <path d="M12 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8zM4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4z"/>
+                                            <path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-2zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-4z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h5 class="h6 mb-1 fw-bold">Engineering-Grade Calculations</h5>
+                                        <p class="mb-0 small text-muted">AISC and ASTM compliant calculations with high precision for critical structural engineering projects.</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6 mb-2">
+                                <div class="d-flex">
+                                    <div class="feature-icon me-3 text-primary">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" class="bi bi-shield-check" viewBox="0 0 16 16">
+                                            <path d="M5.338 1.59a61.44 61.44 0 0 0-2.837.856.481.481 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 0 0 .101.025.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.775 11.775 0 0 1-2.517 2.453 7.159 7.159 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7.158 7.158 0 0 1-1.048-.625 11.777 11.777 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 62.456 62.456 0 0 1 5.072.56z"/>
+                                            <path d="M10.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <h5 class="h6 mb-1 fw-bold">U.S. & International Standards</h5>
+                                        <p class="mb-0 small text-muted">Full compliance with AISC, ASTM, EN, and ISO standards for global project compatibility.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- 3D Visualization & BIM Integration -->
+            <section id="visualization-section" class="mb-4">
+                <div class="card border-primary">
+                    <div class="card-header d-flex justify-content-between align-items-center py-2 bg-primary bg-opacity-10">
+                        <h2 class="h6 mb-0 fw-bold text-primary">3D Visualization & BIM Integration</h2>
+                        <span class="badge bg-primary px-2 py-1 rounded-pill">Elite Feature</span>
+                    </div>
+                    <div class="card-body py-3">
+                        <div class="row g-3">
+                            <div class="col-md-7">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+                                        <h3 class="h6 mb-0">3D Model Preview</h3>
+                                        <div class="btn-group btn-group-sm">
+                                            <button class="btn btn-outline-secondary btn-sm" id="rotate-model">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16">
+                                                    <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
+                                                    <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
+                                                </svg>
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-sm" id="zoom-in">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-in" viewBox="0 0 16 16">
+                                                    <path fill-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
+                                                    <path d="M10.344 11.742c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1 6.538 6.538 0 0 1-1.398 1.4z"/>
+                                                    <path fill-rule="evenodd" d="M6.5 3a.5.5 0 0 1 .5.5V6h2.5a.5.5 0 0 1 0 1H7v2.5a.5.5 0 0 1-1 0V7H3.5a.5.5 0 0 1 0-1H6V3.5a.5.5 0 0 1 .5-.5z"/>
+                                                </svg>
+                                            </button>
+                                            <button class="btn btn-outline-secondary btn-sm" id="zoom-out">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-zoom-out" viewBox="0 0 16 16">
+                                                    <path fill-rule="evenodd" d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
+                                                    <path d="M10.344 11.742c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1 6.538 6.538 0 0 1-1.398 1.4z"/>
+                                                    <path fill-rule="evenodd" d="M3 6.5a.5.5 0 0 1 .5-.5h6a.5.5 0 0 1 0 1h-6a.5.5 0 0 1-.5-.5z"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div class="bg-light rounded d-flex justify-content-center align-items-center" style="height: 300px;">
+                                            <div class="text-center p-4">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" fill="currentColor" class="bi bi-bounding-box-circles text-secondary mb-3" viewBox="0 0 16 16">
+                                                    <path d="M2 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM0 2a2 2 0 0 1 3.937-.5h8.126A2 2 0 1 1 14.5 3.937v8.126a2 2 0 1 1-2.437 2.437H3.937A2 2 0 1 1 1.5 12.063V3.937A2 2 0 0 1 0 2zm2.5 1.937v8.126c.703.18 1.256.734 1.437 1.437h8.126a2.004 2.004 0 0 1 1.437-1.437V3.937A2.004 2.004 0 0 1 12.063 2.5H3.937A2.004 2.004 0 0 1 2.5 3.937zM14 1a1 1 0 1 0 0 2 1 1 0 0 0 0-2zM2 13a1 1 0 1 0 0 2 1 1 0 0 0 0-2zm12 0a1 1 0 1 0 0 2 1 1 0 0 0 0-2z"/>
+                                                </svg>
+                                                <h4 class="h6 text-muted">3D Model Visualization</h4>
+                                                <p class="small text-muted mb-0">Add profiles to generate a 3D model visualization</p>
+                                                <button class="btn btn-sm btn-primary mt-3" id="generate-model">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box me-1" viewBox="0 0 16 16">
+                                                        <path d="M8.186 1.113a.5.5 0 0 0-.372 0L1.846 3.5 8 5.961 14.154 3.5 8.186 1.113zM15 4.239l-6.5 2.6v7.922l6.5-2.6V4.24zM7.5 14.762V6.838L1 4.239v7.923l6.5 2.6zM7.443.184a1.5 1.5 0 0 1 1.114 0l7.129 2.852A.5.5 0 0 1 16 3.5v8.662a1 1 0 0 1-.629.928l-7.185 2.874a.5.5 0 0 1-.372 0L.63 13.09a1 1 0 0 1-.63-.928V3.5a.5.5 0 0 1 .314-.464L7.443.184z"/>
+                                                    </svg>
+                                                    Generate 3D Model
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-5">
+                                <div class="card h-100 border-0 shadow-sm">
+                                    <div class="card-header bg-light py-2">
+                                        <h3 class="h6 mb-0">BIM Integration</h3>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="mb-3">
+                                            <label for="bim-format" class="form-label small">Export Format</label>
+                                            <select class="form-select form-select-sm" id="bim-format">
+                                                <option value="ifc">IFC (Industry Foundation Classes)</option>
+                                                <option value="revit">Revit (.rvt)</option>
+                                                <option value="tekla">Tekla Structures</option>
+                                                <option value="step">STEP (.stp)</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="bim-lod" class="form-label small">Level of Detail (LOD)</label>
+                                            <select class="form-select form-select-sm" id="bim-lod">
+                                                <option value="100">LOD 100 - Conceptual</option>
+                                                <option value="200">LOD 200 - Approximate Geometry</option>
+                                                <option value="300" selected>LOD 300 - Precise Geometry</option>
+                                                <option value="350">LOD 350 - Connections</option>
+                                                <option value="400">LOD 400 - Fabrication</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="bim-metadata" class="form-label small">Include Metadata</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="meta-material" checked>
+                                                <label class="form-check-label small" for="meta-material">Material Properties</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="meta-structural" checked>
+                                                <label class="form-check-label small" for="meta-structural">Structural Properties</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="meta-cost" checked>
+                                                <label class="form-check-label small" for="meta-cost">Cost Data</label>
+                                            </div>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" id="meta-standards">
+                                                <label class="form-check-label small" for="meta-standards">Standards Compliance</label>
+                                            </div>
+                                        </div>
+                                        <div class="d-grid gap-2">
+                                            <button class="btn btn-sm btn-outline-primary" id="export-bim">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-building me-1" viewBox="0 0 16 16">
+                                                    <path d="M4 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1ZM4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM7.5 5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1ZM4.5 8a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Zm2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1Zm3.5-.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5h-1Z"/>
+                                                    <path d="M2 1a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V1Zm11 0H3v14h3v-2.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V15h3V1Z"/>
+                                                </svg>
+                                                Export to BIM
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary" id="connect-cloud-bim">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-cloud-arrow-up me-1" viewBox="0 0 16 16">
+                                                    <path fill-rule="evenodd" d="M7.646 5.146a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1-.708.708L8.5 6.707V10.5a.5.5 0 0 1-1 0V6.707L6.354 7.854a.5.5 0 1 1-.708-.708l2-2z"/>
+                                                    <path d="M4.406 3.342A5.53 5.53 0 0 1 8 2c2.69 0 4.923 2 5.166 4.579C14.758 6.804 16 8.137 16 9.773 16 11.569 14.502 13 12.687 13H3.781C1.708 13 0 11.366 0 9.318c0-1.763 1.266-3.223 2.942-3.593.143-.863.698-1.723 1.464-2.383zm.653.757c-.757.653-1.153 1.44-1.153 2.056v.448l-.445.049C2.064 6.805 1 7.952 1 9.318 1 10.785 2.23 12 3.781 12h8.906C13.98 12 15 10.988 15 9.773c0-1.216-1.02-2.228-2.313-2.228h-.5v-.5C12.188 4.825 10.328 3 8 3a4.53 4.53 0 0 0-2.941 1.1z"/>
+                                                </svg>
+                                                Connect to Cloud BIM
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Export Section -->
+            <section id="export-section" class="mb-4 mt-3 text-end">
+                <div class="d-flex gap-2 justify-content-end">
+                    <button id="export-csv" class="btn btn-outline-secondary btn-sm d-flex align-items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-filetype-csv me-2" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5ZM3.517 14.841a1.13 1.13 0 0 0 .401.823c.13.108.289.192.478.252.19.061.411.091.665.091.338 0 .624-.053.859-.158.236-.105.416-.252.539-.44.125-.189.187-.408.187-.656 0-.224-.045-.41-.134-.56a1.001 1.001 0 0 0-.375-.357 2.027 2.027 0 0 0-.566-.21l-.621-.144a.97.97 0 0 1-.404-.176.37.37 0 0 1-.144-.299c0-.156.062-.284.185-.384.125-.101.296-.152.512-.152.143 0 .266.023.37.068a.624.624 0 0 1 .246.181.56.56 0 0 1 .12.258h.75a1.092 1.092 0 0 0-.2-.566 1.21 1.21 0 0 0-.5-.41 1.813 1.813 0 0 0-.78-.152c-.293 0-.551.05-.776.15-.225.099-.4.24-.527.421-.127.182-.19.395-.19.639 0 .201.04.376.122.524.082.149.2.27.352.367.152.095.332.167.539.213l.618.144c.207.049.361.113.463.193a.387.387 0 0 1 .152.326.505.505 0 0 1-.085.29.559.559 0 0 1-.255.193c-.111.047-.249.07-.413.07-.117 0-.223-.013-.32-.04a.838.838 0 0 1-.248-.115.578.578 0 0 1-.255-.384h-.765ZM.806 13.693c0-.248.034-.46.102-.633a.868.868 0 0 1 .302-.399.814.814 0 0 1 .475-.137c.15 0 .283.032.398.097a.7.7 0 0 1 .272.26.85.85 0 0 1 .12.381h.765v-.072a1.33 1.33 0 0 0-.466-.964 1.441 1.441 0 0 0-.489-.272 1.838 1.838 0 0 0-.606-.097c-.356 0-.66.074-.911.223-.25.148-.44.359-.572.632-.13.274-.196.6-.196.979v.498c0 .379.064.704.193.976.131.271.322.48.572.626.25.145.554.217.914.217.293 0 .554-.055.785-.164.23-.11.414-.26.55-.454a1.27 1.27 0 0 0 .226-.674v-.076h-.764a.799.799 0 0 1-.118.363.7.7 0 0 1-.272.25.874.874 0 0 1-.401.087.845.845 0 0 1-.478-.132.833.833 0 0 1-.299-.392 1.699 1.699 0 0 1-.102-.627v-.495Zm8.239 2.238h-.953l-1.338-3.999h.917l.896 3.138h.038l.888-3.138h.879l-1.327 4Z"/>
+                        </svg>
+                        Export to CSV
+                    </button>
+                    <button id="export-pdf" class="btn btn-primary btn-sm d-flex align-items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-filetype-pdf me-2" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M14 4.5V14a2 2 0 0 1-2 2h-1v-1h1a1 1 0 0 0 1-1V4.5h-2A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v9H2V2a2 2 0 0 1 2-2h5.5L14 4.5ZM1.6 11.85H0v3.999h.791v-1.342h.803c.287 0 .531-.057.732-.173.203-.117.358-.275.463-.474a1.42 1.42 0 0 0 .161-.677c0-.25-.053-.476-.158-.677a1.176 1.176 0 0 0-.46-.477c-.2-.12-.443-.179-.732-.179Zm.545 1.333a.795.795 0 0 1-.085.38.574.574 0 0 1-.238.241.794.794 0 0 1-.375.082H.788V12.48h.66c.218 0 .389.06.512.181.123.122.185.296.185.522Zm1.217-1.333v3.999h1.46c.401 0 .734-.08.998-.237a1.45 1.45 0 0 0 .595-.689c.13-.3.196-.662.196-1.084 0-.42-.065-.778-.196-1.075a1.426 1.426 0 0 0-.589-.68c-.264-.156-.599-.234-1.005-.234H3.362Zm.791.645h.563c.248 0 .45.05.609.152a.89.89 0 0 1 .354.454c.079.201.118.452.118.753a2.3 2.3 0 0 1-.068.592 1.14 1.14 0 0 1-.196.422.8.8 0 0 1-.334.252 1.298 1.298 0 0 1-.483.082h-.563v-2.707Zm3.743 1.763v1.591h-.79V11.85h2.548v.653H7.896v1.117h1.606v.638H7.896Z"/>
+                        </svg>
+                        Download PDF
+                    </button>
+                </div>
+            </section>
+                </div><!-- End of Steel Profiles Tab Content -->
+                
+                <!-- Beam Analysis Tab Content -->
+                <div class="tab-pane fade" id="beam-content" role="tabpanel" aria-labelledby="beam-tab">
+                    <div class="card border-primary mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2 bg-primary bg-opacity-10">
+                            <h2 class="h6 mb-0 fw-bold text-primary">Beam Analysis</h2>
+                        </div>
+                        <div class="card-body py-3">
+                            <div class="row g-4">
+                                <!-- Beam Properties Column -->
+                                <div class="col-md-3">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-header bg-light py-2">
+                                            <h3 class="h6 mb-0">Beam Properties</h3>
+                                        </div>
+                                        <div class="card-body">
+                                            <!-- Profile Selection -->
+                                            <div class="mb-3">
+                                                <label for="profile-selector" class="form-label small">Profile</label>
+                                                <select class="form-select form-select-sm" id="profile-selector">
+                                                    <option value="">Select a profile</option>
+                                                    <optgroup label="IPN Profiles">
+                                                        <option value="ipn100">IPN 100</option>
+                                                        <option value="ipn200">IPN 200</option>
+                                                        <option value="ipn300">IPN 300</option>
+                                                    </optgroup>
+                                                    <optgroup label="HEA Profiles">
+                                                        <option value="hea100">HEA 100</option>
+                                                        <option value="hea200">HEA 200</option>
+                                                        <option value="hea300">HEA 300</option>
+                                                    </optgroup>
+                                                    <optgroup label="HEB Profiles">
+                                                        <option value="heb100">HEB 100</option>
+                                                        <option value="heb200">HEB 200</option>
+                                                        <option value="heb300">HEB 300</option>
+                                                    </optgroup>
+                                                    <option value="custom">Custom values</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <!-- Custom Properties (initially hidden) -->
+                                            <div id="custom-properties" style="display: none;">
+                                                <div class="mb-3">
+                                                    <label for="e-modulus" class="form-label small">E-modulus</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="e-modulus" value="210000">
+                                                        <span class="input-group-text">N/mm²</span>
+                                                    </div>
+                                                    <div class="form-text small">Modulus of elasticity</div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label for="moment-of-inertia" class="form-label small">Moment of Inertia</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <input type="number" class="form-control" id="moment-of-inertia" value="8360000">
+                                                        <span class="input-group-text">mm⁴</span>
+                                                    </div>
+                                                    <div class="form-text small">Second moment of area</div>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Beam Length -->
+                                            <div class="mb-3">
+                                                <label for="beam-length" class="form-label small">Beam Length</label>
+                                                <div class="input-group input-group-sm">
+                                                    <input type="number" class="form-control" id="beam-length" value="6">
+                                                    <span class="input-group-text">m</span>
+                                                </div>
+                                            </div>
+                                            
+                                            <!-- Analyze Button -->
+                                            <div class="d-grid gap-2 mt-4">
+                                                <button class="btn btn-primary" id="analyze-beam">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calculator me-1" viewBox="0 0 16 16">
+                                                        <path d="M12 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h8zM4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4z"/>
+                                                        <path d="M4 2.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-2zm0 4a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3-6a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm0 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-4z"/>
+                                                    </svg>
+                                                    Analyze Beam
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Interactive Beam Canvas Column -->
+                                <div class="col-md-6">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
+                                            <h3 class="h6 mb-0">Interactive Beam Visualization</h3>
+                                            <div class="btn-group btn-group-sm">
+                                                <button class="btn btn-outline-secondary btn-sm" id="add-support" title="Add support">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-triangle" viewBox="0 0 16 16">
+                                                        <path d="M7.938 2.016A.13.13 0 0 1 8.002 2a.13.13 0 0 1 .063.016.146.146 0 0 1 .054.057l6.857 11.667c.036.06.035.124.002.183a.163.163 0 0 1-.054.06.116.116 0 0 1-.066.017H1.146a.115.115 0 0 1-.066-.017.163.163 0 0 1-.054-.06.176.176 0 0 1 .002-.183L7.884 2.073a.147.147 0 0 1 .054-.057zm1.044-.45a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566z"/>
+                                                    </svg>
+                                                </button>
+                                                <button class="btn btn-outline-secondary btn-sm" id="add-load" title="Add load">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-down-square" viewBox="0 0 16 16">
+                                                        <path fill-rule="evenodd" d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm8.5 2.5a.5.5 0 0 0-1 0v5.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V4.5z"/>
+                                                    </svg>
+                                                </button>
+                                                <button class="btn btn-outline-secondary btn-sm" id="clear-beam" title="Clear">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                                                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                                        <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <!-- Interactive Beam Canvas -->
+                                            <div class="position-relative">
+                                                <div class="bg-light p-2 text-center small text-muted">Drag to place supports and loads</div>
+                                                <canvas id="beam-canvas" width="100%" height="300" class="w-100 border-bottom"></canvas>
+                                                
+                                                <!-- Support/Load Properties Panel (initially hidden) -->
+                                                <div id="element-properties" class="position-absolute bg-white shadow-sm border rounded p-3" style="display: none; width: 250px; right: 10px; top: 40px; z-index: 100;">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <h6 class="mb-0" id="element-title">Element properties</h6>
+                                                        <button type="button" class="btn-close btn-sm" id="close-properties"></button>
+                                                    </div>
+                                                    
+                                                    <!-- Support Properties -->
+                                                    <div id="support-properties" style="display: none;">
+                                                        <div class="mb-2">
+                                                            <label class="form-label small">Support type</label>
+                                                            <select class="form-select form-select-sm" id="support-type">
+                                                                <option value="fixed">Fixed</option>
+                                                                <option value="pinned">Pinned</option>
+                                                                <option value="roller">Roller</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-2">
+                                                            <label class="form-label small">Position</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <input type="number" class="form-control" id="support-position" step="0.1">
+                                                                <span class="input-group-text">m</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between mt-3">
+                                                            <button class="btn btn-sm btn-outline-danger" id="delete-support">Delete</button>
+                                                            <button class="btn btn-sm btn-primary" id="apply-support">Apply</button>
+                                                        </div>
+                                                    </div>
+                                                    
+                                                    <!-- Load Properties -->
+                                                    <div id="load-properties" style="display: none;">
+                                                        <div class="mb-2">
+                                                            <label class="form-label small">Load type</label>
+                                                            <select class="form-select form-select-sm" id="load-type">
+                                                                <option value="point">Point load</option>
+                                                                <option value="distributed">Distributed load</option>
+                                                                <option value="moment">Moment</option>
+                                                            </select>
+                                                        </div>
+                                                        <div class="mb-2">
+                                                            <label class="form-label small">Value</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <input type="number" class="form-control" id="load-value">
+                                                                <span class="input-group-text" id="load-unit">kN</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="mb-2">
+                                                            <label class="form-label small">Position</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <input type="number" class="form-control" id="load-position" step="0.1">
+                                                                <span class="input-group-text">m</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="mb-2 distributed-load-option" style="display: none;">
+                                                            <label class="form-label small">End position</label>
+                                                            <div class="input-group input-group-sm">
+                                                                <input type="number" class="form-control" id="load-end-position" step="0.1">
+                                                                <span class="input-group-text">m</span>
+                                                            </div>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between mt-3">
+                                                            <button class="btn btn-sm btn-outline-danger" id="delete-load">Delete</button>
+                                                            <button class="btn btn-sm btn-primary" id="apply-load">Apply</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Analysis Results Column -->
+                                <div class="col-md-3">
+                                    <div class="card border-0 shadow-sm h-100">
+                                        <div class="card-header bg-light py-2">
+                                            <h3 class="h6 mb-0">Analysis Results</h3>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="alert alert-info small">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-info-circle me-1" viewBox="0 0 16 16">
+                                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                                    <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                                                </svg>
+                                                Place supports and loads on the beam and click "Analyze Beam" to see results
+                                            </div>
+                                            
+                                            <div id="analysis-results" style="display: none;">
+                                                <div class="mb-3">
+                                                    <label class="form-label small">Maximum values:</label>
+                                                    <div class="table-responsive">
+                                                        <table class="table table-sm table-bordered">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Moment</td>
+                                                                    <td class="text-end"><span id="max-moment">-</span> <span class="small text-muted">kNm</span></td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Shear</td>
+                                                                    <td class="text-end"><span id="max-shear">-</span> <span class="small text-muted">kN</span></td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Deflection</td>
+                                                                    <td class="text-end"><span id="max-deflection">-</span> <span class="small text-muted">mm</span></td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="small fw-bold">Stress</td>
+                                                                    <td class="text-end"><span id="max-stress">-</span> <span class="small text-muted">MPa</span></td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="mb-3">
+                                                    <label class="form-label small">Support reactions:</label>
+                                                    <div id="support-reactions" class="table-responsive">
+                                                        <!-- Support reactions will be dynamically generated here -->
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="d-grid mt-3">
+                                                <button class="btn btn-outline-primary btn-sm" id="export-analysis">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-file-earmark-pdf me-1" viewBox="0 0 16 16">
+                                                        <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
+                                                        <path d="M4.603 14.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.68 7.68 0 0 1 1.482-.645a19.697 19.697 0 0 0 1.062-2.227a7.269 7.269 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.188-.012.396-.047.614-.084.51-.27 1.134-.52 1.794a10.954 10.954 0 0 0 .98 1.686a5.753 5.753 0 0 1 1.334.05c.364.066.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416a.856.856 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a5.712 5.712 0 0 1-.911-.95a11.651 11.651 0 0 0-1.997.406a11.307 11.307 0 0 1-1.02 1.51c-.292.35-.609.656-.927.787a.793.793 0 0 1-.58.029zm1.379-1.901c-.166.076-.32.156-.459.238-.328.194-.541.383-.647.547-.094.145-.096.25-.04.361.01.022.02.036.026.044a.266.266 0 0 0 .035-.012c.137-.056.355-.235.635-.572a8.18 8.18 0 0 0 .45-.606zm1.64-1.33a12.71 12.71 0 0 1 1.01-.193a11.744 11.744 0 0 1-.51-.858a20.801 20.801 0 0 1-.5 1.05zm2.446.45c.15.163.296.3.435.41.24.19.407.253.498.256a.107.107 0 0 0 .07-.015a.307.307 0 0 0 .094-.125a.436.436 0 0 0 .059-.2a.095.095 0 0 0-.026-.063c-.052-.062-.2-.152-.518-.209a3.876 3.876 0 0 0-.612-.053zM8.078 7.8a6.7 6.7 0 0 0 .2-.828c.031-.188.043-.343.038-.465a.613.613 0 0 0-.032-.198a.517.517 0 0 0-.145.04c-.087.035-.158.106-.196.283-.04.192-.03.469.046.822.024.111.054.227.09.346z"/>
+                                                    </svg>
+                                                    Export to PDF
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Diagrams Row -->
+                            <div class="row mt-4">
+                                <div class="col-12">
+                                    <div class="card border-0 shadow-sm">
+                                        <div class="card-header bg-light py-2">
+                                            <h3 class="h6 mb-0">Diagrams</h3>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label small">Moment Diagram (kNm)</label>
+                                                        <div class="bg-light rounded p-2">
+                                                            <canvas id="moment-diagram" width="100%" height="200" class="w-100"></canvas>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label small">Shear Diagram (kN)</label>
+                                                        <div class="bg-light rounded p-2">
+                                                            <canvas id="shear-diagram" width="100%" height="200" class="w-100"></canvas>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="mb-3">
+                                                        <label class="form-label small">Deflection Diagram (mm)</label>
+                                                        <div class="bg-light rounded p-2">
+                                                            <canvas id="deflection-diagram" width="100%" height="200" class="w-100"></canvas>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <label class="form-label small">Rotation Diagram (rad)</label>
+                                                        <div class="bg-light rounded p-2">
+                                                            <canvas id="rotation-diagram" width="100%" height="200" class="w-100"></canvas>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div><!-- End of Beam Analysis Tab Content -->
+            </div><!-- End of Tab Content -->
+
+        </main>
+
+        <!-- Professional Footer with Standards Logos -->
+        <footer class="bg-light py-4 mt-auto border-top shadow-sm">
+            <div class="container text-center">
+                <p class="mb-0 text-secondary">Steel Profile Calculator Elite &copy; <span id="current-year"></span></p>
+                <p class="mb-0 text-muted small">Professional steel profile calculations</p>
+                <div class="mt-3 d-flex justify-content-center flex-wrap gap-3">
+                    <div class="certification-badge d-flex align-items-center bg-light rounded px-3 py-2 border shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-check-circle-fill text-success me-2" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                        <span class="small fw-bold">AISC 360-16</span>
+                    </div>
+                    <div class="certification-badge d-flex align-items-center bg-light rounded px-3 py-2 border shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-check-circle-fill text-success me-2" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                        <span class="small fw-bold">ASTM A36/A992</span>
+                    </div>
+                    <div class="certification-badge d-flex align-items-center bg-light rounded px-3 py-2 border shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-check-circle-fill text-success me-2" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                        </svg>
+                        <span class="small fw-bold">EN 10025</span>
+                    </div>
+                    <div class="certification-badge d-flex align-items-center bg-light rounded px-3 py-2 border shadow-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-check-circle-fill text-success me-2" viewBox="0 0 16 16">
+                            <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+                    <div class="mt-2 small">
+                        <span class="badge bg-secondary me-1">AISC 360-16</span>
+                        <span class="badge bg-secondary me-1">ASTM A36/A992</span>
+                        <span class="badge bg-secondary me-1">EN 10025</span>
+                        <span class="badge bg-secondary">ISO 4019</span>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    </div>
     
-    // Only initialize if the beam analysis tab exists
-    const beamTab = document.getElementById('beam-tab');
-    if (!beamTab) {
-        console.log('Beam tab not found, skipping initialization');
-        return;
-    }
+    <!-- Row Template (Hidden) -->
+    <template id="row-template">
+        <tr class="material-row">
+            <td>
+                <select class="form-select form-select-sm profile-type">
+                    <option value="">Select type</option>
+                    <option value="IPE">IPE</option>
+                    <option value="HEA">HEA</option>
+                    <option value="HEB">HEB</option>
+                    <option value="UNP">UNP</option>
+                    <option value="RHS">RHS</option>
+                    <option value="SHS">SHS</option>
+                    <option value="ROUND_PIPE">Round pipe</option>
+                    <option value="FLAT_BAR">Flat bar</option>
+                </select>
+            </td>
+            <td>
+                <select class="form-select form-select-sm profile-size" disabled>
+                    <option value="">Select size</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm length" value="1000">
+            </td>
+            <td>
+                <select class="form-select form-select-sm unit" style="min-width: 90px;">
+                    <option value="mm">mm</option>
+                    <option value="m">m</option>
+                    <option value="inch">inch</option>
+                    <option value="ft">ft</option>
+                </select>
+            </td>
+            <td>
+                <input type="number" class="form-control form-control-sm quantity" value="1" min="1">
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm weight-per-meter" readonly>
+                    <span class="unit-label ms-1">kg/m</span>
+                </div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm total-weight" readonly>
+                    <span class="unit-label ms-1">kg</span>
+                </div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm volume" readonly>
+                    <span class="unit-label ms-1">m³</span>
+                </div>
+            </td>
+            <td>
+                <div class="d-flex align-items-center">
+                    <input type="text" class="form-control form-control-sm surface-area" readonly>
+                    <span class="unit-label ms-1">m²</span>
+                </div>
+            </td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-outline-secondary rounded-circle delete-row p-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                        <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5m3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0z"/>
+                        <path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4zM2.5 3h11V2h-11z"/>
+                    </svg>
+                </button>
+            </td>
+        </tr>
+    </template>
     
-    // Create and initialize beam analysis
-    const beamAnalysis = new BeamAnalysis();
-    beamAnalysis.init();
+    <!-- Bootstrap JavaScript -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
-    // Add beam analysis to window for debugging
-    window.beamAnalysis = beamAnalysis;
-});
+    <!-- Load profile data first -->
+    <script src="js/profiles.js"></script>
+    <!-- Then load data module that uses profile data -->
+    <script src="js/data.js"></script>
+    <!-- Load beam analysis module -->
+    <script src="js/beam-analysis.js"></script>
+    <!-- Finally load the main application logic -->
+    <script src="js/app.js"></script>
+</body>
+</html>
