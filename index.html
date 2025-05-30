@@ -764,138 +764,69 @@
                 <div class="tab-pane fade" id="beam-content" role="tabpanel" aria-labelledby="beam-tab">
                     <div class="card border-primary mb-4">
                         <div class="card-header d-flex justify-content-between align-items-center py-2 bg-primary bg-opacity-10">
-                            <h2 class="h6 mb-0 fw-bold text-primary">Geavanceerde Balkanalyse</h2>
+                            <h2 class="h6 mb-0 fw-bold text-primary">Advanced Beam Analysis</h2>
                             <span class="badge bg-primary px-2 py-1 rounded-pill">Elite Feature</span>
                         </div>
                         <div class="card-body py-3">
                             <div class="row g-4">
-                                <!-- Beam Parameters Column -->
+                                <!-- Beam Properties Column -->
                                 <div class="col-md-3">
                                     <div class="card border-0 shadow-sm h-100">
                                         <div class="card-header bg-light py-2">
-                                            <h3 class="h6 mb-0">Balkparameters</h3>
+                                            <h3 class="h6 mb-0">Beam Properties</h3>
                                         </div>
                                         <div class="card-body">
-                                            <!-- Profile Selection Type -->
+                                            <!-- Profile Selection -->
                                             <div class="mb-3">
-                                                <label class="form-label small">Profielkeuze</label>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="profile-input-type" id="profile-catalog" value="catalog" checked>
-                                                    <label class="form-check-label small" for="profile-catalog">
-                                                        Kies uit catalogus
-                                                    </label>
-                                                </div>
-                                                <div class="form-check">
-                                                    <input class="form-check-input" type="radio" name="profile-input-type" id="profile-manual" value="manual">
-                                                    <label class="form-check-label small" for="profile-manual">
-                                                        Handmatige invoer
-                                                    </label>
-                                                </div>
+                                                <label for="profile-selector" class="form-label small">Profile</label>
+                                                <select class="form-select form-select-sm" id="profile-selector">
+                                                    <option value="">Select a profile</option>
+                                                    <optgroup label="IPN Profiles">
+                                                        <option value="ipn100">IPN 100</option>
+                                                        <option value="ipn200">IPN 200</option>
+                                                        <option value="ipn300">IPN 300</option>
+                                                    </optgroup>
+                                                    <optgroup label="HEA Profiles">
+                                                        <option value="hea100">HEA 100</option>
+                                                        <option value="hea200">HEA 200</option>
+                                                        <option value="hea300">HEA 300</option>
+                                                    </optgroup>
+                                                    <optgroup label="HEB Profiles">
+                                                        <option value="heb100">HEB 100</option>
+                                                        <option value="heb200">HEB 200</option>
+                                                        <option value="heb300">HEB 300</option>
+                                                    </optgroup>
+                                                    <option value="custom">Custom values</option>
+                                                </select>
                                             </div>
                                             
-                                            <!-- Catalog Profile Selection (initially visible) -->
-                                            <div id="catalog-profile-section">
-                                                <div class="mb-3">
-                                                    <label for="beam-profile-type" class="form-label small">Profieltype</label>
-                                                    <select class="form-select form-select-sm" id="beam-profile-type">
-                                                        <option value="">Selecteer type</option>
-                                                        <option value="IPE">IPE</option>
-                                                        <option value="HEA">HEA</option>
-                                                        <option value="HEB">HEB</option>
-                                                        <option value="HEM">HEM</option>
-                                                        <option value="UPE">UPE</option>
-                                                        <option value="UNP">UNP</option>
-                                                        <option value="L">L (hoekprofiel)</option>
-                                                        <option value="RHS">RHS (rechthoekige buis)</option>
-                                                        <option value="SHS">SHS (vierkante buis)</option>
-                                                        <option value="CHS">CHS (ronde buis)</option>
-                                                    </select>
-                                                </div>
-                                                
-                                                <div class="mb-3">
-                                                    <label for="beam-profile-size" class="form-label small">Profielmaat</label>
-                                                    <select class="form-select form-select-sm" id="beam-profile-size" disabled>
-                                                        <option value="">Selecteer maat</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            
-                                            <!-- Manual Profile Input (initially hidden) -->
-                                            <div id="manual-profile-section" style="display: none;">
+                                            <!-- Custom Properties (initially hidden) -->
+                                            <div id="custom-properties" style="display: none;">
                                                 <div class="mb-3">
                                                     <label for="e-modulus" class="form-label small">E-modulus</label>
                                                     <div class="input-group input-group-sm">
                                                         <input type="number" class="form-control" id="e-modulus" value="210000">
                                                         <span class="input-group-text">N/mm²</span>
                                                     </div>
+                                                    <div class="form-text small">Modulus of elasticity</div>
                                                 </div>
                                                 
                                                 <div class="mb-3">
-                                                    <label for="moment-of-inertia" class="form-label small">Traagheidsmoment I<sub>y</sub></label>
+                                                    <label for="moment-of-inertia" class="form-label small">Moment of Inertia</label>
                                                     <div class="input-group input-group-sm">
-                                                        <input type="number" class="form-control" id="moment-of-inertia" value="1000">
-                                                        <span class="input-group-text">cm⁴</span>
+                                                        <input type="number" class="form-control" id="moment-of-inertia" value="8360000">
+                                                        <span class="input-group-text">mm⁴</span>
                                                     </div>
-                                                </div>
-                                                
-                                                <div class="mb-3">
-                                                    <label for="section-modulus" class="form-label small">Weerstandsmoment W<sub>y</sub></label>
-                                                    <div class="input-group input-group-sm">
-                                                        <input type="number" class="form-control" id="section-modulus" value="100">
-                                                        <span class="input-group-text">cm³</span>
-                                                    </div>
-                                                </div>
-                                                
-                                                <div class="mb-3">
-                                                    <label for="section-area" class="form-label small">Oppervlakte</label>
-                                                    <div class="input-group input-group-sm">
-                                                        <input type="number" class="form-control" id="section-area" value="20">
-                                                        <span class="input-group-text">cm²</span>
-                                                    </div>
+                                                    <div class="form-text small">Second moment of area</div>
                                                 </div>
                                             </div>
                                             
+                                            <!-- Beam Length -->
                                             <div class="mb-3">
-                                                <label for="beam-length" class="form-label small">Balklengte</label>
+                                                <label for="beam-length" class="form-label small">Beam Length</label>
                                                 <div class="input-group input-group-sm">
                                                     <input type="number" class="form-control" id="beam-length" value="6">
-                                                    <select class="form-select" id="beam-length-unit" style="max-width: 80px;">
-                                                        <option value="m">m</option>
-                                                        <option value="cm">cm</option>
-                                                        <option value="mm">mm</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            
-                                            <hr class="my-3">
-                                            
-                                            <!-- Material Properties -->
-                                            <div class="mb-3">
-                                                <label class="form-label small">Materiaal</label>
-                                                <select class="form-select form-select-sm" id="beam-material">
-                                                    <option value="steel">Staal (S235)</option>
-                                                    <option value="steel-s275">Staal (S275)</option>
-                                                    <option value="steel-s355">Staal (S355)</option>
-                                                    <option value="aluminum">Aluminium</option>
-                                                    <option value="timber">Hout</option>
-                                                    <option value="custom">Aangepast</option>
-                                                </select>
-                                            </div>
-                                            
-                                            <div id="custom-material-props" style="display: none;">
-                                                <div class="mb-3">
-                                                    <label for="material-density" class="form-label small">Dichtheid</label>
-                                                    <div class="input-group input-group-sm">
-                                                        <input type="number" class="form-control" id="material-density" value="7850">
-                                                        <span class="input-group-text">kg/m³</span>
-                                                    </div>
-                                                </div>
-                                                <div class="mb-3">
-                                                    <label for="material-yield-strength" class="form-label small">Vloeigrens</label>
-                                                    <div class="input-group input-group-sm">
-                                                        <input type="number" class="form-control" id="material-yield-strength" value="235">
-                                                        <span class="input-group-text">N/mm²</span>
-                                                    </div>
+                                                    <span class="input-group-text">m</span>
                                                 </div>
                                             </div>
                                             
@@ -929,19 +860,19 @@
                                 <div class="col-md-6">
                                     <div class="card border-0 shadow-sm h-100">
                                         <div class="card-header bg-light py-2 d-flex justify-content-between align-items-center">
-                                            <h3 class="h6 mb-0">Interactieve Balkvisualisatie</h3>
+                                            <h3 class="h6 mb-0">Interactive Beam Visualization</h3>
                                             <div class="btn-group btn-group-sm">
-                                                <button class="btn btn-outline-secondary btn-sm" id="add-support" title="Support toevoegen">
+                                                <button class="btn btn-outline-secondary btn-sm" id="add-support" title="Add support">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-triangle" viewBox="0 0 16 16">
                                                         <path d="M7.938 2.016A.13.13 0 0 1 8.002 2a.13.13 0 0 1 .063.016.146.146 0 0 1 .054.057l6.857 11.667c.036.06.035.124.002.183a.163.163 0 0 1-.054.06.116.116 0 0 1-.066.017H1.146a.115.115 0 0 1-.066-.017.163.163 0 0 1-.054-.06.176.176 0 0 1 .002-.183L7.884 2.073a.147.147 0 0 1 .054-.057zm1.044-.45a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566z"/>
                                                     </svg>
                                                 </button>
-                                                <button class="btn btn-outline-secondary btn-sm" id="add-load" title="Belasting toevoegen">
+                                                <button class="btn btn-outline-secondary btn-sm" id="add-load" title="Add load">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-down-square" viewBox="0 0 16 16">
                                                         <path fill-rule="evenodd" d="M15 2a1 1 0 0 0-1-1H2a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V2zM0 2a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V2zm8.5 2.5a.5.5 0 0 0-1 0v5.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V4.5z"/>
                                                     </svg>
                                                 </button>
-                                                <button class="btn btn-outline-secondary btn-sm" id="clear-beam" title="Wissen">
+                                                <button class="btn btn-outline-secondary btn-sm" id="clear-beam" title="Clear">
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
                                                         <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
                                                         <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
@@ -952,73 +883,73 @@
                                         <div class="card-body p-0">
                                             <!-- Interactive Beam Canvas -->
                                             <div class="position-relative">
-                                                <div class="bg-light p-2 text-center small text-muted">Sleep om supports en belastingen te plaatsen</div>
+                                                <div class="bg-light p-2 text-center small text-muted">Drag to place supports and loads</div>
                                                 <canvas id="beam-canvas" width="100%" height="300" class="w-100 border-bottom"></canvas>
                                                 
                                                 <!-- Support/Load Properties Panel (initially hidden) -->
                                                 <div id="element-properties" class="position-absolute bg-white shadow-sm border rounded p-3" style="display: none; width: 250px; right: 10px; top: 40px; z-index: 100;">
                                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <h6 class="mb-0" id="element-title">Element eigenschappen</h6>
+                                                        <h6 class="mb-0" id="element-title">Element properties</h6>
                                                         <button type="button" class="btn-close btn-sm" id="close-properties"></button>
                                                     </div>
                                                     
                                                     <!-- Support Properties -->
                                                     <div id="support-properties" style="display: none;">
                                                         <div class="mb-2">
-                                                            <label class="form-label small">Type support</label>
+                                                            <label class="form-label small">Support type</label>
                                                             <select class="form-select form-select-sm" id="support-type">
-                                                                <option value="fixed">Vast (inklemming)</option>
-                                                                <option value="pinned">Scharnier</option>
-                                                                <option value="roller">Rol</option>
+                                                                <option value="fixed">Fixed</option>
+                                                                <option value="pinned">Pinned</option>
+                                                                <option value="roller">Roller</option>
                                                             </select>
                                                         </div>
                                                         <div class="mb-2">
-                                                            <label class="form-label small">Positie</label>
+                                                            <label class="form-label small">Position</label>
                                                             <div class="input-group input-group-sm">
                                                                 <input type="number" class="form-control" id="support-position" step="0.1">
                                                                 <span class="input-group-text">m</span>
                                                             </div>
                                                         </div>
                                                         <div class="d-flex justify-content-between mt-3">
-                                                            <button class="btn btn-sm btn-outline-danger" id="delete-support">Verwijderen</button>
-                                                            <button class="btn btn-sm btn-primary" id="apply-support">Toepassen</button>
+                                                            <button class="btn btn-sm btn-outline-danger" id="delete-support">Delete</button>
+                                                            <button class="btn btn-sm btn-primary" id="apply-support">Apply</button>
                                                         </div>
                                                     </div>
                                                     
                                                     <!-- Load Properties -->
                                                     <div id="load-properties" style="display: none;">
                                                         <div class="mb-2">
-                                                            <label class="form-label small">Type belasting</label>
+                                                            <label class="form-label small">Load type</label>
                                                             <select class="form-select form-select-sm" id="load-type">
-                                                                <option value="point">Puntlast</option>
-                                                                <option value="distributed">Verdeelde belasting</option>
+                                                                <option value="point">Point load</option>
+                                                                <option value="distributed">Distributed load</option>
                                                                 <option value="moment">Moment</option>
                                                             </select>
                                                         </div>
                                                         <div class="mb-2">
-                                                            <label class="form-label small">Waarde</label>
+                                                            <label class="form-label small">Value</label>
                                                             <div class="input-group input-group-sm">
                                                                 <input type="number" class="form-control" id="load-value">
                                                                 <span class="input-group-text" id="load-unit">kN</span>
                                                             </div>
                                                         </div>
                                                         <div class="mb-2">
-                                                            <label class="form-label small">Positie</label>
+                                                            <label class="form-label small">Position</label>
                                                             <div class="input-group input-group-sm">
                                                                 <input type="number" class="form-control" id="load-position" step="0.1">
                                                                 <span class="input-group-text">m</span>
                                                             </div>
                                                         </div>
                                                         <div class="mb-2 distributed-load-option" style="display: none;">
-                                                            <label class="form-label small">Eindpositie</label>
+                                                            <label class="form-label small">End position</label>
                                                             <div class="input-group input-group-sm">
                                                                 <input type="number" class="form-control" id="load-end-position" step="0.1">
                                                                 <span class="input-group-text">m</span>
                                                             </div>
                                                         </div>
                                                         <div class="d-flex justify-content-between mt-3">
-                                                            <button class="btn btn-sm btn-outline-danger" id="delete-load">Verwijderen</button>
-                                                            <button class="btn btn-sm btn-primary" id="apply-load">Toepassen</button>
+                                                            <button class="btn btn-sm btn-outline-danger" id="delete-load">Delete</button>
+                                                            <button class="btn btn-sm btn-primary" id="apply-load">Apply</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1031,7 +962,7 @@
                                 <div class="col-md-3">
                                     <div class="card border-0 shadow-sm h-100">
                                         <div class="card-header bg-light py-2">
-                                            <h3 class="h6 mb-0">Analyseresultaten</h3>
+                                            <h3 class="h6 mb-0">Analysis Results</h3>
                                         </div>
                                         <div class="card-body">
                                             <div class="alert alert-info small">
@@ -1039,12 +970,12 @@
                                                     <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
                                                     <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
                                                 </svg>
-                                                Plaats supports en belastingen op de balk en klik op "Analyseer Balk" om de resultaten te zien
+                                                Place supports and loads on the beam and click "Analyze Beam" to see results
                                             </div>
                                             
                                             <div id="analysis-results" style="display: none;">
                                                 <div class="mb-3">
-                                                    <label class="form-label small">Maximale waarden:</label>
+                                                    <label class="form-label small">Maximum values:</label>
                                                     <div class="table-responsive">
                                                         <table class="table table-sm table-bordered">
                                                             <tbody>
@@ -1053,15 +984,15 @@
                                                                     <td class="text-end"><span id="max-moment">-</span> <span class="small text-muted">kNm</span></td>
                                                                 </tr>
                                                                 <tr>
-                                                                    <td class="small fw-bold">Dwarskracht</td>
+                                                                    <td class="small fw-bold">Shear</td>
                                                                     <td class="text-end"><span id="max-shear">-</span> <span class="small text-muted">kN</span></td>
                                                                 </tr>
                                                                 <tr>
-                                                                    <td class="small fw-bold">Doorbuiging</td>
+                                                                    <td class="small fw-bold">Deflection</td>
                                                                     <td class="text-end"><span id="max-deflection">-</span> <span class="small text-muted">mm</span></td>
                                                                 </tr>
                                                                 <tr>
-                                                                    <td class="small fw-bold">Spanning</td>
+                                                                    <td class="small fw-bold">Stress</td>
                                                                     <td class="text-end"><span id="max-stress">-</span> <span class="small text-muted">MPa</span></td>
                                                                 </tr>
                                                             </tbody>
@@ -1070,7 +1001,7 @@
                                                 </div>
                                                 
                                                 <div class="mb-3">
-                                                    <label class="form-label small">Oplegreacties:</label>
+                                                    <label class="form-label small">Support reactions:</label>
                                                     <div id="support-reactions" class="table-responsive">
                                                         <!-- Support reactions will be dynamically generated here -->
                                                     </div>
@@ -1083,7 +1014,7 @@
                                                         <path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/>
                                                         <path d="M4.603 14.087a.81.81 0 0 1-.438-.42c-.195-.388-.13-.776.08-1.102.198-.307.526-.568.897-.787a7.68 7.68 0 0 1 1.482-.645a19.697 19.697 0 0 0 1.062-2.227a7.269 7.269 0 0 1-.43-1.295c-.086-.4-.119-.796-.046-1.136.075-.354.274-.672.65-.823.192-.077.4-.12.602-.077a.7.7 0 0 1 .477.365c.088.164.12.356.127.538.007.188-.012.396-.047.614-.084.51-.27 1.134-.52 1.794a10.954 10.954 0 0 0 .98 1.686a5.753 5.753 0 0 1 1.334.05c.364.066.734.195.96.465.12.144.193.32.2.518.007.192-.047.382-.138.563a1.04 1.04 0 0 1-.354.416a.856.856 0 0 1-.51.138c-.331-.014-.654-.196-.933-.417a5.712 5.712 0 0 1-.911-.95a11.651 11.651 0 0 0-1.997.406a11.307 11.307 0 0 1-1.02 1.51c-.292.35-.609.656-.927.787a.793.793 0 0 1-.58.029zm1.379-1.901c-.166.076-.32.156-.459.238-.328.194-.541.383-.647.547-.094.145-.096.25-.04.361.01.022.02.036.026.044a.266.266 0 0 0 .035-.012c.137-.056.355-.235.635-.572a8.18 8.18 0 0 0 .45-.606zm1.64-1.33a12.71 12.71 0 0 1 1.01-.193a11.744 11.744 0 0 1-.51-.858a20.801 20.801 0 0 1-.5 1.05zm2.446.45c.15.163.296.3.435.41.24.19.407.253.498.256a.107.107 0 0 0 .07-.015a.307.307 0 0 0 .094-.125a.436.436 0 0 0 .059-.2a.095.095 0 0 0-.026-.063c-.052-.062-.2-.152-.518-.209a3.876 3.876 0 0 0-.612-.053zM8.078 7.8a6.7 6.7 0 0 0 .2-.828c.031-.188.043-.343.038-.465a.613.613 0 0 0-.032-.198a.517.517 0 0 0-.145.04c-.087.035-.158.106-.196.283-.04.192-.03.469.046.822.024.111.054.227.09.346z"/>
                                                     </svg>
-                                                    Exporteer naar PDF
+                                                    Export to PDF
                                                 </button>
                                             </div>
                                         </div>
@@ -1096,19 +1027,19 @@
                                 <div class="col-12">
                                     <div class="card border-0 shadow-sm">
                                         <div class="card-header bg-light py-2">
-                                            <h3 class="h6 mb-0">Diagrammen</h3>
+                                            <h3 class="h6 mb-0">Diagrams</h3>
                                         </div>
                                         <div class="card-body">
                                             <div class="row">
                                                 <div class="col-md-6">
                                                     <div class="mb-3">
-                                                        <label class="form-label small">Momentendiagram (kNm)</label>
+                                                        <label class="form-label small">Moment Diagram (kNm)</label>
                                                         <div class="bg-light rounded p-2">
                                                             <canvas id="moment-diagram" width="100%" height="200" class="w-100"></canvas>
                                                         </div>
                                                     </div>
                                                     <div class="mb-3">
-                                                        <label class="form-label small">Dwarskrachtendiagram (kN)</label>
+                                                        <label class="form-label small">Shear Diagram (kN)</label>
                                                         <div class="bg-light rounded p-2">
                                                             <canvas id="shear-diagram" width="100%" height="200" class="w-100"></canvas>
                                                         </div>
@@ -1116,13 +1047,13 @@
                                                 </div>
                                                 <div class="col-md-6">
                                                     <div class="mb-3">
-                                                        <label class="form-label small">Doorbuigingsdiagram (mm)</label>
+                                                        <label class="form-label small">Deflection Diagram (mm)</label>
                                                         <div class="bg-light rounded p-2">
                                                             <canvas id="deflection-diagram" width="100%" height="200" class="w-100"></canvas>
                                                         </div>
                                                     </div>
                                                     <div class="mb-3">
-                                                        <label class="form-label small">Hellingshoekdiagram (rad)</label>
+                                                        <label class="form-label small">Rotation Diagram (rad)</label>
                                                         <div class="bg-light rounded p-2">
                                                             <canvas id="rotation-diagram" width="100%" height="200" class="w-100"></canvas>
                                                         </div>
