@@ -1275,17 +1275,114 @@ class BeamAnalysis {
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, initializing beam analysis');
     
-    // Only initialize if the beam analysis tab exists
-    const beamTab = document.getElementById('beam-tab');
-    if (!beamTab) {
-        console.log('Beam tab not found, skipping initialization');
+    // Check if any beam analysis elements exist on the page
+    const beamContent = document.getElementById('beam-content');
+    const analyzeBeamButton = document.getElementById('analyze-beam');
+    
+    // Initialize if beam analysis elements are found
+    if (beamContent) {
+        console.log('Beam analysis elements found, initializing');
+        
+        // Create and initialize beam analysis
+        const beamAnalysis = new BeamAnalysis();
+        beamAnalysis.init();
+        
+        // Add beam analysis to window for debugging
+        window.beamAnalysis = beamAnalysis;
+    } else {
+        console.log('Beam analysis elements not found, skipping initialization');
+    }
+    
+    // Initialize other parts of the application
+    initializeProfilesTab();
+});
+
+// Initialize the profiles tab functionality
+function initializeProfilesTab() {
+    console.log('Initializing profiles tab');
+    
+    // Add row button
+    const addRowButton = document.getElementById('add-row');
+    if (addRowButton) {
+        addRowButton.addEventListener('click', function() {
+            addNewRow();
+        });
+    }
+    
+    // Initialize existing rows
+    initializeExistingRows();
+}
+
+// Add a new row to the materials table
+function addNewRow() {
+    console.log('Adding new row');
+    
+    const materialsTable = document.querySelector('.materials-table tbody');
+    if (!materialsTable) {
+        console.error('Materials table not found');
         return;
     }
     
-    // Create and initialize beam analysis
-    const beamAnalysis = new BeamAnalysis();
-    beamAnalysis.init();
+    // Clone the row template
+    const rowTemplate = document.getElementById('row-template');
+    if (!rowTemplate) {
+        console.error('Row template not found');
+        return;
+    }
     
-    // Add beam analysis to window for debugging
-    window.beamAnalysis = beamAnalysis;
-});
+    const newRow = document.importNode(rowTemplate.content, true).querySelector('tr');
+    materialsTable.appendChild(newRow);
+    
+    // Initialize the new row
+    initializeRow(newRow);
+}
+
+// Initialize existing rows in the table
+function initializeExistingRows() {
+    const rows = document.querySelectorAll('.materials-table tbody tr');
+    rows.forEach(row => initializeRow(row));
+}
+
+// Initialize a single row with event listeners
+function initializeRow(row) {
+    // Profile type change event
+    const profileType = row.querySelector('.profile-type');
+    const profileSize = row.querySelector('.profile-size');
+    
+    if (profileType && profileSize) {
+        profileType.addEventListener('change', function() {
+            // Enable size dropdown when type is selected
+            profileSize.disabled = !this.value;
+            
+            // Clear and populate size options based on selected type
+            profileSize.innerHTML = '<option value="">Select size</option>';
+            
+            if (this.value) {
+                // Add sizes based on profile type
+                const sizes = getProfileSizes(this.value);
+                sizes.forEach(size => {
+                    const option = document.createElement('option');
+                    option.value = size;
+                    option.textContent = size;
+                    profileSize.appendChild(option);
+                });
+            }
+        });
+    }
+}
+
+// Get profile sizes based on profile type
+function getProfileSizes(profileType) {
+    const sizeMap = {
+        'IPE': ['80', '100', '120', '140', '160', '180', '200', '220', '240', '270', '300', '330', '360', '400', '450', '500', '550', '600'],
+        'HEA': ['100', '120', '140', '160', '180', '200', '220', '240', '260', '280', '300', '320', '340', '360', '400', '450', '500', '550', '600', '650', '700', '800', '900', '1000'],
+        'HEB': ['100', '120', '140', '160', '180', '200', '220', '240', '260', '280', '300', '320', '340', '360', '400', '450', '500', '550', '600', '650', '700', '800', '900', '1000'],
+        'UNP': ['80', '100', '120', '140', '160', '180', '200', '220', '240', '260', '280', '300', '320', '350', '380', '400'],
+        'RHS': ['50x30x3', '60x40x3', '80x40x3', '100x50x3', '120x60x4', '140x80x4', '160x80x5', '180x100x5', '200x100x6', '250x150x6', '300x200x8'],
+        'SHS': ['20x20x2', '25x25x2', '30x30x2', '40x40x2', '50x50x3', '60x60x3', '80x80x4', '100x100x4', '120x120x5', '140x140x5', '150x150x6', '160x160x6', '180x180x6', '200x200x6'],
+        'ROUND_PIPE': ['21.3x2.3', '26.9x2.3', '33.7x2.6', '42.4x2.6', '48.3x2.6', '60.3x2.9', '76.1x2.9', '88.9x3.2', '114.3x3.6', '139.7x4', '168.3x4.5', '219.1x6.3'],
+        'FLAT_BAR': ['20x3', '20x5', '25x4', '25x6', '30x5', '30x8', '40x5', '40x8', '50x5', '50x8', '50x10', '60x8', '60x10', '80x8', '80x10', '100x8', '100x10', '100x12']
+    };
+    
+    return sizeMap[profileType] || [];
+}
