@@ -907,9 +907,8 @@ class BeamAnalysis {
     
     // Clear diagram canvases
     clearDiagrams() {
-        // Diagrammen zijn verwijderd uit de HTML, dus deze functie hoeft niets meer te doen
+        // Diagrams were removed from the HTML, so this function no longer does anything
         // ['moment-diagram', 'shear-diagram', 'deflection-diagram', 'rotation-diagram'].forEach(id => {
-        //     const canvas = document.getElementById(id);
         //     if (canvas) {
         //         const ctx = canvas.getContext('2d');
         //         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -932,8 +931,7 @@ class BeamAnalysis {
         // Update result displays
         this.updateResultDisplays();
         
-        // Diagrammen zijn verwijderd uit de HTML, dus we hoeven ze niet meer te tekenen
-        // this.drawDiagrams();
+        // Diagrams were removed from the HTML, so we no longer draw them
     }
     
     // Generate sample results for visualization
@@ -1107,19 +1105,19 @@ class BeamAnalysis {
     
     // Draw analysis diagrams
     drawDiagrams() {
-        // Diagrammen zijn verwijderd uit de HTML, dus deze functie hoeft niets meer te doen
+        // Diagrams were removed from the HTML, so this function no longer does anything
         return;
     }
     
     // Draw deflection diagram
     drawDeflectionDiagram() {
-        // Diagrammen zijn verwijderd uit de HTML, dus deze functie hoeft niets meer te doen
+        // Diagrams were removed from the HTML, so this function no longer does anything
         return;
     }
     
     // Draw rotation diagram
     drawRotationDiagram() {
-        // Diagrammen zijn verwijderd uit de HTML, dus deze functie hoeft niets meer te doen
+        // Diagrams were removed from the HTML, so this function no longer does anything
         return;
     }
     

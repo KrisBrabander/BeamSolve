@@ -101,3 +101,7 @@ const profileData = {
         return profile.surfaceAreaPerMeter * lengthInMeters * quantity;
     }
 };
+
+if (typeof module !== 'undefined') {
+  module.exports = profileData;
+}
