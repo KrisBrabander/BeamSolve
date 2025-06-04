@@ -11,6 +11,8 @@ A comprehensive web application for calculating the weight, volume, and surface 
 - Unit conversion between mm and meters
 - Export results to PDF or CSV
 - Auto-save data to localStorage
+- Interactive beam analysis module for visualizing supports and loads
+- Toggleable dark mode for comfortable viewing
 
 ## Profile Types Supported
 
