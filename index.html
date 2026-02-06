@@ -160,6 +160,16 @@ canvas{display:block;width:100%;cursor:default}
 .locked{position:relative;opacity:.7}
 .locked::after{content:'PRO';position:absolute;top:2px;right:2px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px}
 
+/* SIDEBAR LOGO & UPGRADE */
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:2px 0 6px}
+.sidebar-logo{width:36px;height:36px;flex-shrink:0}
+.sidebar-brand-text{font-size:15px;font-weight:700;color:var(--text);letter-spacing:-.3px}
+.sidebar-brand-sub{font-size:10px;color:var(--text-muted);font-weight:500}
+.btn-upgrade{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:9px 12px;border:none;border-radius:8px;font-size:12px;font-weight:700;font-family:var(--font);cursor:pointer;transition:all .2s;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;box-shadow:0 2px 8px rgba(217,119,6,.25)}
+.btn-upgrade:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(217,119,6,.35)}
+.btn-upgrade.pro-active{background:linear-gradient(135deg,#059669,#047857);box-shadow:0 2px 8px rgba(5,150,105,.25);cursor:default}
+.btn-upgrade.pro-active:hover{transform:none;box-shadow:0 2px 8px rgba(5,150,105,.25)}
+
 /* MODAL OVERLAY */
 .modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:200}
 .modal-overlay.show{display:flex}
@@ -265,6 +275,24 @@ canvas{display:block;width:100%;cursor:default}
 </div>
 
 <div id="sidebar">
+
+<!-- Logo & Brand -->
+<div class="sidebar-brand">
+<svg class="sidebar-logo" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+<circle cx="18" cy="18" r="17" stroke="#1e40af" stroke-width="2" fill="#eff6ff"/>
+<rect x="11" y="8" width="14" height="3" rx="1" fill="#1e40af"/>
+<rect x="11" y="25" width="14" height="3" rx="1" fill="#1e40af"/>
+<rect x="16" y="11" width="4" height="14" rx="1" fill="#1e40af"/>
+</svg>
+<div><div class="sidebar-brand-text">BeamSolve</div><div class="sidebar-brand-sub">Structural Analysis</div></div>
+</div>
+
+<!-- Upgrade Button -->
+<button class="btn-upgrade" id="btn-upgrade" onclick="openCheckout()">
+<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+Upgrade to Pro — $19
+</button>
+
 <div style="font-size:12px;font-weight:700;margin-bottom:-2px">Results</div>
 <div class="metrics-grid">
 <div class="mc blue"><div class="ml">Max Shear</div><div class="mv" id="stat-v">—</div></div>
@@ -315,28 +343,19 @@ canvas{display:block;width:100%;cursor:default}
 
 <div id="inline-edit"><input type="text" id="inline-input"></div>
 
-<!-- PRICING MODAL -->
+<!-- PRICING MODAL (fallback if Lemon overlay fails) -->
 <div class="modal-overlay" id="pricing-modal">
 <div class="modal">
 <div class="modal-hdr"><h2>Upgrade to Pro</h2><button class="modal-close" onclick="closePricing()">×</button></div>
 <div class="modal-body">
 <p style="font-size:12px;color:var(--text-sec);margin-bottom:4px">Unlock the full power of BeamSolve for professional structural engineering.</p>
-<div class="pricing-cards">
-<div class="price-card" onclick="selectPlan('monthly')">
-<div class="plan-name">Monthly</div>
-<div class="price">$19<span>/mo</span></div>
-<div class="plan-desc">Cancel anytime</div>
-<button class="plan-btn outline">Choose Monthly</button>
+<div style="text-align:center;padding:20px 0">
+<div style="font-size:36px;font-weight:800;color:var(--text)">$19</div>
+<div style="font-size:13px;color:var(--text-sec);margin-top:2px">One-time payment · Lifetime access</div>
 </div>
-<div class="price-card popular" onclick="selectPlan('lifetime')">
-<div class="plan-name">⭐ Lifetime</div>
-<div class="price">$149<span> once</span></div>
-<div class="plan-desc">Best value — pay once</div>
-<button class="plan-btn primary">Choose Lifetime</button>
-</div>
-</div>
-<div class="pricing-features">
-<b>Pro includes:</b> Standard Profile Library (IPE, HEA, W-shapes) · Clean PDF & Excel Export · Trapezoid Loads · Unlimited Cloud Projects · Priority Support
+<button class="btn btn-primary" style="font-size:13px;padding:12px;border-radius:10px" onclick="openCheckout()">Pay $19 — Unlock Pro</button>
+<div class="pricing-features" style="margin-top:14px">
+<b>Pro includes:</b> Standard Profile Library (IPE, HEA, W-shapes) · Clean PDF & Excel Export · Trapezoid Loads · Priority Support
 </div>
 </div>
 </div>
@@ -370,6 +389,7 @@ canvas{display:block;width:100%;cursor:default}
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<script src="https://app.lemonsqueezy.com/js/lemon.js" defer></script>
 <script src="profiles.js"></script>
 <script src="beamsolve_engine.js"></script>
 </body>
