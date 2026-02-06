@@ -915,20 +915,70 @@ function clearAll() {
 }
 
 // =============================================================================
-// PAYWALL LOGIC
+// PAYWALL LOGIC — Lemon Squeezy Integration
 // =============================================================================
+
+// ── Restore Pro status from localStorage on load ──
+(function initProStatus() {
+  if (localStorage.getItem('beamsolve_pro') === 'true') {
+    state.isPro = true;
+    updateUpgradeButton();
+  }
+})();
+
 function showPricing() { document.getElementById('pricing-modal').classList.add('show'); }
 function closePricing() { document.getElementById('pricing-modal').classList.remove('show'); }
-function selectPlan(plan) {
-  closePricing();
-  alert('Thank you for choosing ' + (plan === 'lifetime' ? 'Lifetime ($149)' : 'Monthly ($19/mo)') + '!\n\nPayment integration coming soon. For now, enjoy Pro features!');
-  state.isPro = true;
-  document.getElementById('status-text').textContent = 'PRO activated!';
-}
+
 function requirePro(featureName) {
   if (state.isPro) return true;
   showPricing();
   return false;
+}
+
+// ── Open Lemon Squeezy checkout overlay ──
+// IMPORTANT: Replace YOUR_VARIANT_ID below with your actual Lemon Squeezy variant ID
+function openCheckout() {
+  if (state.isPro) return; // Already pro
+  closePricing();
+
+  // Lemon Squeezy overlay checkout URL
+  // Replace 'YOUR_STORE' and 'YOUR_VARIANT_ID' with your actual values from the LS dashboard
+  const checkoutUrl = 'https://beamsolve.lemonsqueezy.com/checkout/buy/1284985?embed=1&media=0&logo=0&discount=0';
+
+  if (typeof window.createLemonSqueezy === 'function') {
+    window.createLemonSqueezy();
+  }
+  if (typeof window.LemonSqueezy !== 'undefined') {
+    window.LemonSqueezy.Url.Open(checkoutUrl);
+  } else {
+    // Fallback: open in new tab if Lemon.js hasn't loaded
+    window.open(checkoutUrl, '_blank');
+  }
+}
+
+// ── Listen for successful checkout ──
+window.addEventListener('message', function(e) {
+  // Lemon Squeezy sends a message on successful checkout
+  if (e.data && (e.data.event === 'Checkout.Success' || (typeof e.data === 'string' && e.data.includes('Checkout.Success')))) {
+    activatePro();
+  }
+});
+
+function activatePro() {
+  state.isPro = true;
+  localStorage.setItem('beamsolve_pro', 'true');
+  updateUpgradeButton();
+  document.getElementById('status-text').textContent = 'Welcome to Pro, Engineer. Your exports are now unlocked.';
+}
+
+function updateUpgradeButton() {
+  const btn = document.getElementById('btn-upgrade');
+  if (!btn) return;
+  if (state.isPro) {
+    btn.classList.add('pro-active');
+    btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Pro Active';
+    btn.onclick = null;
+  }
 }
 
 // =============================================================================
