@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BeamSolve — Structural Beam Calculator</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+--bg:#f1f5f9;--bg-card:#ffffff;--bg-input:#f8fafc;
+--border:#e2e8f0;--border-focus:#3b82f6;
+--text:#1e293b;--text-sec:#64748b;--text-muted:#94a3b8;
+--accent:#1e40af;--accent-lt:#3b82f6;--accent-bg:#eff6ff;
+--success:#059669;--warning:#d97706;--danger:#dc2626;--purple:#7c3aed;
+--shadow:0 1px 3px rgba(0,0,0,0.1),0 1px 2px rgba(0,0,0,0.06);
+--shadow-sm:0 1px 2px rgba(0,0,0,0.05);
+--radius:8px;--radius-lg:12px;
+--font:'Inter','Segoe UI',-apple-system,BlinkMacSystemFont,sans-serif;
+--shear-c:#2563eb;--moment-c:#dc2626;--normal-c:#7c3aed;--defl-c:#d97706;
+--support-c:#2563eb;--load-c:#dc2626;--moment-lc:#7c3aed;
+}
+html,body{height:100%;width:100%;font-family:var(--font);background:var(--bg);color:var(--text);overflow:hidden;font-size:13px;line-height:1.5}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* NAV */
+#navbar{display:flex;align-items:center;padding:0 24px;height:46px;background:#0f172a;color:#fff;flex-shrink:0}
+.nav-brand{font-size:15px;font-weight:700;margin-right:32px;letter-spacing:-0.3px;display:flex;align-items:center;gap:8px}
+.nav-tabs{display:flex;height:100%}
+.nav-tab{padding:0 18px;height:100%;display:flex;align-items:center;font-size:12px;font-weight:500;color:#94a3b8;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;user-select:none}
+.nav-tab:hover{color:#e2e8f0;background:rgba(255,255,255,.05)}
+.nav-tab.active{color:#fff;border-bottom-color:#3b82f6;background:rgba(255,255,255,.08)}
+.nav-spacer{flex:1}
+.nav-right{display:flex;align-items:center;gap:12px;font-size:11px;color:#94a3b8}
+
+/* PROJECT BAR */
+#project-bar{display:flex;align-items:center;gap:14px;padding:6px 20px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-shrink:0}
+.proj-field{display:flex;align-items:center;gap:5px}
+.proj-field label{font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;white-space:nowrap}
+.proj-field input{background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:3px 7px;font-size:11px;font-family:var(--font);color:var(--text);outline:none;width:130px}
+.proj-field input:focus{border-color:var(--border-focus)}
+.proj-sep{width:1px;height:18px;background:var(--border)}
+
+/* TOOLBAR */
+#toolbar{display:flex;align-items:center;gap:5px;padding:6px 20px;background:var(--bg-card);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap}
+.tb-grp{display:flex;align-items:center;gap:3px}
+.tb-lbl{font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;margin-right:3px}
+.tb-sep{width:1px;height:22px;background:var(--border);margin:0 6px}
+.tb-btn{background:var(--bg);color:var(--text-sec);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:11px;font-weight:500;font-family:var(--font);cursor:pointer;transition:all .15s;white-space:nowrap}
+.tb-btn:hover{background:var(--bg-card);border-color:var(--accent-lt);color:var(--text)}
+.tb-btn.active{background:var(--accent-bg);color:var(--accent);border-color:var(--accent-lt)}
+.tb-spacer{flex:1}
+.tb-hint{color:var(--text-muted);font-size:10px}
+.snap-toggle{display:flex;align-items:center;gap:4px;font-size:10px;color:var(--text-sec);cursor:pointer;user-select:none}
+.snap-toggle input{accent-color:var(--accent-lt);width:13px;height:13px}
+
+/* MAIN */
+#main{display:flex;flex:1;overflow:hidden}
+
+/* CANVAS AREA */
+#canvas-area{flex:1;display:flex;flex-direction:column;overflow:hidden;padding:10px;gap:8px}
+.canvas-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:var(--shadow);overflow:hidden}
+.cc-hdr{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg-input)}
+.cc-title{font-size:10px;font-weight:600;color:var(--text-sec);text-transform:uppercase;letter-spacing:.3px}
+#beam-card{flex:0 0 auto}
+canvas{display:block;width:100%;cursor:default}
+#beam-canvas{min-height:200px}
+
+#diagram-area{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:8px;min-height:0}
+.dg-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.dg-hdr{display:flex;align-items:center;gap:5px;padding:4px 10px;border-bottom:1px solid var(--border);background:var(--bg-input)}
+.dg-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.dg-title{font-size:10px;font-weight:600;color:var(--text-sec)}
+.dg-card canvas{flex:1;min-height:0}
+
+/* SIDEBAR */
+#sidebar{width:310px;flex-shrink:0;background:var(--bg-card);border-left:1px solid var(--border);position:sticky;top:0;height:100vh;overflow-y:auto;overflow-x:hidden;padding:14px 14px 80px 14px;display:flex;flex-direction:column;gap:10px}
+#sidebar::-webkit-scrollbar{width:6px}
+#sidebar::-webkit-scrollbar-track{background:transparent}
+#sidebar::-webkit-scrollbar-thumb{background:#d1d5db;border-radius:3px}
+#sidebar::-webkit-scrollbar-thumb:hover{background:#9ca3af}
+
+/* METRICS */
+.metrics-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mc{border:1px solid var(--border);border-radius:var(--radius);padding:8px 10px;position:relative;overflow:hidden}
+.mc::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px}
+.mc.blue{background:#f0f7ff}.mc.blue::before{background:#2563eb}.mc.blue .mv{color:#1e40af}
+.mc.red{background:#fef7f7}.mc.red::before{background:#dc2626}.mc.red .mv{color:#b91c1c}
+.mc.purple{background:#faf5ff}.mc.purple::before{background:#7c3aed}.mc.purple .mv{color:#6d28d9}
+.mc.amber{background:#fffbeb}.mc.amber::before{background:#d97706}.mc.amber .mv{color:#b45309}
+.ml{font-size:9px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:1px}
+.mv{font-size:14px;font-weight:700}
+
+/* SECTIONS */
+.sc{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden}
+.sc-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:var(--bg-input);border-bottom:1px solid var(--border)}
+.sc-title{font-size:11px;font-weight:600;color:var(--text);display:flex;align-items:center;gap:5px}
+.sc-badge{font-size:9px;font-weight:600;background:var(--accent-bg);color:var(--accent);padding:1px 6px;border-radius:10px}
+.sc-body{padding:8px 10px}
+
+/* FORMS */
+.fr{display:flex;align-items:center;gap:5px;margin-bottom:5px}
+.fr:last-child{margin-bottom:0}
+.fr label{font-size:11px;font-weight:500;color:var(--text-sec);width:55px;flex-shrink:0}
+.fr input,.fr select{flex:1;background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px 7px;font-size:11px;font-family:var(--font);outline:none;min-width:0}
+.fr input:focus,.fr select:focus{border-color:var(--border-focus)}
+.fr .unit{font-size:9px;color:var(--text-muted);width:28px;flex-shrink:0;text-align:right}
+
+/* TOGGLE */
+.tog-row{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.tog-lbl{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px}
+.tog-sw{display:flex;background:var(--bg);border:1px solid var(--border);border-radius:6px;overflow:hidden}
+.tog-opt{padding:3px 10px;font-size:10px;font-weight:600;cursor:pointer;color:var(--text-muted);user-select:none;transition:all .15s}
+.tog-opt.active{background:var(--accent);color:#fff}
+
+/* CROSS SECTION */
+#cs-canvas{width:100%;height:110px;border:1px solid var(--border);border-radius:6px;background:var(--bg-input);margin-top:4px}
+
+/* BUTTONS */
+.btn{display:flex;align-items:center;justify-content:center;gap:5px;width:100%;padding:7px 10px;border:none;border-radius:6px;font-size:11px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all .15s;margin-top:4px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:#1e3a8a}
+.btn-danger{background:transparent;color:var(--danger);border:1px solid #fecaca;margin-bottom:40px}
+.btn-danger:hover{background:var(--danger);color:#fff}
+
+/* OBJ LIST */
+.ol{display:flex;flex-direction:column;gap:5px;max-height:200px;overflow-y:auto}
+.oi{display:flex;align-items:center;gap:6px;padding:8px 10px;background:#ffffff;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;flex-wrap:wrap;transition:border-color .15s,box-shadow .15s}
+.oi:hover{border-color:var(--accent-lt);box-shadow:0 1px 4px rgba(59,130,246,.08)}
+.oi-icon{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.oi-text{flex:1;min-width:40px;font-weight:600;font-size:14px;font-family:var(--font);color:var(--text)}
+.oi-del{color:var(--text-muted);cursor:pointer;font-size:15px;line-height:1;padding:0 2px}
+.oi-del:hover{color:var(--danger)}
+.oi input,.oi select{background:var(--bg-input);color:var(--text);border:1px solid #e5e7eb;border-radius:6px;padding:3px 6px;font-size:11px;font-family:var(--font);outline:none}
+.oi input:focus,.oi select:focus{border-color:var(--border-focus);box-shadow:0 0 0 2px rgba(59,130,246,.1)}
+.oi-r2{width:100%;display:flex;gap:4px;align-items:center;margin-top:3px;padding-left:14px}
+.oi-r2 label{font-size:10px;color:var(--text-muted);width:26px;flex-shrink:0;font-weight:500}
+
+/* EXPORT BAR */
+#export-bar{display:flex;align-items:center;gap:8px;padding:6px 20px;background:var(--bg-card);border-top:1px solid var(--border);flex-shrink:0}
+.ex-btn{display:flex;align-items:center;gap:5px;padding:5px 14px;background:var(--bg);border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:500;font-family:var(--font);color:var(--text-sec);cursor:pointer;transition:all .15s}
+.ex-btn:hover{background:var(--bg-card);border-color:var(--accent-lt);color:var(--text)}
+.ex-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.ex-btn.primary:hover{background:#1e3a8a}
+.ex-spacer{flex:1}
+.share-grp{display:flex;align-items:center;gap:4px}
+.share-inp{background:var(--bg-input);border:1px solid var(--border);border-radius:4px;padding:4px 7px;font-size:10px;font-family:var(--font);color:var(--text-muted);width:180px;outline:none}
+
+/* INLINE EDIT */
+#inline-edit{position:fixed;display:none;z-index:100}
+#inline-edit input{background:#fff;color:var(--text);border:2px solid var(--accent-lt);border-radius:5px;padding:3px 7px;font-size:12px;font-weight:700;font-family:var(--font);width:85px;outline:none;text-align:center;box-shadow:0 4px 6px rgba(0,0,0,.1)}
+
+/* STATUS */
+#statusbar{display:flex;align-items:center;gap:10px;padding:3px 20px;background:#0f172a;color:#94a3b8;font-size:10px;flex-shrink:0}
+#statusbar .status-spacer{flex:1}
+.status-dot{width:6px;height:6px;border-radius:50%;background:#22c55e}
+
+/* PRO BADGE */
+.pro-badge{display:inline-flex;align-items:center;gap:2px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:8px;font-weight:700;padding:1px 5px;border-radius:3px;letter-spacing:.3px;text-transform:uppercase;vertical-align:middle;margin-left:4px}
+.locked{position:relative;opacity:.7}
+.locked::after{content:'PRO';position:absolute;top:2px;right:2px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#fff;font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px}
+
+/* MODAL OVERLAY */
+.modal-overlay{position:fixed;inset:0;background:rgba(15,23,42,.6);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:200}
+.modal-overlay.show{display:flex}
+.modal{background:#fff;border-radius:16px;box-shadow:0 25px 50px rgba(0,0,0,.25);max-width:520px;width:90%;overflow:hidden;animation:modalIn .2s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.modal-hdr{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between}
+.modal-hdr h2{font-size:18px;font-weight:700;color:var(--text)}
+.modal-close{width:28px;height:28px;border:none;background:var(--bg);border-radius:6px;cursor:pointer;font-size:16px;color:var(--text-sec);display:flex;align-items:center;justify-content:center}
+.modal-close:hover{background:var(--border)}
+.modal-body{padding:16px 24px 24px}
+
+/* PRICING CARDS */
+.pricing-cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.price-card{border:2px solid var(--border);border-radius:12px;padding:16px;text-align:center;cursor:pointer;transition:all .2s}
+.price-card:hover{border-color:var(--accent-lt);transform:translateY(-2px);box-shadow:0 4px 12px rgba(37,99,235,.15)}
+.price-card.popular{border-color:var(--accent);background:var(--accent-bg)}
+.price-card .price{font-size:28px;font-weight:800;color:var(--text);margin:8px 0 4px}
+.price-card .price span{font-size:13px;font-weight:500;color:var(--text-sec)}
+.price-card .plan-name{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.5px}
+.price-card .plan-desc{font-size:11px;color:var(--text-sec);margin-top:4px}
+.price-card .plan-btn{display:block;width:100%;margin-top:12px;padding:8px;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all .15s}
+.price-card .plan-btn.primary{background:var(--accent);color:#fff}
+.price-card .plan-btn.primary:hover{background:#1e3a8a}
+.price-card .plan-btn.outline{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.pricing-features{margin-top:16px;font-size:11px;color:var(--text-sec);line-height:1.8}
+.pricing-features b{color:var(--text)}
+
+/* TRAP EDIT MODAL */
+.trap-modal-body{display:flex;flex-direction:column;gap:10px}
+.trap-field{display:flex;align-items:center;gap:8px}
+.trap-field label{font-size:12px;font-weight:600;color:var(--text);width:100px}
+.trap-field input{flex:1;padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;font-family:var(--font);outline:none}
+.trap-field input:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px rgba(59,130,246,.1)}
+.trap-field .unit{font-size:11px;color:var(--text-muted);width:40px}
+.trap-actions{display:flex;gap:8px;margin-top:8px}
+.trap-actions button{flex:1;padding:10px;border:none;border-radius:8px;font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer}
+.trap-save{background:var(--accent);color:#fff}
+.trap-save:hover{background:#1e3a8a}
+.trap-cancel{background:var(--bg);color:var(--text-sec);border:1px solid var(--border)!important}
+</style>
+</head>
+<body>
+<div id="app">
+<div id="navbar">
+<div class="nav-brand">⬡ BeamSolve</div>
+<div class="nav-tabs">
+<div class="nav-tab">Profile Calculator</div>
+<div class="nav-tab active">Beam Calculator</div>
+<div class="nav-tab">Connection Designer</div>
+</div>
+<div class="nav-spacer"></div>
+<div class="nav-right"><span>v2.0</span></div>
+</div>
+
+<div id="project-bar">
+<div class="proj-field"><label>Project</label><input type="text" id="proj-name" value="New Beam Design"></div>
+<div class="proj-sep"></div>
+<div class="proj-field"><label>Company</label><input type="text" id="proj-company" placeholder="Company"></div>
+<div class="proj-sep"></div>
+<div class="proj-field"><label>Date</label><input type="date" id="proj-date"></div>
+<div class="proj-sep"></div>
+<div class="proj-field"><label>Ref</label><input type="text" id="proj-ref" placeholder="REF-001"></div>
+</div>
+
+<div id="toolbar">
+<span class="tb-lbl">Presets</span>
+<div class="tb-grp">
+<button class="tb-btn" onclick="loadPreset('simply_supported')">Simply Supported</button>
+<button class="tb-btn" onclick="loadPreset('cantilever')">Cantilever</button>
+<button class="tb-btn" onclick="loadPreset('continuous')">Continuous</button>
+<button class="tb-btn" onclick="loadPreset('angled')">Angled</button>
+</div>
+<div class="tb-sep"></div>
+<span class="tb-lbl">Add</span>
+<div class="tb-grp">
+<button class="tb-btn" id="btn-add-support" onclick="setTool('support')">▲ Support</button>
+<button class="tb-btn" id="btn-add-load" onclick="setTool('load')">↓ Load</button>
+<button class="tb-btn" id="btn-add-moment" onclick="setTool('moment')">↻ Moment</button>
+<button class="tb-btn" id="btn-add-dist" onclick="setTool('distributed')">≡ UDL</button>
+<button class="tb-btn" id="btn-add-trap" onclick="setTool('trapezoid')">◣ Trapezoid</button>
+</div>
+<div class="tb-sep"></div>
+<label class="snap-toggle"><input type="checkbox" id="snap-check" checked> Snap</label>
+<select id="snap-size" style="background:var(--bg-input);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:2px 5px;font-size:10px;font-family:var(--font);outline:none">
+<option value="50">50mm</option><option value="100" selected>100mm</option><option value="250">250mm</option><option value="500">500mm</option>
+</select>
+<div class="tb-spacer"></div>
+<span class="tb-hint">Click to place · Drag to move · Dbl-click to edit · Right-click to delete</span>
+</div>
+
+<div id="main">
+<div id="canvas-area">
+<div class="canvas-card" id="beam-card">
+<div class="cc-hdr"><span class="cc-title">Beam Model</span><span style="font-size:10px;color:var(--text-muted)" id="beam-info">L = 5000 mm</span></div>
+<canvas id="beam-canvas"></canvas>
+</div>
+<div id="diagram-area">
+<div class="dg-card"><div class="dg-hdr"><div class="dg-dot" style="background:var(--shear-c)"></div><span class="dg-title">Shear Force (V)</span></div><canvas id="shear-canvas"></canvas></div>
+<div class="dg-card"><div class="dg-hdr"><div class="dg-dot" style="background:var(--moment-c)"></div><span class="dg-title">Bending Moment (M)</span></div><canvas id="moment-canvas"></canvas></div>
+<div class="dg-card"><div class="dg-hdr"><div class="dg-dot" style="background:var(--normal-c)"></div><span class="dg-title">Normal Force (N)</span></div><canvas id="normal-canvas"></canvas></div>
+<div class="dg-card"><div class="dg-hdr"><div class="dg-dot" style="background:var(--defl-c)"></div><span class="dg-title">Deflection (w)</span></div><canvas id="deflection-canvas"></canvas></div>
+</div>
+</div>
+
+<div id="sidebar">
+<div style="font-size:12px;font-weight:700;margin-bottom:-2px">Results</div>
+<div class="metrics-grid">
+<div class="mc blue"><div class="ml">Max Shear</div><div class="mv" id="stat-v">—</div></div>
+<div class="mc red"><div class="ml">Max Moment</div><div class="mv" id="stat-m">—</div></div>
+<div class="mc purple"><div class="ml">Max Normal</div><div class="mv" id="stat-n">—</div></div>
+<div class="mc amber"><div class="ml">Max Deflection</div><div class="mv" id="stat-w">—</div></div>
+</div>
+
+<div class="sc">
+<div class="sc-hdr"><span class="sc-title">Beam Properties</span></div>
+<div class="sc-body">
+<div class="tog-row"><span class="tog-lbl">Input</span>
+<div class="tog-sw"><div class="tog-opt active" id="tog-custom" onclick="setProfileMode('custom')">Custom</div><div class="tog-opt" id="tog-profile" onclick="setProfileMode('profile')">Standard Profile <span class="pro-badge">PRO</span></div></div>
+</div>
+<div id="profile-sel" style="display:none">
+<div class="fr"><label>Type</label><select id="prof-type" onchange="onProfTypeChange()"></select></div>
+<div class="fr"><label>Profile</label><select id="prof-name" onchange="onProfSelect()"></select></div>
+<div class="fr"><label>Material</label><select id="prof-mat" onchange="onProfSelect()"></select></div>
+<canvas id="cs-canvas"></canvas>
+<div id="prof-info" style="font-size:9px;color:var(--text-muted);margin-top:4px;line-height:1.6"></div>
+</div>
+<div id="beam-fields">
+<div class="fr"><label>Length</label><input type="number" id="inp-length" value="5000" step="100" min="100"><span class="unit">mm</span></div>
+<div class="fr"><label>E</label><input type="number" id="inp-E" value="210000" step="1000" min="1"><span class="unit">MPa</span></div>
+<div class="fr"><label>I</label><input type="number" id="inp-I" value="83560000" step="100000" min="1"><span class="unit">mm⁴</span></div>
+<div class="fr"><label>A</label><input type="number" id="inp-A" value="2850" step="100" min="1"><span class="unit">mm²</span></div>
+</div>
+<button class="btn btn-primary" onclick="applyBeamProps()">Apply Properties</button>
+</div>
+</div>
+
+<div class="sc"><div class="sc-hdr"><span class="sc-title">Supports</span><span class="sc-badge" id="sup-count">0</span></div><div class="sc-body"><div class="ol" id="support-list"></div></div></div>
+<div class="sc"><div class="sc-hdr"><span class="sc-title">Loads</span><span class="sc-badge" id="load-count">0</span></div><div class="sc-body"><div class="ol" id="load-list"></div></div></div>
+<button class="btn btn-danger" onclick="clearAll()">Clear All</button>
+</div>
+</div>
+
+<div id="export-bar">
+<button class="ex-btn primary" onclick="exportPDF()">📄 PDF Report <span class="pro-badge">PRO</span></button>
+<button class="ex-btn" onclick="exportExcel()">📊 Excel <span class="pro-badge">PRO</span></button>
+<div class="ex-spacer"></div>
+<div class="share-grp">
+<input class="share-inp" type="text" id="share-link" value="https://beamsolve.app/p/abc123" readonly onclick="this.select()">
+<button class="ex-btn" onclick="copyShareLink()">📋 Copy</button>
+<button class="ex-btn" onclick="alert('Cloud save — Coming soon')">☁ Save</button>
+</div>
+</div>
+
+<div id="inline-edit"><input type="text" id="inline-input"></div>
+
+<!-- PRICING MODAL -->
+<div class="modal-overlay" id="pricing-modal">
+<div class="modal">
+<div class="modal-hdr"><h2>Upgrade to Pro</h2><button class="modal-close" onclick="closePricing()">×</button></div>
+<div class="modal-body">
+<p style="font-size:12px;color:var(--text-sec);margin-bottom:4px">Unlock the full power of BeamSolve for professional structural engineering.</p>
+<div class="pricing-cards">
+<div class="price-card" onclick="selectPlan('monthly')">
+<div class="plan-name">Monthly</div>
+<div class="price">$19<span>/mo</span></div>
+<div class="plan-desc">Cancel anytime</div>
+<button class="plan-btn outline">Choose Monthly</button>
+</div>
+<div class="price-card popular" onclick="selectPlan('lifetime')">
+<div class="plan-name">⭐ Lifetime</div>
+<div class="price">$149<span> once</span></div>
+<div class="plan-desc">Best value — pay once</div>
+<button class="plan-btn primary">Choose Lifetime</button>
+</div>
+</div>
+<div class="pricing-features">
+<b>Pro includes:</b> Standard Profile Library (IPE, HEA, W-shapes) · Clean PDF & Excel Export · Trapezoid Loads · Unlimited Cloud Projects · Priority Support
+</div>
+</div>
+</div>
+</div>
+
+<!-- TRAPEZOID EDIT MODAL -->
+<div class="modal-overlay" id="trap-modal">
+<div class="modal" style="max-width:380px">
+<div class="modal-hdr"><h2 id="trap-modal-title">Edit Trapezoid Load</h2><button class="modal-close" onclick="closeTrapModal()">×</button></div>
+<div class="modal-body trap-modal-body">
+<div class="trap-field"><label>Start Force (q₁)</label><input type="number" id="trap-q1" step="0.5"><span class="unit">N/mm</span></div>
+<div class="trap-field" id="trap-q2-row"><label>End Force (q₂)</label><input type="number" id="trap-q2" step="0.5"><span class="unit">N/mm</span></div>
+<div class="trap-field"><label>Start Position</label><input type="number" id="trap-xs" step="50"><span class="unit">mm</span></div>
+<div class="trap-field"><label>End Position</label><input type="number" id="trap-xe" step="50"><span class="unit">mm</span></div>
+<div class="trap-actions">
+<button class="trap-cancel" onclick="closeTrapModal()">Cancel</button>
+<button class="trap-save" onclick="saveTrapModal()">Save Changes</button>
+</div>
+</div>
+</div>
+</div>
+
+<div id="statusbar">
+<div class="status-dot"></div>
+<span id="status-text">Ready</span>
+<span class="status-spacer"></span>
+<span id="snap-status">Snap: 100mm</span>
+<span>·</span><span>Direct Stiffness Method (FEM)</span><span>·</span><span>80 Elements</span>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+<script src="profiles.js"></script>
+<script src="beamsolve_engine.js"></script>
+</body>
+</html>
